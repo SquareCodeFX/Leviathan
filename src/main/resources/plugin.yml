@@ -1,0 +1,21 @@
+name: LeviathanCommand
+version: ${version}
+main: de.feelix.leviathan.plugin.LeviathanPlugin
+author: Feelix
+api-version: '1.20'
+commands:
+  gamemode:
+    description: Change your or another player's game mode
+    usage: /gamemode <0/1/2/3/survival/adventure/creative/spectator> [uuid]
+    permission: leviathan.gamemode
+  kick:
+    description: Kick a player with an optional reason
+    usage: /kick <uuid> [reason]
+    permission: leviathan.kick
+permissions:
+  leviathan.gamemode:
+    description: Allows using /gamemode
+    default: op
+  leviathan.kick:
+    description: Allows using /kick
+    default: op
