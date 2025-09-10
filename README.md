@@ -270,6 +270,9 @@ Clear developer errors, preserved user‑facing behavior:
 - If `sendErrors(true)` (default), invalid input and permission denials show concise messages.
 - Tab validation is opt‑in via `validateOnTab(true)`.
 
+### Nullability annotations
+Public API methods and parameters are annotated with simple `@NotNull` / `@Nullable` markers from `de.feelix.leviathan.annotations`. These are compile‑time hints for IDEs and static analysis only; they do not add any runtime dependency or behavior.
+
 ## Bukkit plugin.yml
 Declare your base commands in `plugin.yml`. At runtime, call `register(plugin)` for each `FluentCommand` using the same name.
 ```yaml
@@ -336,6 +339,8 @@ FluentCommand.builder("rename")
 
 ### Subcommand tree via Builder.sub(...)
 You can define real subcommands and let LeviathanCommand route both execution and tab-completion automatically.
+
+Note: Do not call .register(...) on subcommands. Only register the root command declared in plugin.yml. Subcommands are dispatched by the root command automatically. If you build a subcommand as a FluentCommand and then call subCommand.register(plugin), an ApiMisuseException will be thrown.
 ```java
 FluentCommand set = FluentCommand.builder("set")
   .description("Set a key to a value")

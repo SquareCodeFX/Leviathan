@@ -1,5 +1,6 @@
 package de.feelix.leviathan.command;
 
+import de.feelix.leviathan.exceptions.ApiMisuseException;
 import de.feelix.leviathan.exceptions.CommandConfigurationException;
 import de.feelix.leviathan.exceptions.ParsingException;
 import de.feelix.leviathan.parser.ArgParsers;
@@ -283,6 +284,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
             if (subcommands.containsKey(key)) {
                 throw new CommandConfigurationException("Duplicate subcommand alias: '" + alias + "'");
             }
+            sub.markAsSubcommand();
             subcommands.put(key, sub);
             return this;
         }
@@ -309,6 +311,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
                 if (subcommands.containsKey(key)) {
                     throw new CommandConfigurationException("Duplicate subcommand alias: '" + alias + "'");
                 }
+                sc.markAsSubcommand();
                 subcommands.put(key, sc);
             }
             return this;
@@ -434,6 +437,32 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
     private final Map<String, FluentCommand> subcommands; // lower-case alias -> subcommand
     private final CommandAction action;
     private JavaPlugin plugin; // set during register()
+    private boolean subOnly = false; // marked when attached as a subcommand of another command
+
+    // Package-private: used by Builder.sub(...) to mark that this command is intended as a subcommand
+    void markAsSubcommand() { this.subOnly = true; }
+
+    /**
+     * Register this already-built command instance as executor and tab-completer for the
+     * command with the same name declared in plugin.yml. This is intended for root commands only.
+     * If this command was added as a subcommand to another command, calling this will throw.
+     *
+     * @param plugin plugin registering the command (must declare the command in plugin.yml)
+     * @throws ApiMisuseException if this command is marked as a subcommand
+     * @throws CommandConfigurationException if the command is not declared in plugin.yml
+     */
+    public void register(JavaPlugin plugin) {
+        if (subOnly) {
+            throw new ApiMisuseException("Subcommand '" + name + "' must not be registered directly. Register only the root command containing it.");
+        }
+        this.plugin = plugin;
+        org.bukkit.command.PluginCommand pc = plugin.getCommand(name);
+        if (pc == null) {
+            throw new CommandConfigurationException("Command not declared in plugin.yml: " + name);
+        }
+        pc.setExecutor(this);
+        pc.setTabCompleter(this);
+    }
 
     /**
      * @return the primary command name

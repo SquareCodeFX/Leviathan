@@ -1,5 +1,7 @@
 package de.feelix.leviathan.command;
 
+import de.feelix.leviathan.annotations.NotNull;
+import de.feelix.leviathan.annotations.Nullable;
 import de.feelix.leviathan.exceptions.ApiMisuseException;
 
 import java.util.Map;
@@ -23,7 +25,7 @@ public final class CommandContext {
      * @param values parsed name-to-value mapping
      * @param rawArgs raw argument tokens provided by Bukkit
      */
-    public CommandContext(Map<String, Object> values, String[] rawArgs) {
+    public CommandContext(@NotNull Map<String, Object> values, @NotNull String[] rawArgs) {
         this.values = Map.copyOf(values);
         this.rawArgs = rawArgs.clone();
     }
@@ -31,7 +33,7 @@ public final class CommandContext {
     /**
      * @return a clone of the raw argument array
      */
-    public String[] raw() {
+    public @NotNull String[] raw() {
         return rawArgs.clone();
     }
 
@@ -42,7 +44,7 @@ public final class CommandContext {
      * @return Optional of the value if present and assignable to the given type, otherwise empty
      */
     @SuppressWarnings("unchecked")
-    public <T> Optional<T> getOptional(String name, Class<T> type) {
+    public @NotNull <T> Optional<T> getOptional(String name, Class<T> type) {
         Object o = values.get(name);
         if (o == null) return Optional.empty();
         if (!type.isInstance(o)) return Optional.empty();
@@ -56,7 +58,7 @@ public final class CommandContext {
      * @return the value or null
      */
     @SuppressWarnings("unchecked")
-    public <T> T get(String name, Class<T> type) {
+    public @Nullable <T> T get(String name, Class<T> type) {
         Object o = values.get(name);
         if (o == null) return null;
         if (!type.isInstance(o)) return null;
@@ -71,7 +73,7 @@ public final class CommandContext {
      * @throws ApiMisuseException if missing or type-incompatible
      */
     @SuppressWarnings("unchecked")
-    public <T> T getOrThrow(String name, Class<T> type) {
+    public @NotNull <T> T getOrThrow(String name, Class<T> type) {
         if (!values.containsKey(name)) {
             throw new ApiMisuseException("Required argument '" + name + "' is missing in CommandContext");
         }
@@ -86,7 +88,7 @@ public final class CommandContext {
     /**
      * Alias for {@link #getOrThrow(String, Class)} for readability when a required argument is expected.
      */
-    public <T> T require(String name, Class<T> type) {
+    public @NotNull <T> T require(String name, Class<T> type) {
         return getOrThrow(name, type);
     }
 

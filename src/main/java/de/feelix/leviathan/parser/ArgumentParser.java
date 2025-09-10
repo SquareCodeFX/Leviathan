@@ -1,5 +1,6 @@
 package de.feelix.leviathan.parser;
 
+import de.feelix.leviathan.annotations.NotNull;
 import org.bukkit.command.CommandSender;
 
 import java.util.List;
@@ -21,7 +22,7 @@ public interface ArgumentParser<T> {
     /**
      * @return a short human-readable type name used in error messages (e.g., "int", "uuid").
      */
-    String getTypeName();
+    @NotNull String getTypeName();
 
     /**
      * Attempt to parse the given raw input token into the target type.
@@ -30,7 +31,7 @@ public interface ArgumentParser<T> {
      * @param sender The command sender (for context such as permissions, world, etc.).
      * @return ParseResult with either a value or an error message.
      */
-    ParseResult<T> parse(String input, CommandSender sender);
+    @NotNull ParseResult<T> parse(@NotNull String input, CommandSender sender);
 
     /**
      * Provide tab-completion suggestions for the current partial token.
@@ -39,5 +40,5 @@ public interface ArgumentParser<T> {
      * @param sender The command sender (for dynamic completions).
      * @return List of suggestion strings. Never null.
      */
-    List<String> complete(String input, CommandSender sender);
+    @NotNull List<String> complete(@NotNull String input, CommandSender sender);
 }

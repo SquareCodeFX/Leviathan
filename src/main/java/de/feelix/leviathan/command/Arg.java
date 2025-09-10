@@ -1,5 +1,7 @@
 package de.feelix.leviathan.command;
 
+import de.feelix.leviathan.annotations.NotNull;
+import de.feelix.leviathan.annotations.Nullable;
 import de.feelix.leviathan.exceptions.CommandConfigurationException;
 import de.feelix.leviathan.parser.ArgumentParser;
 
@@ -27,7 +29,7 @@ public final class Arg<T> {
      * @param optional whether this argument is optional
      * @param parser parser used to parse this argument's token(s)
      */
-    public Arg(String name, boolean optional, ArgumentParser<T> parser) {
+    public Arg(@NotNull String name, boolean optional, @NotNull ArgumentParser<T> parser) {
         this(name, optional, parser, null, false);
     }
 
@@ -38,7 +40,7 @@ public final class Arg<T> {
      * @param parser parser used to parse this argument's token(s)
      * @param permission required permission to use/see this argument (null/blank for none)
      */
-    public Arg(String name, boolean optional, ArgumentParser<T> parser, String permission) {
+    public Arg(@NotNull String name, boolean optional, @NotNull ArgumentParser<T> parser, @Nullable String permission) {
         this(name, optional, parser, permission, false);
     }
 
@@ -50,7 +52,7 @@ public final class Arg<T> {
      * @param permission required permission to use/see this argument (null/blank for none)
      * @param greedy if true and this is last, captures the rest of the input as one string value
      */
-    public Arg(String name, boolean optional, ArgumentParser<T> parser, String permission, boolean greedy) {
+    public Arg(@NotNull String name, boolean optional, @NotNull ArgumentParser<T> parser, @Nullable String permission, boolean greedy) {
         this.name = Objects.requireNonNull(name, "name");
         if (this.name.isBlank()) {
             throw new CommandConfigurationException("Argument name must not be blank");
@@ -67,7 +69,7 @@ public final class Arg<T> {
     /**
      * @return the argument name as used in the {@code CommandContext}
      */
-    public String name() {
+    public @NotNull String name() {
         return name;
     }
 
@@ -81,14 +83,14 @@ public final class Arg<T> {
     /**
      * @return the parser responsible for converting raw input to the target type
      */
-    public ArgumentParser<T> parser() {
+    public @NotNull ArgumentParser<T> parser() {
         return parser;
     }
 
     /**
      * @return the required permission to use this argument, or null if none
      */
-    public String permission() { return permission; }
+    public @Nullable String permission() { return permission; }
 
     /**
      * @return true if this is a greedy trailing string argument
@@ -98,21 +100,21 @@ public final class Arg<T> {
     /**
      * Return a copy of this argument with updated optionality.
      */
-    public Arg<T> optional(boolean optional) {
+    public @NotNull Arg<T> optional(boolean optional) {
         return new Arg<>(name, optional, parser, permission, greedy);
     }
 
     /**
      * Return a copy of this argument with an updated permission requirement.
      */
-    public Arg<T> withPermission(String permission) {
+    public @NotNull Arg<T> withPermission(@Nullable String permission) {
         return new Arg<>(name, optional, parser, permission, greedy);
     }
 
     /**
      * Return a copy of this argument with updated greedy flag.
      */
-    public Arg<T> withGreedy(boolean greedy) {
+    public @NotNull Arg<T> withGreedy(boolean greedy) {
         return new Arg<>(name, optional, parser, permission, greedy);
     }
 }
