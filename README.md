@@ -27,12 +27,20 @@ A tiny, fluent, and type‑safe command framework for Bukkit/Spigot/Paper. Build
   - Greedy trailing string (optional)
   - Per‑argument permissions
   - Validation on tab complete
+- More Examples
+  - Player-only command
+  - Disable built-in error messages
+  - Subcommand tree via Builder.sub(...)
+  - Accept multiple numeric types with oneOf
+  - CommandContext patterns
+  - End-to-end onEnable example
 - API Overview
   - FluentCommand & Builder
   - Arguments & parsers
   - CommandContext helpers
   - Exceptions
 - Bukkit plugin.yml
+- Troubleshooting
 - Versioning & Compatibility
 - Contributing
 - License
@@ -288,3 +296,131 @@ Issues and pull requests are welcome. Please include:
 
 ## License
 No explicit license is included in this repository at the moment. If you are the maintainer, consider adding a LICENSE file (e.g., MIT or Apache‑2.0) before publishing a public release.
+
+
+---
+
+## More Examples
+
+### Player-only command
+```java
+FluentCommand.builder("spawn")
+  .description("Teleport yourself to the world spawn")
+  .playerOnly(true)
+  .executes((sender, ctx) -> {
+    Player p = (Player) sender; // safe: playerOnly(true)
+    p.teleport(p.getWorld().getSpawnLocation());
+    p.sendMessage("§aTeleported to spawn.");
+  })
+  .register(this);
+```
+
+### Disable built-in error messages (sendErrors)
+You can take full control over messaging by disabling automatic errors and handling feedback yourself.
+```java
+FluentCommand.builder("rename")
+  .description("Rename something with basic validation")
+  .sendErrors(false)
+  .argString("name")
+  .executes((sender, ctx) -> {
+    String name = ctx.get("name", String.class);
+    if (name == null || name.length() < 3) {
+      sender.sendMessage("§cUsage: /rename <name> (min 3 chars)");
+      return;
+    }
+    // do the renaming...
+    sender.sendMessage("§aRenamed to " + name);
+  })
+  .register(this);
+```
+
+### Subcommand tree via Builder.sub(...)
+You can define real subcommands and let LeviathanCommand route both execution and tab-completion automatically.
+```java
+FluentCommand set = FluentCommand.builder("set")
+  .description("Set a key to a value")
+  .argString("key")
+  .argGreedyString("value").optional()
+  .executes((s, c) -> s.sendMessage("set " + c.require("key", String.class)))
+  .build();
+
+FluentCommand del = FluentCommand.builder("delete")
+  .description("Delete a key")
+  .argString("key")
+  .executes((s, c) -> s.sendMessage("deleted " + c.require("key", String.class)))
+  .build();
+
+FluentCommand.builder("config")
+  .description("Manage config")
+  .sub(set, del) // automatic routing to /config set|delete ...
+  .executes((s, c) -> s.sendMessage("§7Usage: /config <set|delete>"))
+  .register(this);
+```
+
+### Accept multiple numeric types with oneOf
+`oneOf` lets you combine multiple parsers that share a common supertype. Here we accept either int or long and retrieve it as a `Number`.
+```java
+FluentCommand.builder("pay")
+  .description("Pay an amount")
+  .argOneOf("amount", "number", ArgParsers.intParser(), ArgParsers.longParser())
+  .executes((s, c) -> {
+    Number amount = c.require("amount", Number.class);
+    long asLong = amount.longValue();
+    s.sendMessage("§aPaying " + asLong + " coins...");
+  })
+  .register(this);
+```
+
+### CommandContext patterns
+```java
+.executes((sender, ctx) -> {
+  // Required value (throws ApiMisuseException if missing or wrong type)
+  UUID id = ctx.require("target", UUID.class);
+
+  // Optional value two ways
+  String reason1 = ctx.get("reason", String.class); // null when missing
+  String reason2 = ctx.getOptional("reason", String.class).orElse("default");
+
+  // Presence check
+  if (ctx.has("silent")) { /* ... */ }
+
+  // Original raw tokens as typed by the user
+  String[] raw = ctx.raw();
+})
+```
+
+### End-to-end `onEnable` example
+```java
+@Override public void onEnable() {
+  // /hello <name> [times]
+  FluentCommand.builder("hello")
+    .description("Say hello")
+    .argString("name")
+    .argInt("times").optional()
+    .executes((sender, ctx) -> {
+      String name = ctx.require("name", String.class);
+      int times = Optional.ofNullable(ctx.get("times", Integer.class)).orElse(1);
+      for (int i = 0; i < times; i++) sender.sendMessage("Hello, " + name + "!");
+    })
+    .register(this);
+
+  // /config set|delete ... (subcommand routing)
+  FluentCommand set = FluentCommand.builder("set")
+    .argString("key").argGreedyString("value").optional()
+    .executes((s, c) -> s.sendMessage("set " + c.require("key", String.class)))
+    .build();
+  FluentCommand del = FluentCommand.builder("delete")
+    .argString("key")
+    .executes((s, c) -> s.sendMessage("deleted " + c.require("key", String.class)))
+    .build();
+  FluentCommand.builder("config").sub(set, del).register(this);
+}
+```
+
+## Troubleshooting
+- Command does nothing: Ensure the command name is declared in plugin.yml and you called `register(plugin)`.
+- "Greedy argument must be the last": Greedy args can only be last and must use the string parser.
+- "Required argument cannot appear after an optional": Place all required args before optional ones.
+- "Duplicate subcommand alias" or choices alias errors: Aliases are case-insensitive; avoid duplicates like `Home` vs `home`.
+- Null suggestions / parse results: If you implement custom parsers, never return null from `parse` or `complete`.
+- No tab suggestions appear: You may have `validateOnTab(true)` with an invalid earlier token or missing permissions.
