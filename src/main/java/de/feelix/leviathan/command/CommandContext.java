@@ -3,6 +3,7 @@ package de.feelix.leviathan.command;
 import de.feelix.leviathan.annotations.NotNull;
 import de.feelix.leviathan.annotations.Nullable;
 import de.feelix.leviathan.exceptions.ApiMisuseException;
+import de.feelix.leviathan.util.Preconditions;
 
 import java.util.Map;
 import java.util.Optional;
@@ -26,8 +27,8 @@ public final class CommandContext {
      * @param rawArgs raw argument tokens provided by Bukkit
      */
     public CommandContext(@NotNull Map<String, Object> values, @NotNull String[] rawArgs) {
-        this.values = Map.copyOf(values);
-        this.rawArgs = rawArgs.clone();
+        this.values = Map.copyOf(Preconditions.checkNotNull(values, "values"));
+        this.rawArgs = Preconditions.checkNotNull(rawArgs, "rawArgs").clone();
     }
 
     /**
@@ -44,7 +45,9 @@ public final class CommandContext {
      * @return Optional of the value if present and assignable to the given type, otherwise empty
      */
     @SuppressWarnings("unchecked")
-    public @NotNull <T> Optional<T> getOptional(String name, Class<T> type) {
+    public @NotNull <T> Optional<T> getOptional(@NotNull String name, @NotNull Class<T> type) {
+        Preconditions.checkNotNull(name, "name");
+        Preconditions.checkNotNull(type, "type");
         Object o = values.get(name);
         if (o == null) return Optional.empty();
         if (!type.isInstance(o)) return Optional.empty();
@@ -58,7 +61,9 @@ public final class CommandContext {
      * @return the value or null
      */
     @SuppressWarnings("unchecked")
-    public @Nullable <T> T get(String name, Class<T> type) {
+    public @Nullable <T> T get(@NotNull String name, @NotNull Class<T> type) {
+        Preconditions.checkNotNull(name, "name");
+        Preconditions.checkNotNull(type, "type");
         Object o = values.get(name);
         if (o == null) return null;
         if (!type.isInstance(o)) return null;
@@ -73,12 +78,14 @@ public final class CommandContext {
      * @throws ApiMisuseException if missing or type-incompatible
      */
     @SuppressWarnings("unchecked")
-    public @NotNull <T> T getOrThrow(String name, Class<T> type) {
+    public @NotNull <T> T getOrThrow(@NotNull String name, @NotNull Class<T> type) {
+        Preconditions.checkNotNull(name, "name");
+        Preconditions.checkNotNull(type, "type");
         if (!values.containsKey(name)) {
             throw new ApiMisuseException("Required argument '" + name + "' is missing in CommandContext");
         }
         Object o = values.get(name);
-        if (o == null || !type.isInstance(o)) {
+        if (!type.isInstance(o)) {
             String actual = (o == null) ? "null" : o.getClass().getName();
             throw new ApiMisuseException("Argument '" + name + "' has type " + actual + ", not assignable to " + type.getName());
         }
@@ -88,14 +95,15 @@ public final class CommandContext {
     /**
      * Alias for {@link #getOrThrow(String, Class)} for readability when a required argument is expected.
      */
-    public @NotNull <T> T require(String name, Class<T> type) {
+    public @NotNull <T> T require(@NotNull String name, @NotNull Class<T> type) {
         return getOrThrow(name, type);
     }
 
     /**
      * Whether a value with the given name exists in the context.
      */
-    public boolean has(String name) {
+    public boolean has(@NotNull String name) {
+        Preconditions.checkNotNull(name, "name");
         return values.containsKey(name);
     }
 }

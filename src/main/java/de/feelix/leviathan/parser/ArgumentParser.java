@@ -31,7 +31,7 @@ public interface ArgumentParser<T> {
      * @param sender The command sender (for context such as permissions, world, etc.).
      * @return ParseResult with either a value or an error message.
      */
-    @NotNull ParseResult<T> parse(@NotNull String input, CommandSender sender);
+    @NotNull ParseResult<T> parse(@NotNull String input, @NotNull CommandSender sender);
 
     /**
      * Provide tab-completion suggestions for the current partial token.
@@ -40,5 +40,5 @@ public interface ArgumentParser<T> {
      * @param sender The command sender (for dynamic completions).
      * @return List of suggestion strings. Never null.
      */
-    @NotNull List<String> complete(@NotNull String input, CommandSender sender);
+    @NotNull List<String> complete(@NotNull String input, @NotNull CommandSender sender);
 }

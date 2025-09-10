@@ -39,6 +39,8 @@ A tiny, fluent, and type‑safe command framework for Bukkit/Spigot/Paper. Build
   - Arguments & parsers
   - CommandContext helpers
   - Exceptions
+  - Nullability annotations
+  - Preconditions utility
 - Bukkit plugin.yml
 - Troubleshooting
 - Versioning & Compatibility
@@ -265,13 +267,29 @@ Runtime helpers:
 - `CommandConfigurationException`: Misconfigured command (e.g., required‑after‑optional, duplicate arg names, missing plugin.yml entry, invalid greedy placement)
 - `ParsingException`: Parser contract/configuration violations (e.g., null suggestions, invalid alias maps)
 - `ApiMisuseException`: Developer misuse at runtime (e.g., wrong type requested from context)
+- `CommandExecutionException`: Thrown by the framework when your command action throws; the original cause is preserved (both in sync and async execution). If `sendErrors(true)` is enabled, a concise user-facing error is sent to the sender while the exception is thrown for developers.
 
 Clear developer errors, preserved user‑facing behavior:
 - If `sendErrors(true)` (default), invalid input and permission denials show concise messages.
 - Tab validation is opt‑in via `validateOnTab(true)`.
 
 ### Nullability annotations
-Public API methods and parameters are annotated with simple `@NotNull` / `@Nullable` markers from `de.feelix.leviathan.annotations`. These are compile‑time hints for IDEs and static analysis only; they do not add any runtime dependency or behavior.
+Public API methods and parameters are annotated with simple `@NotNull` / `@Nullable` markers from `de.feelix.leviathan.annotations`. These are compile‑time hints for IDEs and static analysis.
+
+In addition, LeviathanCommand enforces many `@NotNull` contracts at runtime. If a `@NotNull` parameter is passed `null` into the API, the call will fail fast with an `ApiMisuseException` carrying a clear message like: `@NotNull parameter 'name' is null`. This helps catch developer mistakes early.
+
+### Preconditions utility
+LeviathanCommand ships a small runtime guard utility at `de.feelix.leviathan.util.Preconditions`. The framework uses it internally; you may also use it in your own code.
+
+- `checkNotNull(value, paramName)` → returns value or throws `ApiMisuseException` with a helpful message.
+- `checkNotBlank(string, paramName)` → like above, but also rejects blank strings.
+- `checkArgument(condition, message)` → throws `ApiMisuseException` when condition is false.
+- `checkState(condition, message)` → throws `ApiMisuseException` when condition is false.
+
+Example:
+```java
+String name = Preconditions.checkNotBlank(inputName, "name");
+```
 
 ## Bukkit plugin.yml
 Declare your base commands in `plugin.yml`. At runtime, call `register(plugin)` for each `FluentCommand` using the same name.

@@ -1,5 +1,9 @@
 package de.feelix.leviathan.exceptions;
 
+import de.feelix.leviathan.annotations.NotNull;
+import de.feelix.leviathan.annotations.Nullable;
+import de.feelix.leviathan.util.Preconditions;
+
 /**
  * Thrown when a command is misconfigured by the plugin developer, e.g.,
  * required arguments after optional ones, duplicate argument names, invalid greedy placement,
@@ -10,8 +14,8 @@ public class CommandConfigurationException extends RuntimeException {
      * Create a new configuration exception.
      * @param message human-readable description of the configuration mistake
      */
-    public CommandConfigurationException(String message) {
-        super(message);
+    public CommandConfigurationException(@NotNull String message) {
+        super(Preconditions.checkNotNull(message, "message"));
     }
 
     /**
@@ -19,7 +23,7 @@ public class CommandConfigurationException extends RuntimeException {
      * @param message human-readable description of the configuration mistake
      * @param cause underlying cause
      */
-    public CommandConfigurationException(String message, Throwable cause) {
-        super(message, cause);
+    public CommandConfigurationException(@NotNull String message, @Nullable Throwable cause) {
+        super(Preconditions.checkNotNull(message, "message"), cause);
     }
 }

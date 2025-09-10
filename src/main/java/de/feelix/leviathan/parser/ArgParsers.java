@@ -2,6 +2,8 @@ package de.feelix.leviathan.parser;
 
 import org.bukkit.command.CommandSender;
 import de.feelix.leviathan.exceptions.ParsingException;
+import de.feelix.leviathan.util.Preconditions;
+import de.feelix.leviathan.annotations.NotNull;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -26,13 +28,15 @@ public final class ArgParsers {
      * Parser for 32-bit integers.
      * @return an ArgumentParser that parses {@code int} values
      */
-    public static ArgumentParser<Integer> intParser() {
+    public static @NotNull ArgumentParser<Integer> intParser() {
         return new ArgumentParser<>() {
             @Override
             public String getTypeName() { return "int"; }
 
             @Override
             public ParseResult<Integer> parse(String input, CommandSender sender) {
+                Preconditions.checkNotNull(input, "input");
+                Preconditions.checkNotNull(sender, "sender");
                 try {
                     return ParseResult.success(Integer.parseInt(input));
                 } catch (NumberFormatException e) {
@@ -42,6 +46,8 @@ public final class ArgParsers {
 
             @Override
             public List<String> complete(String input, CommandSender sender) {
+                Preconditions.checkNotNull(input, "input");
+                Preconditions.checkNotNull(sender, "sender");
                 return Collections.emptyList();
             }
         };
@@ -51,13 +57,15 @@ public final class ArgParsers {
      * Parser for 64-bit integers.
      * @return an ArgumentParser that parses {@code long} values
      */
-    public static ArgumentParser<Long> longParser() {
+    public static @NotNull ArgumentParser<Long> longParser() {
         return new ArgumentParser<>() {
             @Override
             public String getTypeName() { return "long"; }
 
             @Override
             public ParseResult<Long> parse(String input, CommandSender sender) {
+                Preconditions.checkNotNull(input, "input");
+                Preconditions.checkNotNull(sender, "sender");
                 try {
                     return ParseResult.success(Long.parseLong(input));
                 } catch (NumberFormatException e) {
@@ -67,6 +75,8 @@ public final class ArgParsers {
 
             @Override
             public List<String> complete(String input, CommandSender sender) {
+                Preconditions.checkNotNull(input, "input");
+                Preconditions.checkNotNull(sender, "sender");
                 return Collections.emptyList();
             }
         };
@@ -76,18 +86,22 @@ public final class ArgParsers {
      * Parser for a raw string token (no validation).
      * @return an ArgumentParser that returns the input unchanged
      */
-    public static ArgumentParser<String> stringParser() {
+    public static @NotNull ArgumentParser<String> stringParser() {
         return new ArgumentParser<>() {
             @Override
             public String getTypeName() { return "string"; }
 
             @Override
             public ParseResult<String> parse(String input, CommandSender sender) {
+                Preconditions.checkNotNull(input, "input");
+                Preconditions.checkNotNull(sender, "sender");
                 return ParseResult.success(input);
             }
 
             @Override
             public List<String> complete(String input, CommandSender sender) {
+                Preconditions.checkNotNull(input, "input");
+                Preconditions.checkNotNull(sender, "sender");
                 return Collections.emptyList();
             }
         };
@@ -98,13 +112,15 @@ public final class ArgParsers {
      * Parser for a UUID in canonical string form.
      * @return an ArgumentParser that parses {@link UUID} values
      */
-    public static ArgumentParser<UUID> uuidParser() {
+    public static @NotNull ArgumentParser<UUID> uuidParser() {
         return new ArgumentParser<>() {
             @Override
             public String getTypeName() { return "uuid"; }
 
             @Override
             public ParseResult<UUID> parse(String input, CommandSender sender) {
+                Preconditions.checkNotNull(input, "input");
+                Preconditions.checkNotNull(sender, "sender");
                 try {
                     return ParseResult.success(UUID.fromString(input));
                 } catch (IllegalArgumentException e) {
@@ -114,6 +130,8 @@ public final class ArgParsers {
 
             @Override
             public List<String> complete(String input, CommandSender sender) {
+                Preconditions.checkNotNull(input, "input");
+                Preconditions.checkNotNull(sender, "sender");
                 return Collections.emptyList();
             }
         };
@@ -129,7 +147,7 @@ public final class ArgParsers {
      * @return an ArgumentParser that parses to one of the provided values
      * @throws ParsingException if the alias map is invalid (null/empty keys/values or case-insensitive duplicates)
      */
-    public static <T> ArgumentParser<T> choices(Map<String, T> aliasToValue, String typeNameForError) {
+    public static <T> @NotNull ArgumentParser<T> choices(@NotNull Map<String, T> aliasToValue, @NotNull String typeNameForError) {
         if (aliasToValue == null || aliasToValue.isEmpty()) {
             throw new ParsingException("choices requires a non-empty alias map");
         }
@@ -159,6 +177,8 @@ public final class ArgParsers {
 
             @Override
             public ParseResult<T> parse(String input, CommandSender sender) {
+                Preconditions.checkNotNull(input, "input");
+                Preconditions.checkNotNull(sender, "sender");
                 T v = lower.get(input.toLowerCase(Locale.ROOT));
                 if (v == null) return ParseResult.error("expected one of: " + String.join(", ", lower.keySet()));
                 return ParseResult.success(v);
@@ -166,6 +186,8 @@ public final class ArgParsers {
 
             @Override
             public List<String> complete(String input, CommandSender sender) {
+                Preconditions.checkNotNull(input, "input");
+                Preconditions.checkNotNull(sender, "sender");
                 return startingWith(input, lower.keySet());
             }
         };
@@ -182,7 +204,7 @@ public final class ArgParsers {
      * @throws ParsingException if typeNameForError is blank or parsers list is invalid
      */
     @SafeVarargs
-    public static <T> ArgumentParser<T> oneOf(String typeNameForError, ArgumentParser<? extends T>... parsers) {
+    public static <T> @NotNull ArgumentParser<T> oneOf(@NotNull String typeNameForError, @NotNull ArgumentParser<? extends T>... parsers) {
         if (typeNameForError == null || typeNameForError.trim().isEmpty()) {
             throw new ParsingException("oneOf requires a non-blank typeNameForError");
         }
@@ -201,6 +223,8 @@ public final class ArgParsers {
 
             @Override
             public ParseResult<T> parse(String input, CommandSender sender) {
+                Preconditions.checkNotNull(input, "input");
+                Preconditions.checkNotNull(sender, "sender");
                 for (ArgumentParser<? extends T> p : list) {
                     ParseResult<? extends T> res = p.parse(input, sender);
                     if (res.isSuccess()) {
@@ -212,6 +236,8 @@ public final class ArgParsers {
 
             @Override
             public List<String> complete(String input, CommandSender sender) {
+                Preconditions.checkNotNull(input, "input");
+                Preconditions.checkNotNull(sender, "sender");
                 Set<String> combined = new LinkedHashSet<>();
                 for (ArgumentParser<? extends T> p : list) {
                     combined.addAll(p.complete(input, sender));

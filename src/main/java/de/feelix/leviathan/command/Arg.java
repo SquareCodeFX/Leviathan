@@ -4,8 +4,7 @@ import de.feelix.leviathan.annotations.NotNull;
 import de.feelix.leviathan.annotations.Nullable;
 import de.feelix.leviathan.exceptions.CommandConfigurationException;
 import de.feelix.leviathan.parser.ArgumentParser;
-
-import java.util.Objects;
+import de.feelix.leviathan.util.Preconditions;
 
 /**
  * Describes a single command argument with its parser and metadata.
@@ -53,7 +52,7 @@ public final class Arg<T> {
      * @param greedy if true and this is last, captures the rest of the input as one string value
      */
     public Arg(@NotNull String name, boolean optional, @NotNull ArgumentParser<T> parser, @Nullable String permission, boolean greedy) {
-        this.name = Objects.requireNonNull(name, "name");
+        this.name = Preconditions.checkNotNull(name, "name");
         if (this.name.isBlank()) {
             throw new CommandConfigurationException("Argument name must not be blank");
         }
@@ -61,7 +60,7 @@ public final class Arg<T> {
             throw new CommandConfigurationException("Argument name must not contain whitespace: '" + this.name + "'");
         }
         this.optional = optional;
-        this.parser = Objects.requireNonNull(parser, "parser");
+        this.parser = Preconditions.checkNotNull(parser, "parser");
         this.permission = (permission == null || permission.isBlank()) ? null : permission;
         this.greedy = greedy;
     }

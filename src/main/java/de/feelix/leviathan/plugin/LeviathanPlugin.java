@@ -1,7 +1,6 @@
 package de.feelix.leviathan.plugin;
 
 import de.feelix.leviathan.command.FluentCommand;
-import de.feelix.leviathan.parser.ArgParsers;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.OfflinePlayer;

@@ -6,6 +6,9 @@ import de.feelix.leviathan.exceptions.ParsingException;
 import de.feelix.leviathan.parser.ArgParsers;
 import de.feelix.leviathan.parser.ArgumentParser;
 import de.feelix.leviathan.parser.ParseResult;
+import de.feelix.leviathan.util.Preconditions;
+import de.feelix.leviathan.annotations.NotNull;
+import de.feelix.leviathan.annotations.Nullable;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -45,7 +48,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
          * @param sender The command sender.
          * @param ctx    Parsed argument context.
          */
-        void execute(CommandSender sender, CommandContext ctx);
+        void execute(@NotNull CommandSender sender, @NotNull CommandContext ctx);
     }
 
     /**
@@ -54,7 +57,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
      * @param name Primary command name as declared in plugin.yml.
      * @return a new Builder instance
      */
-    public static Builder builder(String name) {
+    public static @NotNull Builder builder(@NotNull String name) {
         return new Builder(name);
     }
 
@@ -75,7 +78,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
         private CommandAction action = (s, c) -> {};
 
         private Builder(String name) {
-            this.name = Objects.requireNonNull(name, "name");
+            this.name = Preconditions.checkNotNull(name, "name");
         }
 
         /**
@@ -83,7 +86,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
          * @param description Description text used for help/usage pages.
          * @return this builder
          */
-        public Builder description(String description) {
+        public @NotNull Builder description(@Nullable String description) {
             this.description = description;
             return this;
         }
@@ -94,7 +97,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
          * @param permission Bukkit permission node
          * @return this builder
          */
-        public Builder permission(String permission) {
+        public @NotNull Builder permission(@Nullable String permission) {
             this.permission = permission;
             return this;
         }
@@ -104,7 +107,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
          * @param playerOnly true to allow only players to execute
          * @return this builder
          */
-        public Builder playerOnly(boolean playerOnly) {
+        public @NotNull Builder playerOnly(boolean playerOnly) {
             this.playerOnly = playerOnly;
             return this;
         }
@@ -115,7 +118,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
          * @param send true to send error messages to the sender
          * @return this builder
          */
-        public Builder sendErrors(boolean send) {
+        public @NotNull Builder sendErrors(boolean send) {
             this.sendErrors = send;
             return this;
         }
@@ -127,7 +130,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
          * @param name argument name (no whitespace)
          * @return this builder
          */
-        public Builder argInt(String name) {
+        public @NotNull Builder argInt(@NotNull String name) {
             return arg(new Arg<>(name, false, ArgParsers.intParser()));
         }
 
@@ -136,7 +139,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
          * @param name argument name (no whitespace)
          * @return this builder
          */
-        public Builder argLong(String name) {
+        public @NotNull Builder argLong(@NotNull String name) {
             return arg(new Arg<>(name, false, ArgParsers.longParser()));
         }
 
@@ -145,7 +148,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
          * @param name argument name (no whitespace)
          * @return this builder
          */
-        public Builder argString(String name) {
+        public @NotNull Builder argString(@NotNull String name) {
             return arg(new Arg<>(name, false, ArgParsers.stringParser()));
         }
 
@@ -155,7 +158,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
          * @param name argument name (no whitespace)
          * @return this builder
          */
-        public Builder argUUID(String name) {
+        public @NotNull Builder argUUID(@NotNull String name) {
             return arg(new Arg<>(name, false, ArgParsers.uuidParser()));
         }
 
@@ -165,7 +168,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
          * @param name argument name (no whitespace)
          * @return this builder
          */
-        public Builder argGreedyString(String name) {
+        public @NotNull Builder argGreedyString(@NotNull String name) {
             return arg(new Arg<>(name, false, ArgParsers.stringParser(), null, true));
         }
 
@@ -176,7 +179,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
          * @param validate true to validate tokens typed before the current one
          * @return this builder
          */
-        public Builder validateOnTab(boolean validate) {
+        public @NotNull Builder validateOnTab(boolean validate) {
             this.validateOnTab = validate;
             return this;
         }
@@ -188,7 +191,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
          * @param displayType type name shown in error messages (e.g., "gamemode")
          * @return this builder
          */
-        public <T> Builder argChoices(String name, Map<String, T> choices, String displayType) {
+        public <T> @NotNull Builder argChoices(@NotNull String name, @NotNull Map<String, T> choices, @NotNull String displayType) {
             return arg(new Arg<>(name, false, ArgParsers.choices(choices, displayType)));
         }
 
@@ -198,7 +201,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
          * @param choices mapping from alias (case-insensitive) to a sub-command instance
          * @return this builder
          */
-        public Builder argCommandChoices(String name, Map<String, FluentCommand> choices) {
+        public @NotNull Builder argCommandChoices(@NotNull String name, @NotNull Map<String, FluentCommand> choices) {
             return arg(new Arg<>(name, false, ArgParsers.choices(choices, "command")));
         }
 
@@ -211,7 +214,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
          * @return this builder
          */
         @SafeVarargs
-        public final <T> Builder argOneOf(String name, String displayType, ArgumentParser<? extends T>... parsers) {
+        public final <T> @NotNull Builder argOneOf(@NotNull String name, @NotNull String displayType, @NotNull ArgumentParser<? extends T>... parsers) {
             return arg(new Arg<>(name, false, ArgParsers.oneOf(displayType, parsers)));
         }
 
@@ -221,7 +224,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
          * @return this builder
          * @throws CommandConfigurationException if there is no argument to mark or ordering is invalid
          */
-        public Builder optional() {
+        public @NotNull Builder optional() {
             if (args.isEmpty()) throw new CommandConfigurationException("No argument to mark optional");
             Arg<?> last = args.remove(args.size() - 1);
             args.add(last.optional(true));
@@ -234,9 +237,10 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
          * @param permission permission node (must not be blank)
          * @return this builder
          */
-        public Builder argPermission(String permission) {
+        public @NotNull Builder argPermission(@NotNull String permission) {
             if (args.isEmpty()) throw new CommandConfigurationException("No argument to set permission for");
-            if (permission == null || permission.trim().isEmpty()) {
+            Preconditions.checkNotNull(permission, "permission");
+            if (permission.trim().isEmpty()) {
                 throw new CommandConfigurationException("Argument permission must not be blank");
             }
             Arg<?> last = args.remove(args.size() - 1);
@@ -249,8 +253,8 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
          * @param arg the argument descriptor
          * @return this builder
          */
-        public Builder arg(Arg<?> arg) {
-            args.add(arg);
+        public @NotNull Builder arg(@NotNull Arg<?> arg) {
+            args.add(Preconditions.checkNotNull(arg, "arg"));
             return this;
         }
 
@@ -259,8 +263,8 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
          * @param action callback invoked with the sender and parsed context
          * @return this builder
          */
-        public Builder executes(CommandAction action) {
-            this.action = Objects.requireNonNull(action, "action");
+        public @NotNull Builder executes(@NotNull CommandAction action) {
+            this.action = Preconditions.checkNotNull(action, "action");
             return this;
         }
 
@@ -273,12 +277,11 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
          * @return this builder
          * @throws CommandConfigurationException if alias is blank, sub is null, or a duplicate alias is added
          */
-        public Builder sub(String alias, FluentCommand sub) {
-            if (alias == null || alias.trim().isEmpty()) {
+        public @NotNull Builder sub(@NotNull String alias, @NotNull FluentCommand sub) {
+            Preconditions.checkNotNull(alias, "alias");
+            Preconditions.checkNotNull(sub, "sub");
+            if (alias.trim().isEmpty()) {
                 throw new CommandConfigurationException("Subcommand alias must not be blank");
-            }
-            if (sub == null) {
-                throw new CommandConfigurationException("Subcommand must not be null");
             }
             String key = alias.toLowerCase(Locale.ROOT);
             if (subcommands.containsKey(key)) {
@@ -297,8 +300,8 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
          * @return this builder
          * @throws CommandConfigurationException if any sub is null or duplicate aliases are detected
          */
-        public Builder sub(FluentCommand... subs) {
-            if (subs == null || subs.length == 0) return this;
+        public @NotNull Builder sub(@Nullable FluentCommand... subs) {
+            if (subs == null) return this;
             for (FluentCommand sc : subs) {
                 if (sc == null) {
                     throw new CommandConfigurationException("Subcommand must not be null");
@@ -322,7 +325,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
          * @param async true to execute off the main thread
          * @return this builder
          */
-        public Builder async(boolean async) {
+        public @NotNull Builder async(boolean async) {
             this.async = async;
             return this;
         }
@@ -332,8 +335,8 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
          * @param action callback invoked with the sender and parsed context
          * @return this builder
          */
-        public Builder executesAsync(CommandAction action) {
-            this.action = Objects.requireNonNull(action, "action");
+        public @NotNull Builder executesAsync(@NotNull CommandAction action) {
+            this.action = Preconditions.checkNotNull(action, "action");
             this.async = true;
             return this;
         }
@@ -345,7 +348,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
          *                                       required-after-optional, bad greedy placement)
          * @throws ParsingException if a parser violates its contract (e.g., blank type name)
          */
-        public FluentCommand build() {
+        public @NotNull FluentCommand build() {
             if (name.trim().isEmpty()) {
                 throw new CommandConfigurationException("Command name must not be blank");
             }
@@ -414,7 +417,8 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
          * @param plugin plugin registering the command (must declare the command in plugin.yml)
          * @throws CommandConfigurationException if the command is not declared in plugin.yml
          */
-        public void register(JavaPlugin plugin) {
+        public void register(@NotNull JavaPlugin plugin) {
+            Preconditions.checkNotNull(plugin, "plugin");
             FluentCommand cmd = build();
             cmd.plugin = plugin;
             org.bukkit.command.PluginCommand pc = plugin.getCommand(name);
@@ -451,7 +455,8 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
      * @throws ApiMisuseException if this command is marked as a subcommand
      * @throws CommandConfigurationException if the command is not declared in plugin.yml
      */
-    public void register(JavaPlugin plugin) {
+    public void register(@NotNull JavaPlugin plugin) {
+        Preconditions.checkNotNull(plugin, "plugin");
         if (subOnly) {
             throw new ApiMisuseException("Subcommand '" + name + "' must not be registered directly. Register only the root command containing it.");
         }
@@ -465,36 +470,49 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
     }
 
     /**
+     * Retrieves the description associated with the command.
+     *
+     * @return a non-null string representing the command's description
+     */
+    public @NotNull String getDescription() {
+        return description;
+    }
+
+    /**
      * @return the primary command name
      */
-    public String getName() {
+    public @NotNull String getName() {
         return name;
     }
 
     /**
      * @return the command-level permission node, or null if none
      */
-    public String getPermission() {
+    public @Nullable String getPermission() {
         return permission;
     }
 
     private FluentCommand(String name, String description, String permission, boolean playerOnly, boolean sendErrors,
-                          List<Arg<?>> args, CommandAction action, boolean async, boolean validateOnTab,
-                          Map<String, FluentCommand> subcommands) {
-        this.name = name;
-        this.description = description;
+                         List<Arg<?>> args, CommandAction action, boolean async, boolean validateOnTab,
+                         Map<String, FluentCommand> subcommands) {
+        this.name = Preconditions.checkNotNull(name, "name");
+        this.description = (description == null) ? "" : description;
         this.permission = permission;
         this.playerOnly = playerOnly;
         this.sendErrors = sendErrors;
         this.async = async;
         this.validateOnTab = validateOnTab;
-        this.args = List.copyOf(args);
-        this.subcommands = Map.copyOf(subcommands);
-        this.action = action;
+        this.args = List.copyOf(Preconditions.checkNotNull(args, "args"));
+        this.subcommands = Map.copyOf(Preconditions.checkNotNull(subcommands, "subcommands"));
+        this.action = Preconditions.checkNotNull(action, "action");
     }
 
     @Override
-    public boolean onCommand(CommandSender sender, Command command, String label, String[] providedArgs) {
+    public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] providedArgs) {
+        Preconditions.checkNotNull(sender, "sender");
+        Preconditions.checkNotNull(command, "command");
+        Preconditions.checkNotNull(label, "label");
+        Preconditions.checkNotNull(providedArgs, "providedArgs");
         return execute(sender, label, providedArgs);
     }
 
@@ -508,7 +526,10 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
      * @param providedArgs the raw argument tokens as typed by the user
      * @return true to indicate the command was handled
      */
-    public boolean execute(CommandSender sender, String label, String[] providedArgs) {
+    public boolean execute(@NotNull CommandSender sender, @NotNull String label, @NotNull String[] providedArgs) {
+        Preconditions.checkNotNull(sender, "sender");
+        Preconditions.checkNotNull(label, "label");
+        Preconditions.checkNotNull(providedArgs, "providedArgs");
         if (permission != null && !permission.isEmpty() && !sender.hasPermission(permission)) {
             if (sendErrors) sender.sendMessage("§cYou don't have permission to use this command.");
             return true;
@@ -586,7 +607,9 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
                     action.execute(sender, ctx);
                 } catch (Throwable t) {
                     if (sendErrors) sender.sendMessage("§cAn internal error occurred while executing this command.");
-                    t.printStackTrace();
+                    Throwable cause = (t.getCause() != null) ? t.getCause() : t;
+                    throw new de.feelix.leviathan.exceptions.CommandExecutionException(
+                        "Error executing command '" + name + "' asynchronously", cause);
                 }
             });
         } else {
@@ -594,7 +617,9 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
                 action.execute(sender, ctx);
             } catch (Throwable t) {
                 if (sendErrors) sender.sendMessage("§cAn internal error occurred while executing this command.");
-                t.printStackTrace();
+                Throwable cause = (t.getCause() != null) ? t.getCause() : t;
+                throw new de.feelix.leviathan.exceptions.CommandExecutionException(
+                    "Error executing command '" + name + "'", cause);
             }
         }
         return true;
@@ -603,7 +628,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
     /**
      * Build a usage string based on the configured arguments.
      */
-    private String usage() {
+    private @NotNull String usage() {
         if (!subcommands.isEmpty() && args.isEmpty()) {
             return "<subcommand>";
         }
@@ -618,7 +643,11 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
      * validate previously typed tokens when {@link Builder#validateOnTab(boolean)} is enabled.
      */
     @Override
-    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] providedArgs) {
+    public @NotNull List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, @NotNull String[] providedArgs) {
+        Preconditions.checkNotNull(sender, "sender");
+        Preconditions.checkNotNull(command, "command");
+        Preconditions.checkNotNull(alias, "alias");
+        Preconditions.checkNotNull(providedArgs, "providedArgs");
         // Gate completions by command-level permission and player-only constraint
         if (permission != null && !permission.isEmpty() && !sender.hasPermission(permission)) {
             return Collections.emptyList();

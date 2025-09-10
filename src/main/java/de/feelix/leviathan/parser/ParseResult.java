@@ -1,6 +1,9 @@
 package de.feelix.leviathan.parser;
 
 import java.util.Optional;
+import de.feelix.leviathan.annotations.NotNull;
+import de.feelix.leviathan.annotations.Nullable;
+import de.feelix.leviathan.util.Preconditions;
 
 /**
  * Represents the outcome of parsing a single argument token.
@@ -24,7 +27,7 @@ public final class ParseResult<T> {
      * @param value parsed value (may be null, depending on parser contract)
      * @return success result
      */
-    public static <T> ParseResult<T> success(T value) {
+    public static <T> @NotNull ParseResult<T> success(@Nullable T value) {
         return new ParseResult<>(value, null);
     }
 
@@ -33,7 +36,8 @@ public final class ParseResult<T> {
      * @param message error message to surface to the user
      * @return error result
      */
-    public static <T> ParseResult<T> error(String message) {
+    public static <T> @NotNull ParseResult<T> error(@NotNull String message) {
+        Preconditions.checkNotNull(message, "message");
         return new ParseResult<>(null, message);
     }
 
@@ -47,14 +51,14 @@ public final class ParseResult<T> {
     /**
      * @return optional parsed value
      */
-    public Optional<T> value() {
+    public @NotNull Optional<T> value() {
         return Optional.ofNullable(value);
     }
 
     /**
      * @return optional error message
      */
-    public Optional<String> error() {
+    public @NotNull Optional<String> error() {
         return Optional.ofNullable(error);
     }
 }
