@@ -70,6 +70,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
         private boolean async = false;
         private boolean validateOnTab = false;
         private final List<Arg<?>> args = new ArrayList<>();
+        private final Map<String, FluentCommand> subcommands = new LinkedHashMap<>();
         private CommandAction action = (s, c) -> {};
 
         private Builder(String name) {
@@ -263,6 +264,57 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
         }
 
         /**
+         * Register a subcommand under a specific alias. The alias is matched case-insensitively.
+         * If you want to use the subcommand's own name as the alias, use {@link #sub(FluentCommand...)}.
+         *
+         * @param alias Alias used as the first token to route to this subcommand (must be non-blank).
+         * @param sub   The subcommand definition (must not be null). It does not need to be registered in plugin.yml.
+         * @return this builder
+         * @throws CommandConfigurationException if alias is blank, sub is null, or a duplicate alias is added
+         */
+        public Builder sub(String alias, FluentCommand sub) {
+            if (alias == null || alias.trim().isEmpty()) {
+                throw new CommandConfigurationException("Subcommand alias must not be blank");
+            }
+            if (sub == null) {
+                throw new CommandConfigurationException("Subcommand must not be null");
+            }
+            String key = alias.toLowerCase(Locale.ROOT);
+            if (subcommands.containsKey(key)) {
+                throw new CommandConfigurationException("Duplicate subcommand alias: '" + alias + "'");
+            }
+            subcommands.put(key, sub);
+            return this;
+        }
+
+        /**
+         * Register one or more subcommands using each subcommand's own {@link FluentCommand#getName()} as the alias.
+         * Aliases are matched case-insensitively.
+         *
+         * @param subs Subcommands to register (must not contain nulls).
+         * @return this builder
+         * @throws CommandConfigurationException if any sub is null or duplicate aliases are detected
+         */
+        public Builder sub(FluentCommand... subs) {
+            if (subs == null || subs.length == 0) return this;
+            for (FluentCommand sc : subs) {
+                if (sc == null) {
+                    throw new CommandConfigurationException("Subcommand must not be null");
+                }
+                String alias = sc.getName();
+                if (alias == null || alias.trim().isEmpty()) {
+                    throw new CommandConfigurationException("Subcommand has a blank name");
+                }
+                String key = alias.toLowerCase(Locale.ROOT);
+                if (subcommands.containsKey(key)) {
+                    throw new CommandConfigurationException("Duplicate subcommand alias: '" + alias + "'");
+                }
+                subcommands.put(key, sc);
+            }
+            return this;
+        }
+
+        /**
          * Configure whether the action should run asynchronously via {@link CompletableFuture}.
          * @param async true to execute off the main thread
          * @return this builder
@@ -336,8 +388,20 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
                     }
                 }
             }
+            // Validate subcommand aliases (already checked on add), create immutable copy with lower-case keys
+            Map<String, FluentCommand> subs = new LinkedHashMap<>();
+            for (Map.Entry<String, FluentCommand> e : subcommands.entrySet()) {
+                String k = e.getKey();
+                if (k == null || k.trim().isEmpty() || e.getValue() == null) {
+                    throw new CommandConfigurationException("Invalid subcommand entry");
+                }
+                String low = k.toLowerCase(Locale.ROOT);
+                if (subs.put(low, e.getValue()) != null) {
+                    throw new CommandConfigurationException("Duplicate subcommand alias: '" + k + "'");
+                }
+            }
             return new FluentCommand(
-                name, description, permission, playerOnly, sendErrors, args, action, async, validateOnTab);
+                name, description, permission, playerOnly, sendErrors, args, action, async, validateOnTab, subs);
         }
 
         /**
@@ -367,6 +431,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
     private final boolean async;
     private final boolean validateOnTab;
     private final List<Arg<?>> args;
+    private final Map<String, FluentCommand> subcommands; // lower-case alias -> subcommand
     private final CommandAction action;
     private JavaPlugin plugin; // set during register()
 
@@ -385,7 +450,8 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
     }
 
     private FluentCommand(String name, String description, String permission, boolean playerOnly, boolean sendErrors,
-                          List<Arg<?>> args, CommandAction action, boolean async, boolean validateOnTab) {
+                          List<Arg<?>> args, CommandAction action, boolean async, boolean validateOnTab,
+                          Map<String, FluentCommand> subcommands) {
         this.name = name;
         this.description = description;
         this.permission = permission;
@@ -394,6 +460,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
         this.async = async;
         this.validateOnTab = validateOnTab;
         this.args = List.copyOf(args);
+        this.subcommands = Map.copyOf(subcommands);
         this.action = action;
     }
 
@@ -420,6 +487,16 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
         if (playerOnly && !(sender instanceof Player)) {
             if (sendErrors) sender.sendMessage("§cThis command can only be used by players.");
             return true;
+        }
+
+        // Automatic subcommand routing: if first token matches a registered subcommand, delegate to it
+        if (!subcommands.isEmpty() && providedArgs.length >= 1) {
+            String first = providedArgs[0].toLowerCase(Locale.ROOT);
+            FluentCommand sub = subcommands.get(first);
+            if (sub != null) {
+                String[] remaining = Arrays.copyOfRange(providedArgs, 1, providedArgs.length);
+                return sub.execute(sender, sub.getName(), remaining);
+            }
         }
 
         Map<String, Object> values = new LinkedHashMap<>();
@@ -498,6 +575,9 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
      * Build a usage string based on the configured arguments.
      */
     private String usage() {
+        if (!subcommands.isEmpty() && args.isEmpty()) {
+            return "<subcommand>";
+        }
         return args.stream()
             .map(a -> a.optional() ? ("[" + a.name() + "]") : ("<" + a.name() + ">"))
             .collect(Collectors.joining(" "));
@@ -516,6 +596,36 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
         }
         if (playerOnly && !(sender instanceof Player)) {
             return Collections.emptyList();
+        }
+
+        // Subcommand-aware completion at the first token
+        if (!subcommands.isEmpty()) {
+            if (providedArgs.length == 0) {
+                return Collections.emptyList();
+            }
+            String first = providedArgs[0];
+            String firstLow = first.toLowerCase(Locale.ROOT);
+            FluentCommand sub = subcommands.get(firstLow);
+            if (providedArgs.length == 1) {
+                // Suggest subcommand aliases, filtered by permission
+                List<String> names = new ArrayList<>();
+                for (Map.Entry<String, FluentCommand> e : subcommands.entrySet()) {
+                    String perm = e.getValue().getPermission();
+                    if (perm != null && !perm.isEmpty() && !sender.hasPermission(perm)) continue;
+                    String key = e.getKey();
+                    if (key.startsWith(firstLow)) {
+                        names.add(key);
+                    }
+                }
+                Collections.sort(names);
+                return names;
+            }
+            if (sub != null) {
+                // Delegate to the subcommand for the remaining tokens
+                String[] remaining = Arrays.copyOfRange(providedArgs, 1, providedArgs.length);
+                return sub.onTabComplete(sender, command, sub.getName(), remaining);
+            }
+            // If first token doesn't match a subcommand, fall through to this command's own args
         }
 
         int index = providedArgs.length - 1; // current token index

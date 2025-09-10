@@ -1,42 +1,44 @@
-.gradle
-build/
-!gradle/wrapper/gradle-wrapper.jar
-!**/src/main/**/build/
-!**/src/test/**/build/
+# ---- Java / General ----
+*.class
+*.log
+*.ctxt
+hs_err_pid*
+replay_pid*
 
-### IntelliJ IDEA ###
-.idea/modules.xml
-.idea/jarRepositories.xml
-.idea/compiler.xml
-.idea/libraries/
-*.iws
+# ---- Build systems ----
+# Maven (not used here, but harmless if present)
+target/
+
+# Gradle
+.gradle/
+build/
+# Keep Gradle wrapper files tracked
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+!gradlew
+!gradlew.bat
+
+# ---- IDEs / Editors ----
+# IntelliJ IDEA
+.idea/
 *.iml
 *.ipr
-out/
-!**/src/main/**/out/
-!**/src/test/**/out/
-
-### Eclipse ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
-bin/
-!**/src/main/**/bin/
-!**/src/test/**/bin/
-
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
-
-### VS Code ###
+*.iws
+# VS Code
 .vscode/
+# Eclipse
+.project
+.classpath
+.settings/
+# NetBeans
+.nb-gradle/
+# Common IDE output
+out/
+bin/
 
-### Mac OS ###
+# ---- OS junk ----
 .DS_Store
+Thumbs.db
+
+# ---- Misc ----
+local.properties
