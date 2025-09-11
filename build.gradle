@@ -58,7 +58,7 @@ publishing {
     }
     repositories {
         maven {
-            name = 'squarecodeReleases'
+            name = 'releases'
             url = uri('https://repo.squarecode.de/releases')
             credentials {
                 // Provide credentials via gradle.properties or environment variables
