@@ -139,6 +139,54 @@ Actions receive a `CommandContext` with typed accessors to your parsed values.
 - `getOrThrow(name, type)` / `require(name, type)` throws if missing or of wrong type.
 - `has(name)` checks presence.
 
+### Functional argument retrieval (new)
+
+In addition to the classic getters above, you can retrieve and map arguments using a functional style:
+- `arg(String name, Function<OptionMapping,T> mapper)` — builds an `OptionMapping` for the named argument and applies your mapper to return a typed value.
+- `OptionMapping` exposes: `name()`, `raw()`, `optionType()`, generic `getAs(Class<T>)`, and convenient typed getters `getAsString()`, `getAsInt()`, `getAsLong()`, `getAsUuid()`.
+- `ArgumentMapper` provides static helpers so you can use method references like `ctx.arg("amount", ArgumentMapper::getAsInt)`.
+- `OptionType` is a broad hint for the kind of value (INT, LONG, STRING, UUID, CHOICE, UNKNOWN). You can inspect it via `mapping.optionType()` if needed.
+
+Example A — Basic typed retrieval with method references
+```java
+import de.feelix.leviathan.command.*;
+
+FluentCommand.builder("pay")
+  .description("Send currency to another player by UUID")
+  .argUUID("to")
+  .argInt("amount")
+  .executes((sender, ctx) -> {
+    java.util.UUID to = ctx.arg("to", ArgumentMapper::getAsUuid);
+    int amount = ctx.arg("amount", ArgumentMapper::getAsInt);
+    sender.sendMessage("Sending " + amount + " to " + to + "...");
+  })
+  .register(this);
+```
+
+Example B — Working with choices and custom types
+```java
+import de.feelix.leviathan.command.*;
+import org.bukkit.GameMode;
+
+java.util.Map<String, GameMode> gm = new java.util.HashMap<>();
+// case-insensitive aliases
+gm.put("0", GameMode.SURVIVAL); gm.put("survival", GameMode.SURVIVAL);
+gm.put("1", GameMode.CREATIVE); gm.put("creative", GameMode.CREATIVE);
+
+de.feelix.leviathan.command.FluentCommand.builder("gm")
+  .argChoices("mode", gm, "gamemode") // stores a GameMode in the context
+  .executes((sender, ctx) -> {
+    // Use a lambda to specify the desired type explicitly
+    GameMode mode = ctx.arg("mode", m -> m.getAs(GameMode.class));
+
+    // Optionally, inspect the broad kind of the option
+    OptionType kind = ctx.arg("mode", OptionMapping::optionType); // CHOICE for choices
+
+    sender.sendMessage("Selected mode: " + mode + " (" + kind + ")");
+  })
+  .register(this);
+```
+
 
 ## Exceptions (for reference)
 - `CommandConfigurationException` → invalid builder/configuration (e.g., required after optional, duplicate argument names, greedy not last).

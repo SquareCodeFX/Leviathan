@@ -7,6 +7,8 @@ import de.feelix.leviathan.util.Preconditions;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
+import java.util.function.Function;
 
 /**
  * Holds parsed argument values and provides type-safe accessors for command actions.
@@ -105,5 +107,56 @@ public final class CommandContext {
     public boolean has(@NotNull String name) {
         Preconditions.checkNotNull(name, "name");
         return values.containsKey(name);
+    }
+
+    /**
+     * Functional retrieval using an {@link OptionMapping} and a mapper function.
+     * Example usage: {@code String n = ctx.arg("name", ArgumentMapper::getAsString);}.
+     * @throws ApiMisuseException if the argument is missing or cannot be converted
+     */
+    public <T> @NotNull T arg(@NotNull String name, @NotNull Function<OptionMapping, T> mapper) {
+        Preconditions.checkNotNull(name, "name");
+        Preconditions.checkNotNull(mapper, "mapper");
+        return mapper.apply(new MappingImpl(name));
+    }
+
+    private final class MappingImpl implements OptionMapping {
+        private final String name;
+        private MappingImpl(String name) { this.name = name; }
+
+        @Override public @NotNull String name() { return name; }
+        @Override public Object raw() { return values.get(name); }
+        @Override public @NotNull OptionType optionType() { return inferType(raw()); }
+
+        @Override
+        public <T> @NotNull T getAs(@NotNull Class<T> type) {
+            Preconditions.checkNotNull(type, "type");
+            if (!values.containsKey(name)) {
+                throw new ApiMisuseException("Required argument '" + name + "' is missing in CommandContext");
+            }
+            Object o = values.get(name);
+            if (o == null) {
+                throw new ApiMisuseException("Argument '" + name + "' is null");
+            }
+            if (!type.isInstance(o)) {
+                String actual = o.getClass().getName();
+                throw new ApiMisuseException("Argument '" + name + "' has type " + actual + ", not assignable to " + type.getName());
+            }
+            @SuppressWarnings("unchecked") T t = (T) o;
+            return t;
+        }
+
+        @Override public @NotNull String getAsString() { return getAs(String.class); }
+        @Override public @NotNull Integer getAsInt() { return getAs(Integer.class); }
+        @Override public @NotNull Long getAsLong() { return getAs(Long.class); }
+        @Override public @NotNull UUID getAsUuid() { return getAs(UUID.class); }
+    }
+
+    private static @NotNull OptionType inferType(Object o) {
+        if (o instanceof Integer) return OptionType.INT;
+        if (o instanceof Long) return OptionType.LONG;
+        if (o instanceof String) return OptionType.STRING;
+        if (o instanceof UUID) return OptionType.UUID;
+        return (o == null) ? OptionType.UNKNOWN : OptionType.CHOICE;
     }
 }

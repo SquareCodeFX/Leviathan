@@ -21,6 +21,7 @@ public final class Arg<T> {
     private final ArgumentParser<T> parser;
     private final String permission; // optional permission required to use/see this argument
     private final boolean greedy; // if true and this is the last argument, it will capture the rest of the input as a single string
+    private final OptionType optionType; // broad type hint for mapping
 
     /**
      * Create an argument.
@@ -63,6 +64,14 @@ public final class Arg<T> {
         this.parser = Preconditions.checkNotNull(parser, "parser");
         this.permission = (permission == null || permission.isBlank()) ? null : permission;
         this.greedy = greedy;
+        // infer option type from parser's public type name
+        OptionType inferred;
+        try {
+            inferred = OptionType.fromTypeName(this.parser.getTypeName());
+        } catch (Throwable t) {
+            inferred = OptionType.UNKNOWN;
+        }
+        this.optionType = inferred;
     }
 
     /**
@@ -95,6 +104,11 @@ public final class Arg<T> {
      * @return true if this is a greedy trailing string argument
      */
     public boolean greedy() { return greedy; }
+
+    /**
+     * @return the broad option type for this argument, inferred from its parser
+     */
+    public @NotNull OptionType optionType() { return optionType; }
 
     /**
      * Return a copy of this argument with updated optionality.
