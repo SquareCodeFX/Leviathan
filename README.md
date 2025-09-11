@@ -347,6 +347,139 @@ We bundle and implement the excellent FastBoard API for scoreboards. For full us
 If you need more examples or edge cases, consult FastBoard’s README and examples there.
 
 
+## EventBus — Application events
+
+Leviathan ships a lightweight, thread-safe EventBus you can use to decouple components of your plugin or application.
+It supports synchronous and asynchronous delivery, listener priorities, cancellation, and delivery to base/super interfaces.
+
+Key features
+- Simple object-oriented API with annotations
+- Sync and async event processing
+- Event priorities (HIGHEST, HIGH, NORMAL, LOW, LOWEST)
+- Cancellation with opt-in delivery for already cancelled events
+- Thread-safe registration, unregistration, and dispatch
+- Dispatch to listeners of superclasses and interfaces of the event
+
+Key types
+- de.feelix.leviathan.event.Event — marker interface for all events
+- de.feelix.leviathan.event.Cancellable — adds isCancelled()/setCancelled(boolean)
+- de.feelix.leviathan.event.Listener — marker for listener instances
+- de.feelix.leviathan.event.Subscribe — annotation for listener methods; supports priority, async, ignoreCancelled
+- de.feelix.leviathan.event.EventPriority — ordering of handlers
+- de.feelix.leviathan.event.EventBus — the bus itself (register/unregister/post/postAsync)
+- de.feelix.leviathan.exceptions.EventBusException — wraps listener invocation errors
+
+Quick start
+```java
+import de.feelix.leviathan.event.*;
+
+// 1) Define an event
+public final class UserLoginEvent implements Event { // or implements Cancellable if you need cancellation
+  private final java.util.UUID userId;
+  public UserLoginEvent(java.util.UUID userId) { this.userId = userId; }
+  public java.util.UUID getUserId() { return userId; }
+}
+
+// 2) Create a listener
+public final class AuthListener implements Listener {
+  @Subscribe(priority = EventPriority.HIGHEST)
+  public void onLogin(UserLoginEvent e) {
+    // high-priority validation can cancel subsequent handlers if you use a Cancellable event
+  }
+}
+
+// 3) Wire it up (e.g., in your plugin enable)
+EventBus bus = new EventBus();
+bus.register(new AuthListener());
+
+// 4) Post an event (sync)
+bus.post(new UserLoginEvent(java.util.UUID.randomUUID()));
+
+// Or entirely async (ordered on the bus's executor)
+bus.postAsync(new UserLoginEvent(java.util.UUID.randomUUID()))
+   .thenAccept(evt -> {/* completed */});
+```
+
+Defining cancellable events
+```java
+public final class ChatMessageEvent implements Cancellable {
+  private final String message;
+  private boolean cancelled;
+  public ChatMessageEvent(String message) { this.message = message; }
+  public String getMessage() { return message; }
+  @Override public boolean isCancelled() { return cancelled; }
+  @Override public void setCancelled(boolean c) { this.cancelled = c; }
+}
+
+public final class ChatListener implements Listener {
+  // Early moderation — can cancel to prevent later non-opt-in handlers
+  @Subscribe(priority = EventPriority.HIGHEST)
+  public void filter(ChatMessageEvent e) {
+    if (e.getMessage().contains("forbidden")) e.setCancelled(true);
+  }
+
+  // This handler runs even if the event was cancelled earlier
+  @Subscribe(ignoreCancelled = true)
+  public void log(ChatMessageEvent e) {
+    // logging still runs for cancelled events
+  }
+}
+```
+
+Registration and unregistration
+```java
+EventBus bus = new EventBus();
+ChatListener listener = new ChatListener();
+bus.register(listener);
+// ... later
+bus.unregister(listener);
+```
+
+Posting events
+- post(E event): synchronous on the caller thread. Handlers marked async=true are executed on the bus executor without blocking the caller.
+- postAsync(E event): schedules the entire listener chain on the bus executor and returns a CompletableFuture<E>. Handlers are invoked in priority order on that executor.
+
+Priorities and ordering
+- Priorities order is HIGHEST → HIGH → NORMAL → LOW → LOWEST.
+- post(E) delivers handlers in priority order on the caller thread except those with async=true which are offloaded to the executor.
+- postAsync(E) delivers the entire chain on the executor in priority order.
+
+Cancellation semantics
+- If an event implements Cancellable and isCancelled()==true, only handlers with @Subscribe(ignoreCancelled = true) will be invoked.
+- With post(E): a handler that cancels the event will prevent subsequent synchronous handlers at lower or equal priorities from running. Already scheduled async=true handlers may still run because they were scheduled before cancellation took effect.
+- With postAsync(E): cancellation deterministically affects later handlers because the whole chain is executed in a single ordered task on the executor.
+
+Thread safety
+- EventBus uses ConcurrentHashMap and CopyOnWriteArrayList; you can register/unregister and post from multiple threads safely.
+- Listener methods themselves must be thread-safe if you use async delivery.
+
+Event hierarchy delivery
+- Listeners for a base event type will receive subclass events. Interfaces implemented by the event are also considered.
+
+Custom executor and lifecycle
+```java
+java.util.concurrent.ExecutorService exec = java.util.concurrent.Executors.newFixedThreadPool(2);
+EventBus bus = new EventBus(exec);
+// ...
+bus.shutdown(); // only call if you manage the executor lifecycle here
+```
+
+Validation and errors
+- @Subscribe methods must be non-static and accept exactly one parameter that implements Event; violations throw ApiMisuseException.
+- Listener invocation failures are wrapped in EventBusException with the original cause.
+- Public/protected/private methods are supported; reflection is made accessible when possible.
+
+Best practices
+- Keep listener methods small and non-blocking; use async=true or postAsync for heavy work.
+- Prefer postAsync when you need deterministic cancellation ordering with asynchronous execution.
+- Document whether your events are cancellable and at which priorities consumers should act.
+- Always unregister listeners you no longer need.
+
+FAQ
+- Q: Can one listener method handle multiple event types? A: No; one parameter means one event type per method. You can add multiple methods.
+- Q: Do listeners for interfaces get called? A: Yes, interfaces implemented by the event are considered during dispatch.
+- Q: How do I listen to all events? A: Create a base interface/class extending Event and have all events implement/extend it; register a listener for that type.
+
 ## Links
 - Artifact Browser: https://repo.squarecode.de/#/releases/de/feelix/leviathan/Leviathan
 - Repository (releases): https://repo.squarecode.de/releases
