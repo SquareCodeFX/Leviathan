@@ -2,7 +2,7 @@ plugins {
     id 'java'
 }
 
-group = 'de.feelix'
+group = 'de.feelix.leviathan'
 version = '1.0-SNAPSHOT'
 
 java {
@@ -31,9 +31,5 @@ processResources {
 }
 
 jar {
-    archiveBaseName.set('LeviathanCommand')
-}
-
-test {
-    useJUnitPlatform()
+    archiveBaseName.set('Leviathan')
 }
