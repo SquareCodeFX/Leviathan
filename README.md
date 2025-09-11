@@ -237,7 +237,7 @@ public final class MyPlugin extends JavaPlugin {
       .executes((sender, ctx) -> { /* implement mute */ })
       .build();
 
-    FluentCommand.admin = FluentCommand.builder("admin")
+    FluentCommand admin = FluentCommand.builder("admin")
       .description("Admin tools")
       .permission("leviathan.admin")
       .sendErrors(true)
