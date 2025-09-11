@@ -123,8 +123,6 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
             return this;
         }
 
-        // ----- Argument helpers -------------------------------------------------------------
-
         /**
          * Add a required int argument.
          * @param name argument name (no whitespace)
