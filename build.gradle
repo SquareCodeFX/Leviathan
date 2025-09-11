@@ -1,9 +1,10 @@
 plugins {
     id 'java'
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
 }
 
 group = 'de.feelix.leviathan'
-version = '1.0-SNAPSHOT'
+version = '1.0.0'
 
 java {
     toolchain {
@@ -19,6 +20,7 @@ repositories {
 
 dependencies {
     compileOnly 'org.spigotmc:spigot-api:1.20.4-R0.1-SNAPSHOT'
+    implementation 'fr.mrmicky:fastboard:2.1.5' // Using mrmicky's FastBoard API, cause its just the best
 }
 
 processResources {
@@ -30,6 +32,17 @@ processResources {
     }
 }
 
+// Configure the normal jar name (not used as final artifact)
 jar {
     archiveBaseName.set('Leviathan')
 }
+
+// Configure the shaded jar with relocation of fr.mrmicky.* -> de.feelix.leviathan.mrmicky.*
+shadowJar {
+    archiveBaseName.set('Leviathan')
+    archiveClassifier.set("") // produce Leviathan-<version>.jar without classifier
+    relocate 'fr.mrmicky', 'de.feelix.leviathan.mrmicky'
+}
+
+// Make the build task produce the shaded jar by default
+build.dependsOn shadowJar
