@@ -51,6 +51,14 @@ shadowJar {
 build.dependsOn shadowJar
 
 publishing {
+    def localGradleProps = new Properties()
+    def localGradlePropsFile = file('.gradle/gradle.properties')
+    if (localGradlePropsFile.exists()) {
+        localGradlePropsFile.withInputStream { localGradleProps.load(it) }
+    }
+    def repoUsername = (findProperty('user') ?: localGradleProps.getProperty('user') ?: System.getenv('REPO_USER'))
+    def repoPassword = (findProperty('password') ?: localGradleProps.getProperty('password') ?: System.getenv('REPO_PASSWORD'))
+
     publications {
         mavenJava(MavenPublication) {
             from components.java
@@ -61,12 +69,10 @@ publishing {
             name = 'releases'
             url = uri('https://repo.squarecode.de/releases')
             credentials {
-                // Provide credentials via gradle.properties or environment variables
-                // gradle.properties keys: squarecodeUsername, squarecodePassword
-                // environment variables: SQUARECODE_USERNAME, SQUARECODE_PASSWORD
-                username = findProperty('squarecodeUsername') ?: System.getenv('SQUARECODE_USERNAME')
-                password = findProperty('squarecodePassword') ?: System.getenv('SQUARECODE_PASSWORD')
+                username = repoUsername
+                password = repoPassword
             }
         }
     }
 }
+∆
