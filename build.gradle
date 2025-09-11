@@ -1,5 +1,6 @@
 plugins {
-    id 'java'
+    id 'java-library'
+    id 'maven-publish'
     id 'com.github.johnrengelman.shadow' version '8.1.1'
 }
 
@@ -10,6 +11,8 @@ java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(17)
     }
+    withSourcesJar()
+    withJavadocJar()
 }
 
 repositories {
@@ -46,3 +49,24 @@ shadowJar {
 
 // Make the build task produce the shaded jar by default
 build.dependsOn shadowJar
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+        }
+    }
+    repositories {
+        maven {
+            name = 'squarecodeReleases'
+            url = uri('https://repo.squarecode.de/releases')
+            credentials {
+                // Provide credentials via gradle.properties or environment variables
+                // gradle.properties keys: squarecodeUsername, squarecodePassword
+                // environment variables: SQUARECODE_USERNAME, SQUARECODE_PASSWORD
+                username = findProperty('squarecodeUsername') ?: System.getenv('SQUARECODE_USERNAME')
+                password = findProperty('squarecodePassword') ?: System.getenv('SQUARECODE_PASSWORD')
+            }
+        }
+    }
+}
