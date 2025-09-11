@@ -23,7 +23,7 @@ Maven
 <dependency>
   <groupId>de.feelix.leviathan</groupId>
   <artifactId>Leviathan</artifactId>
-  <version>1.0.0</version>
+  <version>1.0.1</version>
 </dependency>
 ```
 
@@ -34,7 +34,7 @@ repositories {
 }
 
 dependencies {
-  implementation 'de.feelix.leviathan:Leviathan:1.0.0'
+  implementation 'de.feelix.leviathan:Leviathan:1.0.1'
 }
 ```
 
@@ -45,7 +45,7 @@ repositories {
 }
 
 dependencies {
-  implementation("de.feelix.leviathan:Leviathan:1.0.0")
+  implementation("de.feelix.leviathan:Leviathan:1.0.1")
 }
 ```
 
