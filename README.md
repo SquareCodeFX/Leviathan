@@ -482,3 +482,380 @@ FAQ
 ## Links
 - Artifact Browser: https://repo.squarecode.de/#/releases/de/feelix/leviathan/Leviathan
 - Repository (releases): https://repo.squarecode.de/releases
+
+
+
+## Inventory UI API — Examples and docs
+
+This section documents the new fluent Inventory API and shows examples for every function. It targets Spigot/Paper 1.20+ and focuses on safe defaults, clear contracts, and easy composition.
+
+Packages
+- de.feelix.leviathan.inventory — core types (FluentInventory, InventoryManager, ItemButton, Fillers, Slots)
+- de.feelix.leviathan.inventory.click — click handling (ClickAction, ClickContext)
+- de.feelix.leviathan.inventory.pagination — pagination (Paginator)
+- de.feelix.leviathan.inventory.prompt — prompts (AnvilPrompt, SignPrompt)
+
+Prerequisites
+- Initialize the InventoryManager in onEnable so events can be routed to your UIs.
+
+```java
+import de.feelix.leviathan.inventory.InventoryManager;
+import org.bukkit.plugin.java.JavaPlugin;
+
+public final class MyPlugin extends JavaPlugin {
+  @Override public void onEnable() {
+    InventoryManager.init(this); // must be called once
+  }
+}
+```
+
+### InventoryManager
+
+Functions covered
+- InventoryManager.init(Plugin)
+- InventoryManager.get()
+- InventoryManager.plugin()
+
+Example — Access the plugin back from the manager when needed
+```java
+import de.feelix.leviathan.inventory.InventoryManager;
+
+var manager = InventoryManager.get();
+org.bukkit.plugin.Plugin plugin = manager.plugin();
+// You can use 'plugin' to schedule tasks, register listeners, etc.
+```
+
+### FluentInventory — build UIs fluently
+
+Factory methods
+- FluentInventory.ofRows(int rows, String title)
+- FluentInventory.ofSize(int size, String title)
+
+Configuration and accessors
+- title(String)
+- cancelUnhandledClicks(boolean)
+- getInventory()
+- getSize()
+- getTitle()
+- onClose(Consumer<Player>)
+
+Buttons and contents
+- set(int slot, ItemButton button)
+- set(int slot, ItemStack item, ClickAction action)
+- getButton(int slot)
+- clear()
+- fill(ItemStack)
+- border(ItemStack)
+
+Open
+- open(Player)
+
+Coordinate helpers
+- slot(int row1Based, int col1Based)
+- row(int slot)
+- col(int slot)
+
+Example — Basic menu with border, a button, and a close callback
+```java
+import de.feelix.leviathan.inventory.*;
+import de.feelix.leviathan.inventory.click.*;
+import de.feelix.leviathan.itemstack.ItemStackBuilder;
+import org.bukkit.Material;
+import org.bukkit.entity.Player;
+
+public void openMenu(Player player) {
+  var gray = ItemStackBuilder.create(Material.GRAY_STAINED_GLASS_PANE)
+      .setName(" ")
+      .setMeta()
+      .build();
+
+  var diamond = ItemStackBuilder.create(Material.DIAMOND)
+      .setName("&bClick me!")
+      .setMeta()
+      .build();
+
+  FluentInventory inv = FluentInventory.ofRows(3, "&aDemo Menu")
+      .border(gray) // Draws a border using Fillers.border
+      .set(FluentInventory.slot(2,5), diamond, ctx -> {
+        ctx.player().sendMessage("You clicked a diamond in slot " + ctx.slot());
+      })
+      .onClose(p -> p.sendMessage("Menu closed."));
+
+  inv.open(player);
+}
+```
+
+Example — Using ofSize, title change, cancelUnhandledClicks, clear and getButton
+```java
+FluentInventory inv = FluentInventory.ofSize(27, "&eTitle A")
+    .title("&eTitle B")                // prepares a new title (apply by reopen if needed)
+    .cancelUnhandledClicks(true);      // default is true; protects UI from item movement
+
+// Place a button using the ItemButton API
+var emerald = de.feelix.leviathan.itemstack.ItemStackBuilder.create(Material.EMERALD)
+    .setName("&aBuy")
+    .setMeta().build();
+ItemButton buy = ItemButton.of(emerald, ctx -> ctx.player().sendMessage("Buying..."));
+inv.set(13, buy);
+
+// Inspect or modify a placed button
+ItemButton b = inv.getButton(13); // may be null if none
+if (b != null) {
+  b.setItem(de.feelix.leviathan.itemstack.ItemStackBuilder.create(Material.EMERALD)
+      .setName("&aBuy (x2)").setMeta().build());
+}
+
+// Clear all buttons and visuals
+inv.clear();
+```
+
+Example — fill() and border() helpers
+```java
+var filler = de.feelix.leviathan.itemstack.ItemStackBuilder.create(Material.BLACK_STAINED_GLASS_PANE)
+    .setName(" ").setMeta().build();
+FluentInventory inv = FluentInventory.ofRows(6, "&8Grid").fill(filler); // Fillers.fill under the hood
+
+var border = de.feelix.leviathan.itemstack.ItemStackBuilder.create(Material.RED_STAINED_GLASS_PANE)
+    .setName(" ").setMeta().build();
+inv.border(border); // Draws only the outer frame
+```
+
+Example — Allow taking/placing items on unhandled clicks
+```java
+FluentInventory inv = FluentInventory.ofRows(3, "&7Sandbox")
+    .cancelUnhandledClicks(false); // let players move items when clicking non-button areas
+```
+
+Example — Coordinate helpers and mapping
+```java
+int center = FluentInventory.slot(3,5); // 1-based row/col -> 0-based slot
+int row = FluentInventory.row(center);  // -> 3
+int col = FluentInventory.col(center);  // -> 5
+```
+
+### ItemButton — interactive slots
+
+Functions covered
+- ItemButton.of(ItemStack, ClickAction)
+- visibleWhen(Predicate<ClickContext>)
+- cancelClick(boolean)
+- getItem()/setItem(ItemStack)
+- getAction()/setAction(ClickAction)
+
+Example — Conditional visibility and allow shift-click
+```java
+import de.feelix.leviathan.inventory.ItemButton;
+import de.feelix.leviathan.inventory.click.ClickContext;
+import org.bukkit.Material;
+
+var adminStar = de.feelix.leviathan.itemstack.ItemStackBuilder.create(Material.NETHER_STAR)
+    .setName("&cAdmin").setMeta().build();
+
+ItemButton adminButton = ItemButton.of(adminStar, ctx -> ctx.player().performCommand("admin"))
+    .visibleWhen(ctx -> ctx.player().hasPermission("myplugin.admin"))
+    .cancelClick(false); // let shift-click or pick up if you want to allow movement
+```
+
+### ClickAction and ClickContext
+
+Functions covered
+- ClickAction.handle(ClickContext)
+- ClickContext.player()/event()/slot()/clickedItem()/clickType()
+
+Example — Use click type and event for advanced logic
+```java
+import de.feelix.leviathan.inventory.click.*;
+import org.bukkit.event.inventory.ClickType;
+
+ClickAction action = ctx -> {
+  if (ctx.clickType() == ClickType.RIGHT) {
+    ctx.player().sendMessage("Right-clicked on " + (ctx.clickedItem() == null ? "empty" : ctx.clickedItem().getType()));
+  }
+  // Access the underlying InventoryClickEvent if needed
+  var event = ctx.event();
+  // Example: prevent number-key hotbar swaps specifically
+  if (event.getClick() == ClickType.NUMBER_KEY) event.setCancelled(true);
+};
+```
+
+### Fillers — programmatic fill/border on any Inventory
+
+Functions covered
+- Fillers.fill(Inventory, ItemStack)
+- Fillers.border(Inventory, ItemStack)
+
+Example
+```java
+import de.feelix.leviathan.inventory.Fillers;
+import org.bukkit.inventory.Inventory;
+
+Inventory any = org.bukkit.Bukkit.createInventory(null, 54);
+var glass = de.feelix.leviathan.itemstack.ItemStackBuilder.create(org.bukkit.Material.LIGHT_BLUE_STAINED_GLASS_PANE)
+    .setName(" ").setMeta().build();
+Fillers.fill(any, glass);
+
+var frame = de.feelix.leviathan.itemstack.ItemStackBuilder.create(org.bukkit.Material.BLUE_STAINED_GLASS_PANE)
+    .setName(" ").setMeta().build();
+Fillers.border(any, frame);
+```
+
+### Slots — compute common slot arrays
+
+Functions covered
+- Slots.all(int rows)
+- Slots.range(int startInclusive, int endInclusive)
+- Slots.rect(int rowStart1, int colStart1, int rowEnd1, int colEnd1)
+- Slots.inside(int rows)
+
+Example
+```java
+import de.feelix.leviathan.inventory.Slots;
+
+int[] every = Slots.all(6);                 // 0..53
+int[] topRow = Slots.range(0, 8);           // first 9 slots
+int[] middleRect = Slots.rect(3, 3, 4, 7);  // 1-based rows/cols, inclusive
+int[] inner = Slots.inside(6);              // area excluding the border
+```
+
+### Paginator — laying out pages of buttons
+
+Functions covered
+- new Paginator(List<ItemButton> items, int... slots)
+- pageCount()
+- render(FluentInventory, int pageIndex)
+- slots()
+
+Example — Paged list with next/prev controls
+```java
+import de.feelix.leviathan.inventory.*;
+import de.feelix.leviathan.inventory.pagination.Paginator;
+import de.feelix.leviathan.itemstack.ItemStackBuilder;
+import org.bukkit.Material;
+
+public final class PagedMenu {
+  private int page = 0;
+
+  public void open(org.bukkit.entity.Player player, java.util.List<org.bukkit.inventory.ItemStack> entries) {
+    FluentInventory inv = FluentInventory.ofRows(6, "&aItems");
+
+    // Build item buttons for each entry
+    java.util.List<ItemButton> buttons = new java.util.ArrayList<>();
+    for (org.bukkit.inventory.ItemStack it : entries) {
+      buttons.add(ItemButton.of(it, ctx -> ctx.player().sendMessage("You clicked " + it.getType())));
+    }
+
+    int[] area = Slots.inside(6); // 4 rows x 7 cols
+    Paginator paginator = new Paginator(buttons, area);
+
+    // Navigation buttons (left/right of the bottom center)
+    var prev = ItemStackBuilder.create(Material.ARROW).setName("&7Prev").setMeta().build();
+    var next = ItemStackBuilder.create(Material.ARROW).setName("&7Next").setMeta().build();
+
+    inv.set(FluentInventory.slot(6, 4), prev, ctx -> {
+      page = Math.max(0, page - 1);
+      paginator.render(inv, page);
+    });
+    inv.set(FluentInventory.slot(6, 6), next, ctx -> {
+      page = Math.min(paginator.pageCount() - 1, page + 1);
+      paginator.render(inv, page);
+    });
+
+    // Initial render
+    paginator.render(inv, page);
+
+    inv.open(player);
+  }
+}
+```
+
+You can also inspect paginator.slots() to see the page area indices if needed.
+
+### Prompts — collect text from players
+
+AnvilPrompt.open(Player, String title, String initialText, Consumer<String> onComplete, Runnable onCancel)
+- Opens an anvil rename UI; when the player takes the result, onComplete is called with the entered text.
+- If anvil UIs are not supported on your server, it falls back to SignPrompt (chat).
+
+SignPrompt.open(Player, String title, Consumer<String> onComplete, Runnable onCancel, long timeoutTicks)
+- Asks the player to type in chat; times out after timeoutTicks.
+
+Example
+```java
+import de.feelix.leviathan.inventory.prompt.*;
+import org.bukkit.entity.Player;
+
+public void askName(Player p) {
+  AnvilPrompt.open(p, "&eEnter your nickname", "Steve", text -> {
+    p.sendMessage("You entered: " + text);
+  }, () -> p.sendMessage("Prompt cancelled"));
+}
+
+public void askChat(Player p) {
+  SignPrompt.open(p, "&eSay something", msg -> {
+    p.sendMessage("You said: " + msg);
+  }, () -> p.sendMessage("No response."), 20L * 30); // 30s timeout
+}
+```
+
+### Putting it together — full menu sample covering most functions
+```java
+import de.feelix.leviathan.inventory.*;
+import de.feelix.leviathan.inventory.click.*;
+import de.feelix.leviathan.inventory.pagination.Paginator;
+import de.feelix.leviathan.inventory.prompt.*;
+import de.feelix.leviathan.itemstack.ItemStackBuilder;
+import org.bukkit.Material;
+import org.bukkit.entity.Player;
+
+public final class ProfileMenu {
+  private int page;
+
+  public void open(Player player) {
+    InventoryManager.init(org.bukkit.Bukkit.getPluginManager().getPlugin("MyPlugin")); // safe no-op if already initialized
+
+    FluentInventory inv = FluentInventory.ofRows(6, "&bProfile of &f" + player.getName())
+        .cancelUnhandledClicks(true)
+        .onClose(p -> p.sendMessage("Closed profile."));
+
+    // Frame and sections
+    var frame = ItemStackBuilder.create(Material.GRAY_STAINED_GLASS_PANE).setName(" ").setMeta().build();
+    inv.border(frame);
+
+    // Buttons
+    var rename = ItemStackBuilder.create(Material.NAME_TAG).setName("&eRename").setMeta().build();
+    inv.set(FluentInventory.slot(2, 2), rename, ctx ->
+        AnvilPrompt.open(ctx.player(), "&eNew name", player.getName(), text -> ctx.player().sendMessage("Set name to: " + text),
+            () -> ctx.player().sendMessage("Rename cancelled"))
+    );
+
+    var toggle = ItemStackBuilder.create(Material.LEVER).setName("&aToggle setting").setMeta().build();
+    ItemButton toggleBtn = ItemButton.of(toggle, ctx -> ctx.player().sendMessage("Toggled!"))
+        .visibleWhen(c -> c.player().hasPermission("profile.toggle"));
+    inv.set(FluentInventory.slot(2, 8), toggleBtn);
+
+    // Paged achievements in the inner area
+    java.util.List<ItemButton> achievements = new java.util.ArrayList<>();
+    for (int i = 1; i <= 50; i++) {
+      var book = ItemStackBuilder.create(Material.BOOK).setName("&7Achievement #" + i).setMeta().build();
+      achievements.add(ItemButton.of(book, ctx -> ctx.player().sendMessage("Viewing #" + i)));
+    }
+    Paginator paginator = new Paginator(achievements, Slots.inside(6));
+
+    var prev = ItemStackBuilder.create(Material.ARROW).setName("&7Prev").setMeta().build();
+    var next = ItemStackBuilder.create(Material.ARROW).setName("&7Next").setMeta().build();
+    inv.set(FluentInventory.slot(6, 4), prev, ctx -> { page = Math.max(0, page - 1); paginator.render(inv, page); });
+    inv.set(FluentInventory.slot(6, 6), next, ctx -> { page = Math.min(paginator.pageCount() - 1, page + 1); paginator.render(inv, page); });
+
+    paginator.render(inv, page);
+    inv.open(player);
+  }
+}
+```
+
+Notes and contracts
+- All public methods annotated with @NotNull/@Nullable follow those contracts; passing null to a @NotNull parameter throws ApiMisuseException via Preconditions.
+- Sizes must be multiples of 9 between 9 and 54; rows are 1..6.
+- Dragging inside API-managed inventories is cancelled by default to protect layout.
+- ItemButton.cancelClick(true) prevents item movement on that slot; set false to permit normal behavior.
+- cancelUnhandledClicks(false) allows clicks in non-button areas to move items (bottom inventory always allowed unless you cancel explicitly in your handlers).
+- InventoryException is a generic runtime exception used by the inventory subsystem for error signaling.
