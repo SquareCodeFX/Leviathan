@@ -56,7 +56,7 @@ public final class Slots {
 
     /**
      * Inner area of a chest UI excluding the outermost border.
-     * For rows <= 2 there is no inner area and an empty array is returned.
+     * For rows &lt;= 2 there is no inner area and an empty array is returned.
      *
      * @param rows number of rows (1..6)
      * @return an array of 0-based slot indices representing the inside area

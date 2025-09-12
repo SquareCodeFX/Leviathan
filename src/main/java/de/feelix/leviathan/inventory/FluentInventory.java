@@ -40,7 +40,7 @@ public class FluentInventory {
      * Create a new FluentInventory with the given number of rows (1–6).
      *
      * @param rows  number of rows (must be within 1..6)
-     * @param title inventory title; color codes using '&' are supported
+     * @param title inventory title; color codes using '&amp;' are supported
      * @return a new FluentInventory instance
      */
     public static @NotNull FluentInventory ofRows(int rows, @NotNull String title) {
@@ -53,7 +53,7 @@ public class FluentInventory {
      * Size must be a multiple of 9 and within the standard chest bounds [9, 54].
      *
      * @param size  total number of slots (multiple of 9)
-     * @param title inventory title; color codes using '&' are supported
+     * @param title inventory title; color codes using '&amp;' are supported
      * @return a new FluentInventory instance
      */
     public static @NotNull FluentInventory ofSize(int size, @NotNull String title) {
@@ -61,7 +61,7 @@ public class FluentInventory {
     }
 
     /**
-     * Set a new title for this inventory. Color codes using '&' are supported.
+     * Set a new title for this inventory. Color codes using '&amp;' are supported.
      * Note: Bukkit does not support changing the title of an already open inventory;
      * consumers should close and reopen to apply a new title.
      *
