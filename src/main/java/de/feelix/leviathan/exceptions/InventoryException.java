@@ -1,4 +1,4 @@
-package de.feelix.leviathan.inventory.exceptions;
+package de.feelix.leviathan.exceptions;
 
 /**
  * Generic runtime exception for the inventory API subsystem.
