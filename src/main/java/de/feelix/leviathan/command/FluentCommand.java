@@ -616,7 +616,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
          * Define an asynchronous command action with optional timeout, supporting cancellation tokens
          * and progress reporting.
          * @param action async action implementation
-         * @param timeoutMillis timeout in milliseconds (<= 0 for no timeout)
+         * @param timeoutMillis timeout in milliseconds ({@code <= 0} for no timeout)
          */
         public @NotNull Builder executesAsync(@NotNull AsyncCommandAction action, long timeoutMillis) {
             this.async = true;
