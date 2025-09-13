@@ -23,7 +23,7 @@ Maven
 <dependency>
   <groupId>de.feelix.leviathan</groupId>
   <artifactId>Leviathan</artifactId>
-  <version>1.0.3</version>
+  <version>1.0.4</version>
 </dependency>
 ```
 
@@ -34,7 +34,7 @@ repositories {
 }
 
 dependencies {
-  implementation 'de.feelix.leviathan:Leviathan:1.0.3'
+  implementation 'de.feelix.leviathan:Leviathan:1.0.4'
 }
 ```
 
@@ -45,7 +45,7 @@ repositories {
 }
 
 dependencies {
-  implementation("de.feelix.leviathan:Leviathan:1.0.3")
+  implementation("de.feelix.leviathan:Leviathan:1.0.4")
 }
 ```
 
@@ -859,3 +859,260 @@ Notes and contracts
 - ItemButton.cancelClick(true) prevents item movement on that slot; set false to permit normal behavior.
 - cancelUnhandledClicks(false) allows clicks in non-button areas to move items (bottom inventory always allowed unless you cancel explicitly in your handlers).
 - InventoryException is a generic runtime exception used by the inventory subsystem for error signaling.
+
+
+
+---
+
+## FileAPI (Config Files)
+
+Unified reading and writing of YAML, JSON, TOML and .properties with simple caching and typed accessors. This section documents all functions and provides five end-to-end examples.
+
+Key features
+- Supported formats: .yml/.yaml, .json, .toml, .properties (chosen by file extension)
+- Typed getters and setters: String, int, long, float, double, boolean, byte, List<Object>, List<String>
+- getOrDefault and getOrSet variants for all types
+- Per-key comments, file header and footer comments (YAML/TOML/PROPERTIES; JSON ignores comments)
+- Caching to avoid redundant file reads; auto-reloads on timestamp change; manual invalidate/clear
+- Immediate persistence: all set* and comment/header/footer calls save the file right away
+- Flat (top-level) keys only
+
+Packages and classes
+- de.feelix.leviathan.file.FileAPI: entrypoint with cache management and format detection
+- de.feelix.leviathan.file.ConfigFile: typed access, comments, header/footer, reload/save
+
+Limitations
+- Only top-level keys are modeled. Nested structures are not supported by this abstraction.
+- JSON does not preserve comments; comment methods are no-ops for JSON output.
+
+### Quick reference: APIs and all functions
+
+FileAPI
+- open(File file): ConfigFile — detects format by extension
+- invalidate(File file): void — remove one file from cache
+- clearCache(): void — clear all cached files
+
+ConfigFile (typed getters)
+- getString(String key): String
+- getInt(String key): Integer
+- getLong(String key): Long
+- getFloat(String key): Float
+- getDouble(String key): Double
+- getBoolean(String key): Boolean
+- getByte(String key): Byte
+- getList(String key): List<Object>
+- getStringList(String key): List<String>
+
+ConfigFile (getOrDefault)
+- getStringOrDefault(String key, String def): String
+- getIntOrDefault(String key, int def): int
+- getLongOrDefault(String key, long def): long
+- getFloatOrDefault(String key, float def): float
+- getDoubleOrDefault(String key, double def): double
+- getBooleanOrDefault(String key, boolean def): boolean
+- getByteOrDefault(String key, byte def): byte
+- getListOrDefault(String key, List<Object> def): List<Object>
+- getStringListOrDefault(String key, List<String> def): List<String>
+
+ConfigFile (getOrSet — sets alt if the key is missing and returns it)
+- getStringOrSet(String key, String alt): String
+- getIntOrSet(String key, int alt): int
+- getLongOrSet(String key, long alt): long
+- getFloatOrSet(String key, float alt): float
+- getDoubleOrSet(String key, double alt): double
+- getBooleanOrSet(String key, boolean alt): boolean
+- getByteOrSet(String key, byte alt): byte
+- getListOrSet(String key, List<Object> alt): List<Object>
+- getStringListOrSet(String key, List<String> alt): List<String>
+
+ConfigFile (setters; each call saves immediately)
+- setString(String key, String value): void
+- setInt(String key, int value): void
+- setLong(String key, long value): void
+- setFloat(String key, float value): void
+- setDouble(String key, double value): void
+- setBoolean(String key, boolean value): void
+- setByte(String key, byte value): void
+- setList(String key, List<Object> value): void
+- setStringList(String key, List<String> value): void
+
+ConfigFile (comments and metadata)
+- setComment(String key, List<String> lines): void — per-key comments (YAML/TOML/PROPERTIES)
+- setHeader(List<String> lines): void — file header (YAML/TOML/PROPERTIES)
+- setFooter(List<String> lines): void — file footer (YAML/TOML/PROPERTIES)
+
+ConfigFile (management)
+- contains(String key): boolean
+- remove(String key): void
+- reload(): void — force reload from disk (keeps cache entry)
+- save(): void — persist current in-memory view (usually not needed because setters auto-save)
+
+Notes on lists
+- getList returns List<Object>. getStringList converts elements to strings.
+- Properties files cannot represent typed lists natively; strings like "[a, b]" or comma-separated values are parsed into a list of strings.
+
+
+### Example 1: YAML quick start (create, set, read)
+
+```java
+import de.feelix.leviathan.file.ConfigFile;
+import de.feelix.leviathan.file.FileAPI;
+
+import java.io.File;
+import java.util.List;
+
+public class ExampleYamlQuickStart {
+  public void run(File dataFolder) {
+    ConfigFile cfg = FileAPI.open(new File(dataFolder, "config.yml"));
+
+    // Write some values (auto-saves)
+    cfg.setString("name", "Leviathan");
+    cfg.setInt("retries", 3);
+    cfg.setBoolean("enabled", true);
+    cfg.setDouble("ratio", 0.75);
+    cfg.setStringList("servers", List.of("eu-1", "us-1"));
+
+    // Optional: comments and header/footer (supported by YAML)
+    cfg.setHeader(List.of("Example 1", "Generated by Leviathan"));
+    cfg.setComment("retries", List.of("How many attempts before giving up"));
+    cfg.setFooter(List.of("End of file"));
+
+    // Read them back
+    String name = cfg.getString("name");
+    int retries = cfg.getIntOrDefault("retries", 1);
+    boolean enabled = cfg.getBoolean("enabled");
+    List<String> servers = cfg.getStringList("servers");
+  }
+}
+```
+
+
+### Example 2: JSON with full typed access and defaults/alternatives
+
+```java
+import de.feelix.leviathan.file.ConfigFile;
+import de.feelix.leviathan.file.FileAPI;
+
+import java.io.File;
+import java.util.List;
+
+public class ExampleJsonTypedAccess {
+  public void run(File dataFolder) {
+    ConfigFile cfg = FileAPI.open(new File(dataFolder, "settings.json"));
+
+    // getOrSet: write the alternative value if the key is missing
+    String host = cfg.getStringOrSet("host", "localhost");
+    int port = cfg.getIntOrSet("port", 25565);
+    long timeoutMs = cfg.getLongOrSet("timeoutMs", 5_000L);
+    float f = cfg.getFloatOrSet("f", 1.25f);
+    double threshold = cfg.getDoubleOrSet("threshold", 0.95);
+    boolean secure = cfg.getBooleanOrSet("secure", false);
+    byte mode = cfg.getByteOrSet("mode", (byte) 1);
+    List<String> tags = cfg.getStringListOrSet("tags", List.of("prod", "primary"));
+
+    // getOrDefault: do not modify the file when missing
+    int maxConn = cfg.getIntOrDefault("maxConn", 100);
+
+    // Comments are ignored in JSON (output will not contain them)
+  }
+}
+```
+
+
+### Example 3: TOML with lists and per-key comments
+
+```java
+import de.feelix.leviathan.file.ConfigFile;
+import de.feelix.leviathan.file.FileAPI;
+
+import java.io.File;
+import java.util.List;
+
+public class ExampleTomlListsAndComments {
+  public void run(File dataFolder) {
+    ConfigFile cfg = FileAPI.open(new File(dataFolder, "app.toml"));
+
+    cfg.setHeader(List.of("Example 3: TOML", "Lists + comments"));
+
+    // Lists are written as TOML arrays
+    cfg.setList("levels", List.of(1, 2, 3, 5, 8));
+    cfg.setStringList("names", List.of("Alice", "Bob"));
+
+    // Per-key comments
+    cfg.setComment("levels", List.of("Fibonacci-ish"));
+
+    // Reads
+    var levels = cfg.getList("levels"); // List<Object>
+    var names = cfg.getStringList("names"); // List<String>
+  }
+}
+```
+
+
+### Example 4: .properties usage, contains/remove, string lists
+
+```java
+import de.feelix.leviathan.file.ConfigFile;
+import de.feelix.leviathan.file.FileAPI;
+
+import java.io.File;
+import java.util.List;
+
+public class ExamplePropertiesBasics {
+  public void run(File dataFolder) {
+    ConfigFile cfg = FileAPI.open(new File(dataFolder, "plugin.properties"));
+
+    // Properties values are strings; lists are stored as "[a, b]" or comma-separated strings
+    cfg.setString("welcome", "Hello world");
+    cfg.setStringList("roles", List.of("admin", "mod"));
+
+    // Presence and removal
+    boolean hasWelcome = cfg.contains("welcome");
+    if (hasWelcome) cfg.remove("welcome");
+
+    // Read list back (string parsing supported)
+    var roles = cfg.getStringList("roles");
+
+    // Header/footer and per-key comments are supported in .properties
+    cfg.setHeader(List.of("Example 4: .properties"));
+    cfg.setComment("roles", List.of("Comma-separated or [a, b] notation"));
+  }
+}
+```
+
+
+### Example 5: Cache control, reload and external changes
+
+```java
+import de.feelix.leviathan.file.ConfigFile;
+import de.feelix.leviathan.file.FileAPI;
+
+import java.io.File;
+
+public class ExampleCacheReload {
+  public void run(File dataFolder) {
+    File file = new File(dataFolder, "config.yml");
+    ConfigFile cfg = FileAPI.open(file);
+
+    // Normal reads use a cached in-memory view; setters save immediately.
+    String before = cfg.getStringOrDefault("value", "none");
+
+    // If an external process edits the file on disk, you can force a reload:
+    cfg.reload(); // refreshes from disk and keeps the cache entry
+    String after = cfg.getString("value");
+
+    // You can also drop cache entries entirely:
+    FileAPI.invalidate(file); // next open/reload re-reads from disk
+
+    // Or clear all caches across files:
+    FileAPI.clearCache();
+  }
+}
+```
+
+
+FAQ and tips
+- Format detection is based on the file extension. Default is YAML if the extension is unknown.
+- Setters and comment/header/footer calls persist immediately. Use save() only if you changed the underlying file contents manually and then modified the in-memory view.
+- get* methods returning boxed types (Integer, Long, etc.) yield null when the value is missing or not parseable; the getOrDefault/getOrSet variants provide primitives or non-null results.
+- Values are stored as-is for YAML/JSON/TOML; .properties stores strings. Lists in .properties are represented as bracketed or comma-separated strings and parsed back.
