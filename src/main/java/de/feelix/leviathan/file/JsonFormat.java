@@ -6,9 +6,19 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
+/**
+ * JSON format implementation for ConfigFormat.
+ * <p>
+ * Reads and writes flat (top-level) key/value pairs using Gson. Comments, headers and footers are
+ * not supported by JSON and are ignored when saving.
+ */
 class JsonFormat implements ConfigFormat {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
 
+    /**
+     * Loads a top-level map from a JSON file using Gson. When the file is empty or the root is not
+     * a JSON object, returns an empty LinkedHashMap.
+     */
     public Map<String, Object> load(File file) throws IOException {
         if (!file.exists() || file.length() == 0) return new LinkedHashMap<>();
         try (Reader r = new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8)) {
@@ -24,6 +34,10 @@ class JsonFormat implements ConfigFormat {
         }
     }
 
+    /**
+     * Saves the provided map as a pretty-printed JSON object using UTF-8. Comments, header and
+     * footer are ignored because JSON has no native comment support.
+     */
     public void save(File file,
                      Map<String, Object> data,
                      Map<String, List<String>> comments,
@@ -92,5 +106,8 @@ class JsonFormat implements ConfigFormat {
         return new JsonPrimitive(String.valueOf(v));
     }
 
+    /**
+     * {@inheritDoc}
+     */
     public String getName() { return "json"; }
 }

@@ -12,11 +12,29 @@ import java.util.concurrent.ConcurrentHashMap;
  * with simple caching to avoid unnecessary disk reads.
  */
 public final class FileAPI {
+    /**
+     * In-memory cache keyed by absolute, normalized file path. Each entry stores the
+     * last known on-disk modification timestamp and the parsed view of the file so that
+     * repeated reads avoid disk I/O. Entries are refreshed when timestamps differ.
+     */
     private static final Map<Path, CachedConfig> CACHE = new ConcurrentHashMap<>();
 
     private FileAPI() {}
 
-    /** Open (or create cache entry for) a configuration file. */
+    /**
+     * Opens a configuration file and returns a ConfigFile facade for it.
+     * <p>
+     * The format is detected from the file name extension:
+     * .yml/.yaml → YAML, .json → JSON, .toml → TOML, .properties → Java properties.
+     * If the extension is unknown, YAML is used by default.
+     * <p>
+     * A cache entry is created on first open for the normalized absolute path; subsequent
+     * reads reuse the cached, parsed view and only hit disk when the on-disk timestamp changes.
+     *
+     * @param file the target configuration file (absolute or relative path), not null
+     * @return a ConfigFile wrapper bound to the detected format and shared cache
+     * @throws NullPointerException if file is null
+     */
     public static ConfigFile open(File file) {
         Objects.requireNonNull(file, "file");
         ConfigFormat format = detectFormat(file.getName());
@@ -25,16 +43,29 @@ public final class FileAPI {
         return new ConfigFile(path, format, CACHE);
     }
 
-    /** Removes a file from cache (next access will reload from disk). */
+    /**
+     * Removes one file's cached entry. The next open/reload will re-read from disk.
+     *
+     * @param file the file whose cache entry should be invalidated; no-op when null
+     */
     public static void invalidate(File file) {
         if (file == null) return;
         Path path = file.toPath().toAbsolutePath().normalize();
         CACHE.remove(path);
     }
 
-    /** Clears all cached files. */
+    /**
+     * Clears all cached configuration entries across all files.
+     * Subsequent access to any ConfigFile will reload from disk.
+     */
     public static void clearCache() { CACHE.clear(); }
 
+    /**
+     * Detects the configuration format to use based on the file name.
+     *
+     * @param filename the file name (case-insensitive extension is used)
+     * @return a ConfigFormat implementation; defaults to YAML when unknown
+     */
     private static ConfigFormat detectFormat(String filename) {
         String lower = filename.toLowerCase();
         if (lower.endsWith(".yml") || lower.endsWith(".yaml")) return new YamlFormat();
@@ -45,14 +76,24 @@ public final class FileAPI {
         return new YamlFormat();
     }
 
-    /** Package-private cache entry. */
+    /**
+     * Package-private cache entry representing the current in-memory view of a config file.
+     * Holds parsed data and simple metadata necessary to decide when to reload and how to save.
+     */
     static final class CachedConfig {
+        /** Last known on-disk modified timestamp (File#lastModified). */
         volatile long lastModified;
+        /** The format implementation used to load/save this file. */
         final ConfigFormat format;
+        /** Parsed data as a flat, top-level key/value map. Nested structures are not modeled. */
         Map<String, Object> data; // flattened, top-level keys only
+        /** Optional per-key comment lines for formats that support comments (YAML/TOML/PROPERTIES). */
         Map<String, java.util.List<String>> comments; // per-key comment lines
+        /** Optional file header comment lines. */
         java.util.List<String> header; // header comment lines
+        /** Optional file footer comment lines. */
         java.util.List<String> footer; // footer comment lines
+        /** True if there are unsaved in-memory changes (primarily for internal use). */
         volatile boolean dirty;
 
         CachedConfig(ConfigFormat format) {

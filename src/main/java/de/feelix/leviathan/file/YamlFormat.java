@@ -7,7 +7,18 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
+/**
+ * YAML format implementation for ConfigFormat.
+ * <p>
+ * Reads and writes flat (top-level) key/value pairs. Supports per-key comments, header and footer
+ * when saving by emitting inline comment lines starting with '#'. Nested structures are not modeled
+ * by ConfigFormat and will be flattened only at the top level when loading.
+ */
 class YamlFormat implements ConfigFormat {
+    /**
+     * Loads a top-level map from a YAML file using SnakeYAML. If the file is empty or not a mapping,
+     * an empty LinkedHashMap is returned. Only top-level keys are kept.
+     */
     @SuppressWarnings("unchecked")
     public Map<String, Object> load(File file) throws IOException {
         if (!file.exists() || file.length() == 0) return new LinkedHashMap<>();
@@ -26,6 +37,11 @@ class YamlFormat implements ConfigFormat {
         }
     }
 
+    /**
+     * Saves a flat map to YAML. Includes optional header/footer and per-key comments by emitting
+     * comment lines that start with '#'. List values are written as sequence items. The file is
+     * overwritten using UTF-8 encoding.
+     */
     public void save(File file,
                      Map<String, Object> data,
                      Map<String, List<String>> comments,
@@ -81,5 +97,8 @@ class YamlFormat implements ConfigFormat {
 
     private static String safe(String s) { return s == null ? "" : s.replace("\r", "").replace("\n", " "); }
 
+    /**
+     * {@inheritDoc}
+     */
     public String getName() { return "yaml"; }
 }

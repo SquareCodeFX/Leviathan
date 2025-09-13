@@ -6,7 +6,17 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
+/**
+ * TOML format implementation for ConfigFormat.
+ * <p>
+ * Reads and writes flat (top-level) key/value pairs using toml4j. Supports per-key comments,
+ * header and footer when saving by emitting comment lines starting with '#'.
+ */
 class TomlFormat implements ConfigFormat {
+    /**
+     * Loads a top-level map from a TOML file using toml4j. Only top-level keys are included in the
+     * result map. Returns an empty LinkedHashMap for empty files.
+     */
     @SuppressWarnings("unchecked")
     public Map<String, Object> load(File file) throws IOException {
         if (!file.exists() || file.length() == 0) return new LinkedHashMap<>();
@@ -20,6 +30,10 @@ class TomlFormat implements ConfigFormat {
         return out;
     }
 
+    /**
+     * Saves a flat map to TOML. Includes optional header/footer and per-key comments by emitting
+     * comment lines beginning with '#'. Strings are quoted; lists are written as TOML arrays.
+     */
     public void save(File file,
                      Map<String, Object> data,
                      Map<String, List<String>> comments,
@@ -69,5 +83,8 @@ class TomlFormat implements ConfigFormat {
 
     private static String safe(String s) { return s == null ? "" : s.replace("\r", "").replace("\n", " "); }
 
+    /**
+     * {@inheritDoc}
+     */
     public String getName() { return "toml"; }
 }

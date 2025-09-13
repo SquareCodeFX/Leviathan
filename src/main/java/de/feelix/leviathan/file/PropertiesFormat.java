@@ -4,7 +4,18 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
+/**
+ * Java .properties format implementation for ConfigFormat.
+ * <p>
+ * Reads and writes flat key/value pairs. Values are written using escape rules compatible with
+ * the properties format. Header/footer and per-key comments are supported by emitting lines
+ * prefixed with '#'. Lists are stored as strings (e.g., comma-separated or bracketed) and parsed back.
+ */
 class PropertiesFormat implements ConfigFormat {
+    /**
+     * Loads a map from a .properties file using UTF-8. Values are read as strings and placed into
+     * a LinkedHashMap to preserve iteration order.
+     */
     public Map<String, Object> load(File file) throws IOException {
         Map<String, Object> out = new LinkedHashMap<>();
         if (!file.exists() || file.length() == 0) return out;
@@ -18,6 +29,10 @@ class PropertiesFormat implements ConfigFormat {
         return out;
     }
 
+    /**
+     * Saves key/value pairs to a .properties file in UTF-8. Includes optional header/footer and
+     * per-key comments by writing lines starting with '#'. Keys and values are escaped per format rules.
+     */
     public void save(File file,
                      Map<String, Object> data,
                      Map<String, List<String>> comments,
@@ -86,5 +101,8 @@ class PropertiesFormat implements ConfigFormat {
 
     private static String safe(String s) { return s == null ? "" : s.replace("\r", "").replace("\n", " "); }
 
+    /**
+     * {@inheritDoc}
+     */
     public String getName() { return "properties"; }
 }
