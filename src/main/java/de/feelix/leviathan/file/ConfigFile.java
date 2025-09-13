@@ -255,7 +255,7 @@ public final class ConfigFile {
     public byte getByteOrSet(String key, byte alt) { return getOrSet(key, alt, this::setByte, this::getByte); }
 
     /**
-     * Gets the value as a generic list (List<Object>), if present and convertible.
+     * Gets the value as a generic list ({@code List<Object>}), if present and convertible.
      *
      * @param key top-level key
      * @return a List of objects, or null if missing or not a list
@@ -283,7 +283,7 @@ public final class ConfigFile {
      * Gets the value as a list of strings, converting elements with String.valueOf.
      *
      * @param key top-level key
-     * @return a List<String> or null if the underlying value is missing or not a list
+     * @return a {@code List<String>} or null if the underlying value is missing or not a list
      */
     public List<String> getStringList(String key) {
         List<Object> raw = asList(getRaw(key));
@@ -343,7 +343,7 @@ public final class ConfigFile {
      */
     public void setByte(String key, byte value) { set(key, value); }
     /**
-     * Sets a list value (List<Object>) for the given key and saves immediately.
+     * Sets a list value ({@code List<Object>}) for the given key and saves immediately.
      */
     public void setList(String key, List<Object> value) { set(key, value); }
     /**
