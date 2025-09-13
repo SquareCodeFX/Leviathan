@@ -129,6 +129,85 @@ Tab-completion
 - When `validateOnTab(true)`, previously typed tokens are parsed and errors are surfaced early; suggestions are hidden on invalid input.
 - Greedy final arguments use the entire remaining string as the completion prefix.
 
+## Per-argument tab completions (new)
+
+You can configure tab suggestions per argument. There are three sources of suggestions, used in this order of precedence:
+- Dynamic provider (if set for the current argument)
+- Static list registered for the argument
+- The argument’s parser’s built-in completion
+
+Builder helpers (for the most recently added argument)
+- `completions(String...)` / `completions(Collection<String>)` — set/replace static suggestions
+- `completionProvider(CompletionProvider)` — supply a dynamic provider lambda
+
+Target a specific argument index (0-based)
+- `completionsForArg(int index, Collection<String>)`
+- `completionProviderForArg(int index, CompletionProvider)`
+
+Runtime (after build) mutability on FluentCommand
+- `setCompletions(int index, Collection<String>)`
+- `addCompletion(int index, String)` / `addCompletions(int index, Collection<String>)`
+- `removeCompletion(int index, String)` / `clearCompletions(int index)` / `getCompletions(int index)`
+- `setCompletionProvider(int index, CompletionProvider)` / `clearCompletionProvider(int index)`
+
+Notes
+- When `validateOnTab(true)`, previously typed args must parse successfully; otherwise suggestions are hidden and an error may be shown (if `sendErrors(true)`).
+- If the current or prior arguments require permissions the sender lacks, suggestions are hidden.
+- For a greedy final argument, the completion prefix is the entire remaining substring (including spaces), not just the last token.
+
+Example A — Static suggestions for the latest argument
+```java
+FluentCommand.builder("kit")
+  .argString("name").completions("starter", "pvp", "archer")
+  .executes((sender, ctx) -> sender.sendMessage("Selected kit: " + ctx.arg("name", ArgumentMapper::getAsString)))
+  .register(this);
+```
+
+Example B — Dynamic provider (e.g., online player names)
+```java
+FluentCommand.builder("msg")
+  .argString("target")
+  .completionProvider((sender, alias, args, prefix) ->
+    org.bukkit.Bukkit.getOnlinePlayers().stream()
+      .map(p -> p.getName())
+      .filter(n -> n.toLowerCase(java.util.Locale.ROOT).startsWith(prefix.toLowerCase(java.util.Locale.ROOT)))
+      .sorted()
+      .collect(java.util.stream.Collectors.toList())
+  )
+  .argGreedyString("message").optional()
+  .executes((sender, ctx) -> { /* send private message */ })
+  .register(this);
+```
+
+Example C — Target a specific argument index
+```java
+FluentCommand.builder("warp")
+  .argString("subcommand")
+  .argString("name")
+  // Index 1 refers to the second argument ("name")
+  .completionsForArg(1, java.util.List.of("spawn", "market", "arena"))
+  .executes((sender, ctx) -> { /* handle warp */ })
+  .register(this);
+```
+
+Example D — Change completions at runtime (e.g., on /reload)
+```java
+FluentCommand cmd = FluentCommand.builder("kit")
+  .argString("name")
+  .build();
+cmd.register(this);
+
+// Later, when your config changes:
+java.util.List<String> kits = loadKitsFromConfig();
+cmd.setCompletions(0, kits); // 0 = first argument ("name")
+
+// Swap to a dynamic provider at runtime
+cmd.setCompletionProvider(0, (sender, alias, args, prefix) -> kits.stream()
+  .filter(n -> n.toLowerCase(java.util.Locale.ROOT).startsWith(prefix.toLowerCase(java.util.Locale.ROOT)))
+  .sorted()
+  .toList());
+```
+
 
 ## CommandContext API
 

@@ -37,6 +37,17 @@ import java.util.stream.Collectors;
 public final class FluentCommand implements CommandExecutor, TabCompleter {
 
     /**
+     * Functional interface for providing dynamic tab completions per-argument.
+     * Implementations may inspect the sender, command alias, full provided args,
+     * and current token prefix to compute suggestions.
+     */
+    @FunctionalInterface
+    public interface CompletionProvider {
+        @NotNull List<String> complete(@NotNull CommandSender sender, @NotNull String alias,
+                                       @NotNull String[] providedArgs, @NotNull String prefix);
+    }
+
+    /**
      * Functional interface representing the action to execute when a command invocation
      * has been successfully parsed and validated.
      */
@@ -76,6 +87,9 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
         private final List<Arg<?>> args = new ArrayList<>();
         private final Map<String, FluentCommand> subcommands = new LinkedHashMap<>();
         private CommandAction action = (s, c) -> {};
+                // Per-argument static completions and dynamic providers (by argument index)
+                private final Map<Integer, List<String>> completionsByIndex = new HashMap<>();
+                private final Map<Integer, CompletionProvider> providersByIndex = new HashMap<>();
 
         private Builder(String name) {
             this.name = Preconditions.checkNotNull(name, "name");
@@ -257,6 +271,56 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
         }
 
         /**
+         * Register static tab completions for the most recently added argument.
+         * Replaces any previously configured static completions for that argument index.
+         */
+        public @NotNull Builder completions(@NotNull String... suggestions) {
+            Preconditions.checkNotNull(suggestions, "suggestions");
+            return completions(Arrays.asList(suggestions));
+        }
+
+        /**
+         * Register static tab completions for the most recently added argument.
+         * Replaces any previously configured static completions for that argument index.
+         */
+        public @NotNull Builder completions(@NotNull Collection<String> suggestions) {
+            if (args.isEmpty()) throw new CommandConfigurationException("No argument to set completions for");
+            Preconditions.checkNotNull(suggestions, "suggestions");
+            int idx = args.size() - 1;
+            completionsByIndex.put(idx, new ArrayList<>(suggestions));
+            return this;
+        }
+
+        /**
+         * Set a dynamic completion provider for the most recently added argument.
+         * Overrides any static completions when present.
+         */
+        public @NotNull Builder completionProvider(@NotNull CompletionProvider provider) {
+            if (args.isEmpty()) throw new CommandConfigurationException("No argument to set completion provider for");
+            providersByIndex.put(args.size() - 1, Preconditions.checkNotNull(provider, "provider"));
+            return this;
+        }
+
+        /**
+         * Register static tab completions for a specific argument index (0-based).
+         */
+        public @NotNull Builder completionsForArg(int index, @NotNull Collection<String> suggestions) {
+            if (index < 0) throw new CommandConfigurationException("Argument index must be >= 0");
+            Preconditions.checkNotNull(suggestions, "suggestions");
+            completionsByIndex.put(index, new ArrayList<>(suggestions));
+            return this;
+        }
+
+        /**
+         * Set a dynamic completion provider for a specific argument index (0-based).
+         */
+        public @NotNull Builder completionProviderForArg(int index, @NotNull CompletionProvider provider) {
+            if (index < 0) throw new CommandConfigurationException("Argument index must be >= 0");
+            providersByIndex.put(index, Preconditions.checkNotNull(provider, "provider"));
+            return this;
+        }
+
+        /**
          * Define the action that should run when the command is executed.
          * @param action callback invoked with the sender and parsed context
          * @return this builder
@@ -405,7 +469,8 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
                 }
             }
             return new FluentCommand(
-                name, description, permission, playerOnly, sendErrors, args, action, async, validateOnTab, subs);
+                name, description, permission, playerOnly, sendErrors, args, action, async, validateOnTab, subs,
+                completionsByIndex, providersByIndex);
         }
 
         /**
@@ -438,6 +503,9 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
     private final List<Arg<?>> args;
     private final Map<String, FluentCommand> subcommands; // lower-case alias -> subcommand
     private final CommandAction action;
+    // Mutable per-argument completions. Providers take precedence over static lists.
+    private final Map<Integer, CompletionProvider> completionProviders;
+    private final Map<Integer, List<String>> staticCompletions;
     private JavaPlugin plugin; // set during register()
     private boolean subOnly = false; // marked when attached as a subcommand of another command
 
@@ -490,9 +558,68 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
         return permission;
     }
 
+    // ===== Runtime tab-completion API (mutable after build) =====
+
+    /** Replace the static completions for the specified argument index (0-based). */
+    public synchronized void setCompletions(int argIndex, @NotNull Collection<String> suggestions) {
+        Preconditions.checkNotNull(suggestions, "suggestions");
+        List<String> list = new java.util.concurrent.CopyOnWriteArrayList<>(suggestions);
+        staticCompletions.put(argIndex, list);
+    }
+
+    /** Add a single completion suggestion for the specified argument index. */
+    public synchronized void addCompletion(int argIndex, @NotNull String suggestion) {
+        Preconditions.checkNotNull(suggestion, "suggestion");
+        List<String> list = staticCompletions.computeIfAbsent(argIndex, k -> new java.util.concurrent.CopyOnWriteArrayList<>());
+        list.add(suggestion);
+    }
+
+    /** Add multiple completion suggestions for the specified argument index. */
+    public synchronized void addCompletions(int argIndex, @NotNull Collection<String> suggestions) {
+        Preconditions.checkNotNull(suggestions, "suggestions");
+        List<String> list = staticCompletions.computeIfAbsent(argIndex, k -> new java.util.concurrent.CopyOnWriteArrayList<>());
+        list.addAll(suggestions);
+    }
+
+    /** Remove a specific completion for the specified argument index. */
+    public synchronized boolean removeCompletion(int argIndex, @NotNull String suggestion) {
+        Preconditions.checkNotNull(suggestion, "suggestion");
+        List<String> list = staticCompletions.get(argIndex);
+        if (list == null) return false;
+        return list.remove(suggestion);
+    }
+
+    /** Clear all static completions for the specified argument index. */
+    public synchronized void clearCompletions(int argIndex) {
+        staticCompletions.remove(argIndex);
+    }
+
+    /** Get an immutable snapshot of static completions for the specified argument index. */
+    public @NotNull List<String> getCompletions(int argIndex) {
+        List<String> list = staticCompletions.get(argIndex);
+        if (list == null) return Collections.emptyList();
+        return Collections.unmodifiableList(new ArrayList<>(list));
+    }
+
+    /** Set or replace a dynamic completion provider for the specified argument index. */
+    public synchronized void setCompletionProvider(int argIndex, @Nullable CompletionProvider provider) {
+        if (provider == null) {
+            completionProviders.remove(argIndex);
+        } else {
+            completionProviders.put(argIndex, provider);
+        }
+    }
+
+    /** Remove any dynamic completion provider for the specified argument index. */
+    public synchronized void clearCompletionProvider(int argIndex) {
+        completionProviders.remove(argIndex);
+    }
+
     private FluentCommand(String name, String description, String permission, boolean playerOnly, boolean sendErrors,
                          List<Arg<?>> args, CommandAction action, boolean async, boolean validateOnTab,
-                         Map<String, FluentCommand> subcommands) {
+                         Map<String, FluentCommand> subcommands,
+                         Map<Integer, List<String>> initialStaticCompletions,
+                         Map<Integer, CompletionProvider> initialProviders) {
         this.name = Preconditions.checkNotNull(name, "name");
         this.description = (description == null) ? "" : description;
         this.permission = permission;
@@ -503,6 +630,17 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
         this.args = List.copyOf(Preconditions.checkNotNull(args, "args"));
         this.subcommands = Map.copyOf(Preconditions.checkNotNull(subcommands, "subcommands"));
         this.action = Preconditions.checkNotNull(action, "action");
+        // Initialize mutable completion maps
+        this.completionProviders = new java.util.concurrent.ConcurrentHashMap<>();
+        if (initialProviders != null) {
+            this.completionProviders.putAll(initialProviders);
+        }
+        this.staticCompletions = new java.util.concurrent.ConcurrentHashMap<>();
+        if (initialStaticCompletions != null) {
+            for (Map.Entry<Integer, List<String>> e : initialStaticCompletions.entrySet()) {
+                this.staticCompletions.put(e.getKey(), new java.util.concurrent.CopyOnWriteArrayList<>(e.getValue()));
+            }
+        }
     }
 
     @Override
@@ -752,11 +890,34 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
             prefix = providedArgs[index];
         }
 
-        List<String> suggestions = current.parser().complete(prefix, sender);
-        if (suggestions == null) {
-            throw new ParsingException(
-                "Parser " + current.parser().getClass().getName() + " returned null suggestions for argument '"
-                + current.name() + "'");
+        List<String> suggestions;
+        CompletionProvider provider = completionProviders.get(currentArgIndex);
+        if (provider != null) {
+            suggestions = provider.complete(sender, alias, providedArgs, prefix);
+            if (suggestions == null) {
+                throw new ParsingException("CompletionProvider returned null for argument index " + currentArgIndex);
+            }
+        } else {
+            List<String> base = staticCompletions.get(currentArgIndex);
+            if (base != null) {
+                String pfxLow = prefix.toLowerCase(Locale.ROOT);
+                List<String> filtered = new ArrayList<>();
+                for (String s : base) {
+                    if (s == null) continue;
+                    if (pfxLow.isEmpty() || s.toLowerCase(Locale.ROOT).startsWith(pfxLow)) {
+                        filtered.add(s);
+                    }
+                }
+                Collections.sort(filtered);
+                suggestions = filtered;
+            } else {
+                suggestions = current.parser().complete(prefix, sender);
+                if (suggestions == null) {
+                    throw new ParsingException(
+                        "Parser " + current.parser().getClass().getName() + " returned null suggestions for argument '"
+                        + current.name() + "'");
+                }
+            }
         }
         return suggestions;
     }
