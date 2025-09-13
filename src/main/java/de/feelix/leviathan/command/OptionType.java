@@ -20,16 +20,16 @@ public enum OptionType {
     public static @NotNull OptionType fromTypeName(@Nullable String typeName) {
         if (typeName == null) return UNKNOWN;
         String t = typeName.trim().toLowerCase();
-        switch (t) {
-            case "int": return INT;
-            case "long": return LONG;
-            case "string": return STRING;
-            case "uuid": return UUID;
-            case "command": // treat command choice like generic choice
-                return CHOICE;
-            default:
+        return switch (t) {
+            case "int" -> INT;
+            case "long" -> LONG;
+            case "string" -> STRING;
+            case "uuid" -> UUID;
+            case "command" -> // treat command choice like generic choice
+                CHOICE;
+            default ->
                 // any custom display type used by choices(..) will be treated as CHOICE
-                return CHOICE;
-        }
+                CHOICE;
+        };
     }
 }
