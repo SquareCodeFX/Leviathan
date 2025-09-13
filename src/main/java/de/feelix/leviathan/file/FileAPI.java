@@ -1,10 +1,12 @@
 package de.feelix.leviathan.file;
 
+import de.feelix.leviathan.annotations.NotNull;
+import de.feelix.leviathan.annotations.Nullable;
+import de.feelix.leviathan.util.Preconditions;
+
 import java.io.File;
-import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -31,12 +33,12 @@ public final class FileAPI {
      * A cache entry is created on first open for the normalized absolute path; subsequent
      * reads reuse the cached, parsed view and only hit disk when the on-disk timestamp changes.
      *
-     * @param file the target configuration file (absolute or relative path), not null
-     * @return a ConfigFile wrapper bound to the detected format and shared cache
-     * @throws NullPointerException if file is null
+     * @param file the target configuration file (absolute or relative path); must not be null
+     * @return a non-null ConfigFile wrapper bound to the detected format and shared cache
+     * @throws de.feelix.leviathan.exceptions.ApiMisuseException if {@code file} is null
      */
-    public static ConfigFile open(File file) {
-        Objects.requireNonNull(file, "file");
+    public static @NotNull ConfigFile open(@NotNull File file) {
+        Preconditions.checkNotNull(file, "file");
         ConfigFormat format = detectFormat(file.getName());
         Path path = file.toPath().toAbsolutePath().normalize();
         CACHE.computeIfAbsent(path, p -> new CachedConfig(format));
@@ -48,7 +50,7 @@ public final class FileAPI {
      *
      * @param file the file whose cache entry should be invalidated; no-op when null
      */
-    public static void invalidate(File file) {
+    public static void invalidate(@Nullable File file) {
         if (file == null) return;
         Path path = file.toPath().toAbsolutePath().normalize();
         CACHE.remove(path);
@@ -64,9 +66,9 @@ public final class FileAPI {
      * Detects the configuration format to use based on the file name.
      *
      * @param filename the file name (case-insensitive extension is used)
-     * @return a ConfigFormat implementation; defaults to YAML when unknown
+     * @return a non-null ConfigFormat implementation; defaults to YAML when unknown
      */
-    private static ConfigFormat detectFormat(String filename) {
+    private static @NotNull ConfigFormat detectFormat(@NotNull String filename) {
         String lower = filename.toLowerCase();
         if (lower.endsWith(".yml") || lower.endsWith(".yaml")) return new YamlFormat();
         if (lower.endsWith(".json")) return new JsonFormat();
@@ -96,7 +98,7 @@ public final class FileAPI {
         /** True if there are unsaved in-memory changes (primarily for internal use). */
         volatile boolean dirty;
 
-        CachedConfig(ConfigFormat format) {
+        CachedConfig(@NotNull ConfigFormat format) {
             this.format = format;
         }
     }

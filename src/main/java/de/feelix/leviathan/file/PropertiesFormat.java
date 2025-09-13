@@ -1,5 +1,8 @@
 package de.feelix.leviathan.file;
 
+import de.feelix.leviathan.annotations.NotNull;
+import de.feelix.leviathan.annotations.Nullable;
+
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -16,7 +19,7 @@ class PropertiesFormat implements ConfigFormat {
      * Loads a map from a .properties file using UTF-8. Values are read as strings and placed into
      * a LinkedHashMap to preserve iteration order.
      */
-    public Map<String, Object> load(File file) throws IOException {
+    public @NotNull Map<String, Object> load(@NotNull File file) throws IOException {
         Map<String, Object> out = new LinkedHashMap<>();
         if (!file.exists() || file.length() == 0) return out;
         Properties props = new Properties();
@@ -33,11 +36,11 @@ class PropertiesFormat implements ConfigFormat {
      * Saves key/value pairs to a .properties file in UTF-8. Includes optional header/footer and
      * per-key comments by writing lines starting with '#'. Keys and values are escaped per format rules.
      */
-    public void save(File file,
-                     Map<String, Object> data,
-                     Map<String, List<String>> comments,
-                     List<String> header,
-                     List<String> footer) throws IOException {
+    public void save(@NotNull File file,
+                     @NotNull Map<String, Object> data,
+                     @Nullable Map<String, List<String>> comments,
+                     @Nullable List<String> header,
+                     @Nullable List<String> footer) throws IOException {
         List<String> lines = new ArrayList<>();
         if (header != null && !header.isEmpty()) {
             for (String h : header) lines.add("# " + safe(h));
@@ -63,7 +66,7 @@ class PropertiesFormat implements ConfigFormat {
         }
     }
 
-    private static String escapeKey(String s) {
+    private static @NotNull String escapeKey(@Nullable String s) {
         if (s == null) return "";
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < s.length(); i++) {
@@ -81,7 +84,7 @@ class PropertiesFormat implements ConfigFormat {
         return sb.toString();
     }
 
-    private static String escapeValue(Object v) {
+    private static @NotNull String escapeValue(@Nullable Object v) {
         String s = v == null ? "" : String.valueOf(v);
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < s.length(); i++) {
@@ -99,10 +102,10 @@ class PropertiesFormat implements ConfigFormat {
         return sb.toString();
     }
 
-    private static String safe(String s) { return s == null ? "" : s.replace("\r", "").replace("\n", " "); }
+    private static @NotNull String safe(@Nullable String s) { return s == null ? "" : s.replace("\r", "").replace("\n", " "); }
 
     /**
      * {@inheritDoc}
      */
-    public String getName() { return "properties"; }
+    public @NotNull String getName() { return "properties"; }
 }

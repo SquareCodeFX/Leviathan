@@ -1195,3 +1195,150 @@ FAQ and tips
 - Setters and comment/header/footer calls persist immediately. Use save() only if you changed the underlying file contents manually and then modified the in-memory view.
 - get* methods returning boxed types (Integer, Long, etc.) yield null when the value is missing or not parseable; the getOrDefault/getOrSet variants provide primitives or non-null results.
 - Values are stored as-is for YAML/JSON/TOML; .properties stores strings. Lists in .properties are represented as bracketed or comma-separated strings and parsed back.
+
+
+
+## Built-in help system (new)
+
+FluentCommand includes a zero-config help handler that you can enable/disable and tune. When enabled, users can type `/yourcmd help [page]` to see:
+- Command title and description
+- Usage with required/optional arguments
+- Argument list (index, name, type, optional, per-arg permission)
+- Subcommands (auto-indexed and permission-filtered)
+- Example usages (your provided examples), with pagination
+
+Builder options
+- `example(String)` and `examples(Collection<String>)` — add example usage lines shown at the bottom of help.
+- `helpPageSize(int)` — number of items per page (subcommands + examples).
+- `autoHelp(boolean)` — enable/disable the built-in `help` handler (default: true).
+
+Usage
+- `/cmd help` — page 1
+- `/cmd help 2` — page 2, etc.
+
+Example — help with examples and page size
+```java
+FluentCommand.builder("home")
+  .description("Manage your homes")
+  // subcommands will be auto-indexed on the help page (if added via .sub(...))
+  .example("set <name>")
+  .example("go <name>")
+  .example("list")
+  .helpPageSize(5)
+  .autoHelp(true) // default
+  .executes((sender, ctx) -> sender.sendMessage("Try /home help"))
+  .register(this);
+// Players can run: /home help, /home help 2
+```
+
+Notes
+- Subcommands are filtered by the sender’s permissions and shown in alphabetical order.
+- Arguments list shows optionality and per-argument permissions if present.
+
+
+## Asynchronous execution: timeout, cancellation, progress (new)
+
+Besides `.async(true)` and `.executesAsync(CommandAction)`, there is an advanced async action that supports cooperative cancellation, an optional timeout, and progress reporting back to the user.
+
+API
+- `executesAsync(AsyncCommandAction action)`
+- `executesAsync(AsyncCommandAction action, long timeoutMillis)` — apply a timeout; on timeout the token is cancelled and a message is sent to the user.
+- `AsyncCommandAction#execute(CommandSender, CommandContext, CancellationToken, Progress)`
+- `CancellationToken` — check `token.isCancelled()` or call `token.cancel()` to respect a timeout or user-triggered cancellation (your code decides how to cancel).
+- `Progress#report(String message)` — thread-safe; messages are dispatched on the main thread when a plugin is available.
+
+Example — long-running task with progress and timeout
+```java
+FluentCommand.builder("scanworld")
+  .description("Scan the world for structures")
+  .playerOnly(true)
+  .executesAsync((sender, ctx, token, progress) -> {
+    progress.report("Starting scan...");
+    for (int i = 0; i < 10; i++) {
+      if (token.isCancelled()) {
+        progress.report("Scan cancelled.");
+        return;
+      }
+      // Simulate chunk of work
+      try { Thread.sleep(400); } catch (InterruptedException ignored) {}
+      progress.report("Progress: " + (i + 1) * 10 + "%");
+    }
+    progress.report("Scan complete!");
+  }, 5000) // timeout after 5 seconds -> token is cancelled and user is informed
+  .register(this);
+```
+
+Behavior
+- On timeout, the token is cancelled and a friendly error is sent (if `sendErrors(true)`).
+- Exceptions inside your async action are wrapped in `CommandExecutionException`; a generic error is sent to the user if `sendErrors(true)`.
+
+
+## Async tab completion providers: debounce and timeout (new)
+
+In addition to static and synchronous completion providers, you can compute suggestions asynchronously.
+
+API
+- `completionProviderAsync(AsyncCompletionProvider)` — for the latest argument.
+- `completionProviderAsyncForArg(int, AsyncCompletionProvider)` — target a specific argument index.
+- `completionDebounceMillis(long)` — small window to reuse results and avoid spamming async calls (default 75ms).
+- `completionTimeoutMillis(long)` — maximum time to wait for a provider before falling back to empty (default 250ms).
+
+Contract
+- Your provider returns a `CompletableFuture<List<String>>`. If it times out or completes exceptionally, suggestions fall back to empty for that invocation.
+- A short debounce cache is used per argument/prefix to reduce pressure when the user types quickly.
+
+Example — async completions from a database/cache
+```java
+FluentCommand.builder("shop")
+  .description("Browse items in the server shop")
+  .argString("item")
+  .completionDebounceMillis(100)
+  .completionTimeoutMillis(300)
+  .completionProviderAsync((sender, alias, args, prefix) ->
+    java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+      // fetch names from your storage layer off the main thread
+      java.util.List<String> names = myItemRepo.findNamesStartingWith(prefix);
+      names.sort(String::compareToIgnoreCase);
+      return names;
+    })
+  )
+  .executes((sender, ctx) -> { /* handle purchase */ })
+  .register(this);
+```
+
+Notes
+- Async providers take precedence over sync providers and static lists for the same argument.
+- For a greedy final argument, the prefix is the entire remaining substring, not just the last token.
+
+
+## Sender guards: declarative predicates (new)
+
+Guards let you describe who may use a command (and see tab-completions) with simple, reusable predicates. They are enforced both during execution and tab-completion.
+
+API
+- `require(Class<? extends CommandSender>)` — e.g., `Player.class` to restrict to players.
+- `require(Guard...)` — add one or more custom guards.
+- Helper guards on `FluentCommand`:
+  - `permission(String)` — require a Bukkit permission; produces a friendly error when missing.
+  - `inWorld(String)` — require the player to be in the named world.
+
+Example — combine sender type and custom guards
+```java
+import de.feelix.leviathan.command.FluentCommand;
+import org.bukkit.entity.Player;
+
+FluentCommand.builder("netherhome")
+  .description("Teleport home, nether only")
+  .require(Player.class) // sender must be a Player
+  .require(FluentCommand.permission("leviathan.netherhome"),
+           FluentCommand.inWorld("world_nether"))
+  .executes((sender, ctx) -> {
+    Player p = (Player) sender; // safe because of require(Player.class)
+    // ... teleport logic
+  })
+  .register(this);
+```
+
+Notes
+- When a guard fails, execution is blocked and tab-complete returns no suggestions. If `sendErrors(true)`, the guard’s error message is sent to the user.
+- You can create custom guards by implementing `FluentCommand.Guard`.

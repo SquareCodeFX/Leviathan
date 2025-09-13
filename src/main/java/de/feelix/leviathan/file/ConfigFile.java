@@ -1,6 +1,9 @@
 package de.feelix.leviathan.file;
 
+import de.feelix.leviathan.annotations.NotNull;
+import de.feelix.leviathan.annotations.Nullable;
 import de.feelix.leviathan.exceptions.ApiMisuseException;
+import de.feelix.leviathan.exceptions.ConfigException;
 
 import java.io.File;
 import java.io.IOException;
@@ -35,9 +38,22 @@ public final class ConfigFile {
         this.cache = cache;
     }
 
-    private File file() { return path.toFile(); }
+    /**
+     * Resolve the underlying java.io.File from the stored Path.
+     *
+     * @return non-null File pointing to the config file location
+     */
+    private @NotNull File file() { return path.toFile(); }
 
-    private FileAPI.CachedConfig ensureLoaded() {
+    /**
+     * Ensure that a cache entry exists and the in-memory data is loaded from disk
+     * when necessary. If the on-disk timestamp has changed, reloads the file
+     * using the bound {@link ConfigFormat} implementation.
+     *
+     * @return non-null cache entry for this file
+     * @throws ConfigException if loading/parsing fails
+     */
+    private @NotNull FileAPI.CachedConfig ensureLoaded() {
         FileAPI.CachedConfig c = cache.get(path);
         if (c == null) throw new ApiMisuseException("Cache entry missing for " + path);
         File f = file();
@@ -52,7 +68,7 @@ public final class ConfigFile {
                 try {
                     loaded = format.load(f);
                 } catch (IOException e) {
-                    throw new RuntimeException("Failed to load config (" + format.getName() + ") from " + f.getAbsolutePath(), e);
+                    throw new ConfigException("Failed to load config (" + format.getName() + ") from " + f.getAbsolutePath(), e);
                 }
             }
             c.data = loaded;
@@ -65,7 +81,14 @@ public final class ConfigFile {
         return c;
     }
 
-    private void save(FileAPI.CachedConfig c) {
+    /**
+     * Persist the provided cache entry to disk using the bound format.
+     * Creates parent directories as needed.
+     *
+     * @param c non-null cache entry
+     * @throws ConfigException if saving fails
+     */
+    private void save(@NotNull FileAPI.CachedConfig c) {
         try {
             Files.createDirectories(path.getParent());
             format.save(file(), c.data != null ? c.data : Collections.emptyMap(),
@@ -75,7 +98,7 @@ public final class ConfigFile {
             c.lastModified = file().lastModified();
             c.dirty = false;
         } catch (IOException e) {
-            throw new RuntimeException("Failed to save config (" + format.getName() + ") to " + file().getAbsolutePath(), e);
+            throw new ConfigException("Failed to save config (" + format.getName() + ") to " + file().getAbsolutePath(), e);
         }
     }
 
@@ -430,44 +453,71 @@ public final class ConfigFile {
     public void save() { save(ensureLoaded()); }
 
     // Internal helpers
-    private Object getRaw(String key) { return ensureLoaded().data.get(key); }
+    /**
+     * Internal: get the raw stored value for a key without conversion.
+     *
+     * @param key non-null top-level key
+     * @return the raw value or null if missing
+     */
+    private @Nullable Object getRaw(@NotNull String key) { return ensureLoaded().data.get(key); }
 
-    private <T> T getOrSet(String key, T alt, java.util.function.BiConsumer<String, T> setter, java.util.function.Function<String, T> getter) {
+    /**
+     * Internal: common pattern to return an existing value or set-and-return an alternative.
+     *
+     * @param key     non-null key
+     * @param alt     alternative value to set when missing
+     * @param setter  setter method reference
+     * @param getter  getter method reference
+     * @return the existing value if present, otherwise {@code alt}
+     */
+    private <T> @NotNull T getOrSet(@NotNull String key, @NotNull T alt, @NotNull java.util.function.BiConsumer<String, T> setter, @NotNull java.util.function.Function<String, T> getter) {
         T existing = getter.apply(key);
         if (existing != null) return existing;
         setter.accept(key, alt);
         return alt;
     }
 
-    private void set(String key, Object value) {
+    /**
+     * Internal: put a value into the in-memory map and persist immediately.
+     *
+     * @param key   non-null key
+     * @param value value to store (may be null)
+     */
+    private void set(@NotNull String key, @Nullable Object value) {
         FileAPI.CachedConfig c = ensureLoaded();
         c.data.put(key, value);
         save(c);
     }
 
     // Type conversions
-    private static String asString(Object v) { return v == null ? null : String.valueOf(v); }
-    private static Integer asInt(Object v) {
+    /** Convert an arbitrary object to a String, or null if the object is null. */
+    private static @Nullable String asString(@Nullable Object v) { return v == null ? null : String.valueOf(v); }
+    /** Convert an arbitrary object to an Integer, or null when not convertible. */
+    private static @Nullable Integer asInt(@Nullable Object v) {
         if (v == null) return null;
         if (v instanceof Number n) return n.intValue();
         try { return Integer.parseInt(v.toString().trim()); } catch (Exception ignored) { return null; }
     }
-    private static Long asLong(Object v) {
+    /** Convert an arbitrary object to a Long, or null when not convertible. */
+    private static @Nullable Long asLong(@Nullable Object v) {
         if (v == null) return null;
         if (v instanceof Number n) return n.longValue();
         try { return Long.parseLong(v.toString().trim()); } catch (Exception ignored) { return null; }
     }
-    private static Float asFloat(Object v) {
+    /** Convert an arbitrary object to a Float, or null when not convertible. */
+    private static @Nullable Float asFloat(@Nullable Object v) {
         if (v == null) return null;
         if (v instanceof Number n) return n.floatValue();
         try { return Float.parseFloat(v.toString().trim()); } catch (Exception ignored) { return null; }
     }
-    private static Double asDouble(Object v) {
+    /** Convert an arbitrary object to a Double, or null when not convertible. */
+    private static @Nullable Double asDouble(@Nullable Object v) {
         if (v == null) return null;
         if (v instanceof Number n) return n.doubleValue();
         try { return Double.parseDouble(v.toString().trim()); } catch (Exception ignored) { return null; }
     }
-    private static Boolean asBoolean(Object v) {
+    /** Convert an arbitrary object to a Boolean, or null when not convertible. */
+    private static @Nullable Boolean asBoolean(@Nullable Object v) {
         if (v == null) return null;
         if (v instanceof Boolean b) return b;
         String s = v.toString().trim().toLowerCase(Locale.ROOT);
@@ -475,14 +525,15 @@ public final class ConfigFile {
         if ("false".equals(s) || "no".equals(s) || "off".equals(s)) return false;
         return null;
     }
-    private static Byte asByte(Object v) {
+    /** Convert an arbitrary object to a Byte, or null when not convertible. */
+    private static @Nullable Byte asByte(@Nullable Object v) {
         if (v == null) return null;
         if (v instanceof Number n) return n.byteValue();
         try { return Byte.parseByte(v.toString().trim()); } catch (Exception ignored) { return null; }
     }
 
     @SuppressWarnings("unchecked")
-    private static List<Object> asList(Object v) {
+    private static @Nullable List<Object> asList(@Nullable Object v) {
         if (v == null) return null;
         if (v instanceof List) return (List<Object>) v;
         if (v instanceof String s) {

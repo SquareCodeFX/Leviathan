@@ -1,5 +1,8 @@
 package de.feelix.leviathan.file;
 
+import de.feelix.leviathan.annotations.NotNull;
+import de.feelix.leviathan.annotations.Nullable;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
@@ -14,33 +17,33 @@ interface ConfigFormat {
      * Loads a flat, top-level key/value map from the provided file path.
      * Implementations should preserve insertion order if possible.
      *
-     * @param file the file to read from
-     * @return a mutable Map of top-level keys to values; never null
+     * @param file the file to read from (must not be null)
+     * @return a non-null, mutable Map of top-level keys to values
      * @throws IOException if reading or parsing fails
      */
-    Map<String, Object> load(File file) throws IOException;
+    @NotNull Map<String, Object> load(@NotNull File file) throws IOException;
 
     /**
      * Saves the provided flat map to the target file, optionally including comments.
      * Implementations should overwrite the file contents entirely.
      *
-     * @param file     the file to write to
-     * @param data     top-level key/value pairs to persist (map may be empty but not null)
+     * @param file     the file to write to (must not be null)
+     * @param data     non-null top-level key/value pairs to persist (map may be empty)
      * @param comments optional per-key comment lines (ignored by formats without comment support)
      * @param header   optional header comment lines to place before data
      * @param footer   optional footer comment lines to place after data
      * @throws IOException if writing fails
      */
-    void save(File file,
-              Map<String, Object> data,
-              Map<String, List<String>> comments,
-              List<String> header,
-              List<String> footer) throws IOException;
+    void save(@NotNull File file,
+              @NotNull Map<String, Object> data,
+              @Nullable Map<String, List<String>> comments,
+              @Nullable List<String> header,
+              @Nullable List<String> footer) throws IOException;
 
     /**
      * Gets a short, lowercase name of the format (e.g., "yaml", "json").
      *
-     * @return the format name for diagnostics and logging
+     * @return the non-null format name for diagnostics and logging
      */
-    String getName();
+    @NotNull String getName();
 }

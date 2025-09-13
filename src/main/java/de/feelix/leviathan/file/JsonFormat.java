@@ -1,6 +1,8 @@
 package de.feelix.leviathan.file;
 
 import com.google.gson.*;
+import de.feelix.leviathan.annotations.NotNull;
+import de.feelix.leviathan.annotations.Nullable;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -19,7 +21,7 @@ class JsonFormat implements ConfigFormat {
      * Loads a top-level map from a JSON file using Gson. When the file is empty or the root is not
      * a JSON object, returns an empty LinkedHashMap.
      */
-    public Map<String, Object> load(File file) throws IOException {
+    public @NotNull Map<String, Object> load(@NotNull File file) throws IOException {
         if (!file.exists() || file.length() == 0) return new LinkedHashMap<>();
         try (Reader r = new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8)) {
             JsonElement el = JsonParser.parseReader(r);
@@ -38,11 +40,11 @@ class JsonFormat implements ConfigFormat {
      * Saves the provided map as a pretty-printed JSON object using UTF-8. Comments, header and
      * footer are ignored because JSON has no native comment support.
      */
-    public void save(File file,
-                     Map<String, Object> data,
-                     Map<String, List<String>> comments,
-                     List<String> header,
-                     List<String> footer) throws IOException {
+    public void save(@NotNull File file,
+                     @NotNull Map<String, Object> data,
+                     @Nullable Map<String, List<String>> comments,
+                     @Nullable List<String> header,
+                     @Nullable List<String> footer) throws IOException {
         // JSON doesn't support comments; we ignore header/footer/per-key comments.
         JsonObject obj = toJsonObject(data);
         try (Writer w = new OutputStreamWriter(new FileOutputStream(file, false), StandardCharsets.UTF_8)) {
@@ -50,7 +52,7 @@ class JsonFormat implements ConfigFormat {
         }
     }
 
-    private static Map<String, Object> toJavaMap(JsonObject o) {
+    private static @NotNull Map<String, Object> toJavaMap(@NotNull JsonObject o) {
         Map<String, Object> map = new LinkedHashMap<>();
         for (Map.Entry<String, JsonElement> e : o.entrySet()) {
             map.put(e.getKey(), toJava(e.getValue()));
@@ -58,7 +60,7 @@ class JsonFormat implements ConfigFormat {
         return map;
     }
 
-    private static Object toJava(JsonElement e) {
+    private static @Nullable Object toJava(@Nullable JsonElement e) {
         if (e == null || e.isJsonNull()) return null;
         if (e.isJsonPrimitive()) {
             JsonPrimitive p = e.getAsJsonPrimitive();
@@ -77,7 +79,7 @@ class JsonFormat implements ConfigFormat {
         return null;
     }
 
-    private static JsonObject toJsonObject(Map<String, Object> data) {
+    private static @NotNull JsonObject toJsonObject(@NotNull Map<String, Object> data) {
         JsonObject obj = new JsonObject();
         for (Map.Entry<String, Object> e : data.entrySet()) {
             obj.add(e.getKey(), toJson(e.getValue()));
@@ -86,7 +88,7 @@ class JsonFormat implements ConfigFormat {
     }
 
     @SuppressWarnings("unchecked")
-    private static JsonElement toJson(Object v) {
+    private static @NotNull JsonElement toJson(@Nullable Object v) {
         if (v == null) return JsonNull.INSTANCE;
         if (v instanceof Boolean b) return new JsonPrimitive(b);
         if (v instanceof Number n) return new JsonPrimitive(n);
@@ -109,5 +111,5 @@ class JsonFormat implements ConfigFormat {
     /**
      * {@inheritDoc}
      */
-    public String getName() { return "json"; }
+    public @NotNull String getName() { return "json"; }
 }

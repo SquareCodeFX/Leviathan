@@ -1,6 +1,7 @@
 package de.feelix.leviathan.file;
 
-import org.yaml.snakeyaml.DumperOptions;
+import de.feelix.leviathan.annotations.NotNull;
+import de.feelix.leviathan.annotations.Nullable;
 import org.yaml.snakeyaml.Yaml;
 
 import java.io.*;
@@ -20,7 +21,7 @@ class YamlFormat implements ConfigFormat {
      * an empty LinkedHashMap is returned. Only top-level keys are kept.
      */
     @SuppressWarnings("unchecked")
-    public Map<String, Object> load(File file) throws IOException {
+    public @NotNull Map<String, Object> load(@NotNull File file) throws IOException {
         if (!file.exists() || file.length() == 0) return new LinkedHashMap<>();
         try (InputStream in = new FileInputStream(file)) {
             Yaml yaml = new Yaml();
@@ -42,11 +43,11 @@ class YamlFormat implements ConfigFormat {
      * comment lines that start with '#'. List values are written as sequence items. The file is
      * overwritten using UTF-8 encoding.
      */
-    public void save(File file,
-                     Map<String, Object> data,
-                     Map<String, List<String>> comments,
-                     List<String> header,
-                     List<String> footer) throws IOException {
+    public void save(@NotNull File file,
+                     @NotNull Map<String, Object> data,
+                     @Nullable Map<String, List<String>> comments,
+                     @Nullable List<String> header,
+                     @Nullable List<String> footer) throws IOException {
         // Build YAML with comments manually (flat keys only)
         List<String> lines = new ArrayList<>();
         if (header != null && !header.isEmpty()) {
@@ -73,7 +74,7 @@ class YamlFormat implements ConfigFormat {
         }
     }
 
-    private static void writeYamlEntry(List<String> lines, String key, Object value) {
+    private static void writeYamlEntry(@NotNull List<String> lines, @NotNull String key, @Nullable Object value) {
         if (value instanceof List<?> list) {
             lines.add(key + ":");
             for (Object o : list) {
@@ -84,7 +85,7 @@ class YamlFormat implements ConfigFormat {
         lines.add(key + ": " + yamlScalar(value));
     }
 
-    private static String yamlScalar(Object v) {
+    private static @NotNull String yamlScalar(@Nullable Object v) {
         if (v == null) return "null";
         if (v instanceof Number || v instanceof Boolean) return String.valueOf(v);
         String s = String.valueOf(v);
@@ -95,10 +96,10 @@ class YamlFormat implements ConfigFormat {
         return s;
     }
 
-    private static String safe(String s) { return s == null ? "" : s.replace("\r", "").replace("\n", " "); }
+    private static @NotNull String safe(@Nullable String s) { return s == null ? "" : s.replace("\r", "").replace("\n", " "); }
 
     /**
      * {@inheritDoc}
      */
-    public String getName() { return "yaml"; }
+    public @NotNull String getName() { return "yaml"; }
 }

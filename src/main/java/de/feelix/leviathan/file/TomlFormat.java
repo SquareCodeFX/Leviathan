@@ -1,6 +1,8 @@
 package de.feelix.leviathan.file;
 
 import com.moandjiezana.toml.Toml;
+import de.feelix.leviathan.annotations.NotNull;
+import de.feelix.leviathan.annotations.Nullable;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -18,7 +20,7 @@ class TomlFormat implements ConfigFormat {
      * result map. Returns an empty LinkedHashMap for empty files.
      */
     @SuppressWarnings("unchecked")
-    public Map<String, Object> load(File file) throws IOException {
+    public @NotNull Map<String, Object> load(@NotNull File file) throws IOException {
         if (!file.exists() || file.length() == 0) return new LinkedHashMap<>();
         Toml toml = new Toml().read(file);
         Map<String, Object> raw = toml.toMap();
@@ -34,11 +36,11 @@ class TomlFormat implements ConfigFormat {
      * Saves a flat map to TOML. Includes optional header/footer and per-key comments by emitting
      * comment lines beginning with '#'. Strings are quoted; lists are written as TOML arrays.
      */
-    public void save(File file,
-                     Map<String, Object> data,
-                     Map<String, List<String>> comments,
-                     List<String> header,
-                     List<String> footer) throws IOException {
+    public void save(@NotNull File file,
+                     @NotNull Map<String, Object> data,
+                     @Nullable Map<String, List<String>> comments,
+                     @Nullable List<String> header,
+                     @Nullable List<String> footer) throws IOException {
         List<String> lines = new ArrayList<>();
         if (header != null && !header.isEmpty()) {
             for (String h : header) lines.add("# " + safe(h));
@@ -64,7 +66,7 @@ class TomlFormat implements ConfigFormat {
         }
     }
 
-    private static String tomlScalar(Object v) {
+    private static @NotNull String tomlScalar(@Nullable Object v) {
         if (v == null) return ""; // empty value
         if (v instanceof Boolean || v instanceof Number) return String.valueOf(v);
         if (v instanceof List<?> list) {
@@ -81,10 +83,10 @@ class TomlFormat implements ConfigFormat {
         return '"' + s.replace("\\", "\\\\").replace("\"", "\\\"") + '"';
     }
 
-    private static String safe(String s) { return s == null ? "" : s.replace("\r", "").replace("\n", " "); }
+    private static @NotNull String safe(@Nullable String s) { return s == null ? "" : s.replace("\r", "").replace("\n", " "); }
 
     /**
      * {@inheritDoc}
      */
-    public String getName() { return "toml"; }
+    public @NotNull String getName() { return "toml"; }
 }
