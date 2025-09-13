@@ -23,17 +23,3 @@ It delivers modern features, high performance, and is designed to be easily exte
 
 ## 📚 Documentation
 👉 Full guides, setup instructions, and examples can be found in the [Wiki](https://ocean-10.gitbook.io/leviathan).  
-
----
-
-## 🔨 Build & Usage
-```bash
-# Clone the repository
-git clone https://github.com/SquareCodeFX/Leviathan.git
-
-# Go into the project directory
-cd Leviathan
-```
-
-# Build with Maven
-mvn clean install
