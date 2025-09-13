@@ -332,7 +332,7 @@ public class ItemStackBuilder {
      * @return this builder
      */
     public @NotNull ItemStackBuilder glow() {
-        this.enchantment(Enchantment.DURABILITY);
+        this.enchantment(Enchantment.UNBREAKING);
         this.flag(ItemFlag.HIDE_ENCHANTS);
         return this;
     }
@@ -343,7 +343,7 @@ public class ItemStackBuilder {
      * @return this builder
      */
     public @NotNull ItemStackBuilder unglow() {
-        this.removeEnchantment(Enchantment.DURABILITY);
+        this.removeEnchantment(Enchantment.UNBREAKING);
         return this;
     }
 
