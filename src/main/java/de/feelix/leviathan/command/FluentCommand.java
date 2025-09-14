@@ -1,5 +1,7 @@
 package de.feelix.leviathan.command;
 
+import de.feelix.leviathan.annotations.NotNull;
+import de.feelix.leviathan.annotations.Nullable;
 import de.feelix.leviathan.exceptions.ApiMisuseException;
 import de.feelix.leviathan.exceptions.CommandConfigurationException;
 import de.feelix.leviathan.exceptions.ParsingException;
@@ -7,8 +9,6 @@ import de.feelix.leviathan.parser.ArgParsers;
 import de.feelix.leviathan.parser.ArgumentParser;
 import de.feelix.leviathan.parser.ParseResult;
 import de.feelix.leviathan.util.Preconditions;
-import de.feelix.leviathan.annotations.NotNull;
-import de.feelix.leviathan.annotations.Nullable;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -36,25 +36,6 @@ import java.util.stream.Collectors;
  */
 public final class FluentCommand implements CommandExecutor, TabCompleter {
 
-    /**
-     * Functional interface for providing dynamic tab completions per-argument.
-     * Implementations may inspect the sender, command alias, full provided args,
-     * and current token prefix to compute suggestions.
-     */
-    @FunctionalInterface
-    public interface CompletionProvider {
-        /**
-         * Compute completion suggestions for the current argument token.
-         *
-         * @param sender       the command sender requesting completions
-         * @param alias        the label or alias used
-         * @param providedArgs the full array of tokens typed so far
-         * @param prefix       the current token prefix to complete
-         * @return non-null list of suggestion strings (may be empty)
-         */
-        @NotNull List<String> complete(@NotNull CommandSender sender, @NotNull String alias,
-                                       @NotNull String[] providedArgs, @NotNull String prefix);
-    }
 
     /**
      * Functional interface representing the action to execute when a command invocation
@@ -100,28 +81,6 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
         void report(@NotNull String message);
     }
 
-    /**
-     * Asynchronous completion provider. The returned future should complete quickly; a timeout and
-     * debounce are applied by FluentCommand.
-     */
-    @FunctionalInterface
-    public interface AsyncCompletionProvider {
-        /**
-         * Compute completion suggestions asynchronously.
-         * The returned future should complete quickly. A debounce window and timeout
-         * are applied by {@link FluentCommand}.
-         *
-         * @param sender       the command sender requesting completions
-         * @param alias        the label or alias used
-         * @param providedArgs the full array of tokens typed so far
-         * @param prefix       the current token prefix to complete (may be empty)
-         * @return a non-null future that completes with a list of suggestions (may be empty)
-         */
-        @NotNull CompletableFuture<List<String>> completeAsync(@NotNull CommandSender sender,
-                                                               @NotNull String alias,
-                                                               @NotNull String[] providedArgs,
-                                                               @NotNull String prefix);
-    }
 
     /**
      * Declarative guard that must pass before command execution/tab completion.
@@ -154,9 +113,8 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
         Preconditions.checkNotNull(worldName, "worldName");
         return new Guard() {
             @Override public boolean test(@NotNull CommandSender sender) {
-                if (!(sender instanceof Player)) return false;
-                Player p = (Player) sender;
-                return p.getWorld() != null && p.getWorld().getName().equalsIgnoreCase(worldName);
+                if (!(sender instanceof Player p)) return false;
+                return p.getWorld().getName().equalsIgnoreCase(worldName);
             }
             @Override public @NotNull String errorMessage() { return "§cYou must be in world '" + worldName + "'."; }
         };
@@ -190,19 +148,8 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
         // Async advanced
         private AsyncCommandAction asyncAction = null;
         private Long asyncTimeoutMillis = null;
-        // Help & examples
-        private final List<String> examples = new ArrayList<>();
-        private int helpPageSize = 8;
-        private boolean autoHelp = true;
         // Guards
         private final List<Guard> guards = new ArrayList<>();
-        // Per-argument static completions and dynamic providers (by argument index)
-        private final Map<Integer, List<String>> completionsByIndex = new HashMap<>();
-        private final Map<Integer, CompletionProvider> providersByIndex = new HashMap<>();
-        private final Map<Integer, AsyncCompletionProvider> asyncProvidersByIndex = new HashMap<>();
-        // Async completion tuning
-        private long completionDebounceMillis = 75L;
-        private long completionTimeoutMillis = 250L;
 
         private Builder(String name) {
             this.name = Preconditions.checkNotNull(name, "name");
@@ -260,12 +207,33 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
         }
 
         /**
+         * Add a required int argument with explicit {@link ArgContext}.
+         * @param name argument name (no whitespace)
+         * @param argContext per-argument configuration
+         * @return this builder
+         */
+        public @NotNull Builder argInt(@NotNull String name, @NotNull ArgContext argContext) {
+            return arg(new Arg<>(name, ArgParsers.intParser(), Preconditions.checkNotNull(argContext, "argContext")));
+        }
+
+        /**
          * Add a required long argument.
          * @param name argument name (no whitespace)
          * @return this builder
          */
         public @NotNull Builder argLong(@NotNull String name) {
             return arg(new Arg<>(name, false, ArgParsers.longParser()));
+        }
+
+        /**
+         * Add a required long argument with explicit {@link ArgContext}.
+         *
+         * @param name       argument name (no whitespace)
+         * @param argContext per-argument configuration
+         * @return this builder
+         */
+        public @NotNull Builder argLong(@NotNull String name, @NotNull ArgContext argContext) {
+            return arg(new Arg<>(name, ArgParsers.longParser(), Preconditions.checkNotNull(argContext, "argContext")));
         }
 
         /**
@@ -277,6 +245,21 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
             return arg(new Arg<>(name, false, ArgParsers.stringParser()));
         }
 
+        /**
+         * Add a string argument with explicit {@link ArgContext}.
+         *
+         * @param name       argument name (no whitespace)
+         * @param argContext per-argument configuration
+         * @return this builder
+         */
+        public @NotNull Builder argString(@NotNull String name, @NotNull ArgContext argContext) {
+            return arg(new Arg<>(
+                name, ArgParsers.stringParser(), Preconditions.checkNotNull(
+                argContext,
+                "argContext"
+            )
+            ));
+        }
 
         /**
          * Add a required UUID argument.
@@ -288,14 +271,16 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
         }
 
         /**
-         * Add a greedy trailing string argument. If this argument is last, it captures the
-         * remainder of the command line (including spaces). May be marked optional via {@link #optional()}.
-         * @param name argument name (no whitespace)
+         * Add a UUID argument with explicit {@link ArgContext}.
+         *
+         * @param name       argument name (no whitespace)
+         * @param argContext per-argument configuration
          * @return this builder
          */
-        public @NotNull Builder argGreedyString(@NotNull String name) {
-            return arg(new Arg<>(name, false, ArgParsers.stringParser(), null, true));
+        public @NotNull Builder argUUID(@NotNull String name, @NotNull ArgContext argContext) {
+            return arg(new Arg<>(name, ArgParsers.uuidParser(), Preconditions.checkNotNull(argContext, "argContext")));
         }
+
 
         /**
          * Enable or disable validation of previously entered arguments during tab completion.
@@ -321,6 +306,23 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
         }
 
         /**
+         * Add a choice argument with explicit {@link ArgContext}.
+         *
+         * @param name        argument name
+         * @param choices     mapping from alias (case-insensitive) to value
+         * @param displayType type name shown in error messages (e.g., "gamemode")
+         * @param argContext  per-argument configuration
+         * @return this builder
+         */
+        public <T> @NotNull Builder argChoices(@NotNull String name, @NotNull Map<String, T> choices,
+                                               @NotNull String displayType, @NotNull ArgContext argContext) {
+            return arg(new Arg<>(
+                name, ArgParsers.choices(choices, displayType),
+                Preconditions.checkNotNull(argContext, "argContext")
+            ));
+        }
+
+        /**
          * Convenience for sub-commands: treat a token as a choice mapping to another {@link FluentCommand}.
          * @param name argument name
          * @param choices mapping from alias (case-insensitive) to a sub-command instance
@@ -328,6 +330,24 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
          */
         public @NotNull Builder argCommandChoices(@NotNull String name, @NotNull Map<String, FluentCommand> choices) {
             return arg(new Arg<>(name, false, ArgParsers.choices(choices, "command")));
+        }
+
+        /**
+         * Convenience for sub-commands with explicit {@link ArgContext}.
+         *
+         * @param name       argument name
+         * @param choices    mapping from alias (case-insensitive) to a sub-command instance
+         * @param argContext per-argument configuration
+         * @return this builder
+         */
+        public @NotNull Builder argCommandChoices(@NotNull String name, @NotNull Map<String, FluentCommand> choices,
+                                                  @NotNull ArgContext argContext) {
+            return arg(new Arg<>(
+                name, ArgParsers.choices(choices, "command"), Preconditions.checkNotNull(
+                argContext,
+                "argContext"
+            )
+            ));
         }
 
         /**
@@ -344,34 +364,27 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
         }
 
         /**
-         * Mark the most recently added argument as optional. Optional arguments must
-         * come after all required arguments.
+         * Add an argument that accepts a value parsed by one of the provided parsers, with explicit {@link ArgContext}.
+         * Error messages will use the supplied {@code displayType} label.
+         * @param name argument name
+         * @param displayType label for error messages (e.g., "uuid")
+         * @param argContext per-argument configuration
+         * @param parsers candidate parsers (at least one)
          * @return this builder
-         * @throws CommandConfigurationException if there is no argument to mark or ordering is invalid
          */
-        public @NotNull Builder optional() {
-            if (args.isEmpty()) throw new CommandConfigurationException("No argument to mark optional");
-            Arg<?> last = args.remove(args.size() - 1);
-            args.add(last.optional(true));
-            return this;
+        @SafeVarargs
+        public final <T> @NotNull Builder argOneOf(@NotNull String name, @NotNull String displayType,
+                                                   @NotNull ArgContext argContext,
+                                                   @NotNull ArgumentParser<? extends T>... parsers) {
+            return arg(new Arg<>(
+                name, ArgParsers.oneOf(displayType, parsers), Preconditions.checkNotNull(
+                argContext,
+                "argContext"
+            )
+            ));
         }
 
-        /**
-         * Assign a permission to the most recently added argument. During execution and
-         * tab completion, the argument will be hidden/denied if the sender lacks this permission.
-         * @param permission permission node (must not be blank)
-         * @return this builder
-         */
-        public @NotNull Builder argPermission(@NotNull String permission) {
-            if (args.isEmpty()) throw new CommandConfigurationException("No argument to set permission for");
-            Preconditions.checkNotNull(permission, "permission");
-            if (permission.trim().isEmpty()) {
-                throw new CommandConfigurationException("Argument permission must not be blank");
-            }
-            Arg<?> last = args.remove(args.size() - 1);
-            args.add(last.withPermission(permission));
-            return this;
-        }
+
 
         /**
          * Add a fully constructed {@link Arg} (advanced use).
@@ -383,91 +396,12 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
             return this;
         }
 
-        /**
-         * Register static tab completions for the most recently added argument.
-         * Replaces any previously configured static completions for that argument index.
-         */
-        public @NotNull Builder completions(@NotNull String... suggestions) {
-            Preconditions.checkNotNull(suggestions, "suggestions");
-            return completions(Arrays.asList(suggestions));
-        }
 
-        /**
-         * Register static tab completions for the most recently added argument.
-         * Replaces any previously configured static completions for that argument index.
-         */
-        public @NotNull Builder completions(@NotNull Collection<String> suggestions) {
-            if (args.isEmpty()) throw new CommandConfigurationException("No argument to set completions for");
-            Preconditions.checkNotNull(suggestions, "suggestions");
-            int idx = args.size() - 1;
-            completionsByIndex.put(idx, new ArrayList<>(suggestions));
-            return this;
-        }
 
-        /**
-         * Set a dynamic completion provider for the most recently added argument.
-         * Overrides any static completions when present.
-         */
-        public @NotNull Builder completionProvider(@NotNull CompletionProvider provider) {
-            if (args.isEmpty()) throw new CommandConfigurationException("No argument to set completion provider for");
-            providersByIndex.put(args.size() - 1, Preconditions.checkNotNull(provider, "provider"));
-            return this;
-        }
 
-        /**
-         * Register static tab completions for a specific argument index (0-based).
-         */
-        public @NotNull Builder completionsForArg(int index, @NotNull Collection<String> suggestions) {
-            if (index < 0) throw new CommandConfigurationException("Argument index must be >= 0");
-            Preconditions.checkNotNull(suggestions, "suggestions");
-            completionsByIndex.put(index, new ArrayList<>(suggestions));
-            return this;
-        }
 
-        /**
-         * Set a dynamic completion provider for a specific argument index (0-based).
-         */
-        public @NotNull Builder completionProviderForArg(int index, @NotNull CompletionProvider provider) {
-            if (index < 0) throw new CommandConfigurationException("Argument index must be >= 0");
-            providersByIndex.put(index, Preconditions.checkNotNull(provider, "provider"));
-            return this;
-        }
 
-        /**
-         * Set an asynchronous completion provider for the most recently added argument.
-         */
-        public @NotNull Builder completionProviderAsync(@NotNull AsyncCompletionProvider provider) {
-            if (args.isEmpty()) throw new CommandConfigurationException("No argument to set completion provider for");
-            asyncProvidersByIndex.put(args.size() - 1, Preconditions.checkNotNull(provider, "provider"));
-            return this;
-        }
 
-        /**
-         * Set an asynchronous completion provider for a specific argument index (0-based).
-         */
-        public @NotNull Builder completionProviderAsyncForArg(int index, @NotNull AsyncCompletionProvider provider) {
-            if (index < 0) throw new CommandConfigurationException("Argument index must be >= 0");
-            asyncProvidersByIndex.put(index, Preconditions.checkNotNull(provider, "provider"));
-            return this;
-        }
-
-        /**
-         * Configure debounce window in milliseconds for asynchronous completion providers.
-         */
-        public @NotNull Builder completionDebounceMillis(long millis) {
-            if (millis < 0) throw new CommandConfigurationException("Debounce millis must be >= 0");
-            this.completionDebounceMillis = millis;
-            return this;
-        }
-
-        /**
-         * Configure timeout in milliseconds for asynchronous completion providers.
-         */
-        public @NotNull Builder completionTimeoutMillis(long millis) {
-            if (millis < 1) throw new CommandConfigurationException("Timeout millis must be >= 1");
-            this.completionTimeoutMillis = millis;
-            return this;
-        }
 
         /**
          * Define the action that should run when the command is executed.
@@ -529,41 +463,6 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
                 sc.markAsSubcommand();
                 subcommands.put(key, sc);
             }
-            return this;
-        }
-
-        /**
-         * Add an example usage line shown on help pages.
-         */
-        public @NotNull Builder example(@NotNull String example) {
-            Preconditions.checkNotNull(example, "example");
-            this.examples.add(example);
-            return this;
-        }
-
-        /**
-         * Add multiple example usage lines shown on help pages.
-         */
-        public @NotNull Builder examples(@NotNull Collection<String> examples) {
-            Preconditions.checkNotNull(examples, "examples");
-            this.examples.addAll(examples);
-            return this;
-        }
-
-        /**
-         * Configure help page size (number of items per page for subcommands/examples).
-         */
-        public @NotNull Builder helpPageSize(int size) {
-            if (size < 1) throw new CommandConfigurationException("helpPageSize must be >= 1");
-            this.helpPageSize = size;
-            return this;
-        }
-
-        /**
-         * Enable/disable the automatic built-in help handler ("help" subcommand).
-         */
-        public @NotNull Builder autoHelp(boolean enable) {
-            this.autoHelp = enable;
             return this;
         }
 
@@ -699,11 +598,9 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
             }
             return new FluentCommand(
                 name, description, permission, playerOnly, sendErrors, args, action, async, validateOnTab, subs,
-                completionsByIndex, providersByIndex,
-                asyncProvidersByIndex,
-                completionDebounceMillis, completionTimeoutMillis,
                 asyncAction, (asyncTimeoutMillis == null ? 0L : asyncTimeoutMillis),
-                examples, helpPageSize, autoHelp, guards);
+                guards
+            );
         }
 
         /**
@@ -736,32 +633,14 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
     private final List<Arg<?>> args;
     private final Map<String, FluentCommand> subcommands; // lower-case alias -> subcommand
     private final CommandAction action; // sync action (optional when asyncActionAdv is used)
-    // Mutable per-argument completions. Providers take precedence over static lists.
-    private final Map<Integer, CompletionProvider> completionProviders;
-    private final Map<Integer, List<String>> staticCompletions;
-    // Async completion providers and tuning
-    private final Map<Integer, AsyncCompletionProvider> asyncCompletionProviders;
-    private final long completionDebounceMillis;
-    private final long completionTimeoutMillis;
-    private final Map<Integer, DebounceCache> completionCache = new java.util.concurrent.ConcurrentHashMap<>();
     // Advanced async action
     private final AsyncCommandAction asyncActionAdv; // nullable
     private final long asyncTimeoutMillis; // 0 = no timeout
-    // Help system & guards
-    private final java.util.List<String> examples;
-    private final int helpPageSize;
-    private final boolean autoHelp;
     private final java.util.List<Guard> guards;
 
     private JavaPlugin plugin; // set during register()
     private boolean subOnly = false; // marked when attached as a subcommand of another command
 
-    private static final class DebounceCache {
-        String prefix;
-        java.util.List<String> result;
-        long timestamp;
-        java.util.concurrent.CompletableFuture<java.util.List<String>> inFlight;
-    }
 
     /**
      * Marks this command instance as a subcommand. Intended for internal use by the Builder
@@ -816,100 +695,12 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
         return permission;
     }
 
-    // ===== Runtime tab-completion API (mutable after build) =====
-
-    /**
-     * Replace the static completion suggestions for a specific argument position (0-based).
-     * Any previously registered static suggestions for this index are replaced; dynamic providers
-     * (if present) still take precedence when offering completions at runtime.
-     *
-     * @param argIndex    the argument index (0-based)
-     * @param suggestions non-null collection of suggestion strings
-     */
-    public synchronized void setCompletions(int argIndex, @NotNull Collection<String> suggestions) {
-        Preconditions.checkNotNull(suggestions, "suggestions");
-        List<String> list = new java.util.concurrent.CopyOnWriteArrayList<>(suggestions);
-        staticCompletions.put(argIndex, list);
-    }
-
-    /**
-     * Add a single static completion suggestion for the specified argument index.
-     *
-     * @param argIndex   the argument index (0-based)
-     * @param suggestion non-null suggestion string to add
-     */
-    public synchronized void addCompletion(int argIndex, @NotNull String suggestion) {
-        Preconditions.checkNotNull(suggestion, "suggestion");
-        List<String> list = staticCompletions.computeIfAbsent(argIndex, k -> new java.util.concurrent.CopyOnWriteArrayList<>());
-        list.add(suggestion);
-    }
-
-    /**
-     * Add multiple static completion suggestions for the specified argument index.
-     *
-     * @param argIndex    the argument index (0-based)
-     * @param suggestions non-null collection of suggestion strings to add
-     */
-    public synchronized void addCompletions(int argIndex, @NotNull Collection<String> suggestions) {
-        Preconditions.checkNotNull(suggestions, "suggestions");
-        List<String> list = staticCompletions.computeIfAbsent(argIndex, k -> new java.util.concurrent.CopyOnWriteArrayList<>());
-        list.addAll(suggestions);
-    }
-
-    /**
-     * Remove a specific static completion for the specified argument index.
-     *
-     * @param argIndex   the argument index (0-based)
-     * @param suggestion non-null suggestion string to remove
-     * @return true if the suggestion was present and removed
-     */
-    public synchronized boolean removeCompletion(int argIndex, @NotNull String suggestion) {
-        Preconditions.checkNotNull(suggestion, "suggestion");
-        List<String> list = staticCompletions.get(argIndex);
-        if (list == null) return false;
-        return list.remove(suggestion);
-    }
-
-    /**
-     * Clear all static completion suggestions for the specified argument index.
-     * Dynamic providers, if any, remain unaffected.
-     *
-     * @param argIndex the argument index (0-based)
-     */
-    public synchronized void clearCompletions(int argIndex) {
-        staticCompletions.remove(argIndex);
-    }
-
-    /** Get an immutable snapshot of static completions for the specified argument index. */
-    public @NotNull List<String> getCompletions(int argIndex) {
-        List<String> list = staticCompletions.get(argIndex);
-        if (list == null) return Collections.emptyList();
-        return Collections.unmodifiableList(new ArrayList<>(list));
-    }
-
-    /** Set or replace a dynamic completion provider for the specified argument index. */
-    public synchronized void setCompletionProvider(int argIndex, @Nullable CompletionProvider provider) {
-        if (provider == null) {
-            completionProviders.remove(argIndex);
-        } else {
-            completionProviders.put(argIndex, provider);
-        }
-    }
-
-    /** Remove any dynamic completion provider for the specified argument index. */
-    public synchronized void clearCompletionProvider(int argIndex) {
-        completionProviders.remove(argIndex);
-    }
 
     private FluentCommand(String name, String description, String permission, boolean playerOnly, boolean sendErrors,
                          List<Arg<?>> args, CommandAction action, boolean async, boolean validateOnTab,
                          Map<String, FluentCommand> subcommands,
-                         Map<Integer, List<String>> initialStaticCompletions,
-                         Map<Integer, CompletionProvider> initialProviders,
-                         Map<Integer, AsyncCompletionProvider> initialAsyncProviders,
-                         long completionDebounceMillis, long completionTimeoutMillis,
-                         @Nullable AsyncCommandAction asyncActionAdv, long asyncTimeoutMillis,
-                         List<String> examples, int helpPageSize, boolean autoHelp, List<Guard> guards) {
+                          @Nullable AsyncCommandAction asyncActionAdv, long asyncTimeoutMillis,
+                          List<Guard> guards) {
         this.name = Preconditions.checkNotNull(name, "name");
         this.description = (description == null) ? "" : description;
         this.permission = permission;
@@ -920,28 +711,8 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
         this.args = List.copyOf(Preconditions.checkNotNull(args, "args"));
         this.subcommands = Map.copyOf(Preconditions.checkNotNull(subcommands, "subcommands"));
         this.action = Preconditions.checkNotNull(action, "action");
-        // Initialize mutable completion maps
-        this.completionProviders = new java.util.concurrent.ConcurrentHashMap<>();
-        if (initialProviders != null) {
-            this.completionProviders.putAll(initialProviders);
-        }
-        this.staticCompletions = new java.util.concurrent.ConcurrentHashMap<>();
-        if (initialStaticCompletions != null) {
-            for (Map.Entry<Integer, List<String>> e : initialStaticCompletions.entrySet()) {
-                this.staticCompletions.put(e.getKey(), new java.util.concurrent.CopyOnWriteArrayList<>(e.getValue()));
-            }
-        }
-        this.asyncCompletionProviders = new java.util.concurrent.ConcurrentHashMap<>();
-        if (initialAsyncProviders != null) {
-            this.asyncCompletionProviders.putAll(initialAsyncProviders);
-        }
-        this.completionDebounceMillis = completionDebounceMillis;
-        this.completionTimeoutMillis = completionTimeoutMillis;
         this.asyncActionAdv = asyncActionAdv;
         this.asyncTimeoutMillis = asyncTimeoutMillis;
-        this.examples = java.util.List.copyOf(examples == null ? java.util.List.of() : examples);
-        this.helpPageSize = helpPageSize;
-        this.autoHelp = autoHelp;
         this.guards = java.util.List.copyOf(guards == null ? java.util.List.of() : guards);
     }
 
@@ -996,20 +767,13 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
                     return true;
                 }
             } catch (Throwable t) {
-                if (sendErrors) sender.sendMessage("§cYou cannot use this command.");
+                if (sendErrors) {
+                    sender.sendMessage("§cYou cannot use this command.");
                     return true;
+                }
             }
         }
 
-        // Built-in help handler
-        if (autoHelp && providedArgs.length >= 1 && providedArgs[0].equalsIgnoreCase("help")) {
-            int page = 1;
-            if (providedArgs.length >= 2) {
-                try { page = Math.max(1, Integer.parseInt(providedArgs[1])); } catch (NumberFormatException ignored) {}
-            }
-            sendHelp(sender, label, page);
-            return true;
-        }
 
         // Automatic subcommand routing: if first token matches a registered subcommand, delegate to it
         if (!subcommands.isEmpty() && providedArgs.length >= 1) {
@@ -1149,61 +913,6 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
             .collect(Collectors.joining(" "));
     }
 
-    private void sendHelp(@NotNull CommandSender sender, @NotNull String label, int page) {
-        // Header
-        if (!description.isEmpty()) {
-            sender.sendMessage("§6/" + label + " §7- " + description);
-        } else {
-            sender.sendMessage("§6/" + label);
-        }
-        sender.sendMessage("§eUsage: §f/" + label + (usage().isEmpty() ? "" : (" " + usage())));
-        if (!args.isEmpty()) {
-            sender.sendMessage("§eArguments:");
-            int i = 1;
-            for (Arg<?> a : args) {
-                String opt = a.optional() ? " §7(optional)" : "";
-                String perm = (a.permission() != null && !a.permission().isEmpty()) ? (" §8perm:" + a.permission()) : "";
-                sender.sendMessage("§7  " + (i++) + ". §b" + a.name() + " §7<" + a.parser().getTypeName() + ">" + opt + perm);
-            }
-        }
-
-        // Build items: subcommands visible + examples
-        java.util.List<String> items = new java.util.ArrayList<>();
-        if (!subcommands.isEmpty()) {
-            java.util.List<String> names = new java.util.ArrayList<>();
-            for (java.util.Map.Entry<String, FluentCommand> e : subcommands.entrySet()) {
-                String perm = e.getValue().getPermission();
-                if (perm != null && !perm.isEmpty() && !sender.hasPermission(perm)) continue;
-                names.add(e.getKey());
-            }
-            java.util.Collections.sort(names);
-            for (String n : names) {
-                FluentCommand sc = subcommands.get(n);
-                String desc = sc.getDescription();
-                items.add("§a" + n + (desc == null || desc.isEmpty() ? "" : (" §7- §f" + desc)));
-            }
-        }
-        if (!examples.isEmpty()) {
-            for (String ex : examples) {
-                items.add("§fExample: §7/" + label + " " + ex);
-            }
-        }
-
-        int total = items.size();
-        if (total == 0) return;
-        int pages = Math.max(1, (int) Math.ceil(total / (double) helpPageSize));
-        int p = Math.max(1, Math.min(page, pages));
-        int start = (p - 1) * helpPageSize;
-        int end = Math.min(total, start + helpPageSize);
-        sender.sendMessage("§eHelp §7(Page " + p + "/" + pages + "):");
-        for (int i = start; i < end; i++) {
-            int idx = i + 1;
-            sender.sendMessage("§7  " + idx + ". " + items.get(i));
-        }
-        if (p < pages) {
-            sender.sendMessage("§7Type §e/" + label + " help " + (p + 1) + " §7for more.");
-        }
-    }
 
     /**
      * Provide tab-completion options for the current argument token.
@@ -1286,6 +995,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
         }
 
         // Validate previously entered arguments (type-check) if enabled
+        java.util.Map<String, Object> parsedSoFar = new java.util.LinkedHashMap<>();
         if (validateOnTab && currentArgIndex > 0) {
             for (int i = 0; i < currentArgIndex; i++) {
                 Arg<?> prev = args.get(i);
@@ -1308,6 +1018,8 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
                             + msg);
                     }
                     return Collections.emptyList();
+                } else {
+                    parsedSoFar.put(prev.name(), res.value().orElse(null));
                 }
             }
         }
@@ -1331,69 +1043,45 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
             prefix = providedArgs[index];
         }
 
+        // Build suggestions from ArgContext predefined completions first, then try dynamic provider, then fall back
+        // to parser
+        List<String> completions = current.context().completionsPredefined();
         List<String> suggestions;
-        AsyncCompletionProvider asyncProv = asyncCompletionProviders.get(currentArgIndex);
-        if (asyncProv != null) {
-            DebounceCache cache = completionCache.computeIfAbsent(currentArgIndex, k -> new DebounceCache());
-            long now = System.currentTimeMillis();
-            if (cache.prefix != null && cache.prefix.equals(prefix)) {
-                // If same prefix within debounce window
-                if (cache.inFlight != null && !cache.inFlight.isDone() && (now - cache.timestamp) < completionDebounceMillis) {
-                    return java.util.Collections.emptyList();
-                }
-                if (cache.result != null && (now - cache.timestamp) < completionDebounceMillis) {
-                    return cache.result;
+        if (completions != null && !completions.isEmpty()) {
+            String pfxLow = prefix.toLowerCase(Locale.ROOT);
+            List<String> filtered = new ArrayList<>();
+            for (String s : completions) {
+                if (s == null) continue;
+                if (pfxLow.isEmpty() || s.toLowerCase(Locale.ROOT).startsWith(pfxLow)) {
+                    filtered.add(s);
                 }
             }
-            java.util.concurrent.CompletableFuture<java.util.List<String>> fut = asyncProv.completeAsync(sender, alias, providedArgs, prefix);
-            if (fut == null) {
-                throw new ParsingException("AsyncCompletionProvider returned null for argument index " + currentArgIndex);
+            Collections.sort(filtered);
+            suggestions = filtered;
+        } else if (current.context().completionsDynamic() != null) {
+            ArgContext.DynamicCompletionProvider provider = current.context().completionsDynamic();
+            DynamicCompletionContext dctx = new DynamicCompletionContext(
+                sender, alias, providedArgs, currentArgIndex, prefix, this.args, parsedSoFar, this);
+            List<String> dyn = provider.provide(dctx);
+            if (dyn == null) dyn = java.util.Collections.emptyList();
+            String pfxLow = prefix == null ? "" : prefix.toLowerCase(java.util.Locale.ROOT);
+            java.util.List<String> filtered = new java.util.ArrayList<>();
+            for (String s : dyn) {
+                if (s == null) continue;
+                if (pfxLow.isEmpty() || s.toLowerCase(java.util.Locale.ROOT).startsWith(pfxLow)) {
+                    filtered.add(s);
+                }
             }
-            cache.prefix = prefix;
-            cache.inFlight = fut;
-            cache.timestamp = now;
-            try {
-                java.util.List<String> res = fut.get(completionTimeoutMillis, java.util.concurrent.TimeUnit.MILLISECONDS);
-                if (res == null) res = java.util.Collections.emptyList();
-                java.util.List<String> sorted = new java.util.ArrayList<>(res);
-                java.util.Collections.sort(sorted);
-                cache.result = sorted;
-                cache.inFlight = null;
-                cache.timestamp = System.currentTimeMillis();
-                suggestions = sorted;
-            } catch (java.util.concurrent.TimeoutException | java.lang.InterruptedException | java.util.concurrent.ExecutionException e) {
-                // Do not propagate; just return empty on timeout/error
-                suggestions = java.util.Collections.emptyList();
-            }
+            java.util.Collections.sort(filtered);
+            suggestions = filtered;
         } else {
-            CompletionProvider provider = completionProviders.get(currentArgIndex);
-            if (provider != null) {
-                suggestions = provider.complete(sender, alias, providedArgs, prefix);
-                if (suggestions == null) {
-                    throw new ParsingException("CompletionProvider returned null for argument index " + currentArgIndex);
-                }
-            } else {
-                List<String> base = staticCompletions.get(currentArgIndex);
-                if (base != null) {
-                    String pfxLow = prefix.toLowerCase(Locale.ROOT);
-                    List<String> filtered = new ArrayList<>();
-                    for (String s : base) {
-                        if (s == null) continue;
-                        if (pfxLow.isEmpty() || s.toLowerCase(Locale.ROOT).startsWith(pfxLow)) {
-                            filtered.add(s);
-                        }
-                    }
-                    Collections.sort(filtered);
-                    suggestions = filtered;
-                } else {
-                    suggestions = current.parser().complete(prefix, sender);
-                    if (suggestions == null) {
-                        throw new ParsingException(
-                            "Parser " + current.parser().getClass().getName() + " returned null suggestions for argument '"
-                            + current.name() + "'");
-                    }
-                }
+            suggestions = current.parser().complete(prefix, sender);
+            if (suggestions == null) {
+                throw new ParsingException(
+                    "Parser " + current.parser().getClass().getName() + " returned null suggestions for argument '"
+                    + current.name() + "'");
             }
+            Collections.sort(suggestions);
         }
         return suggestions;
     }
