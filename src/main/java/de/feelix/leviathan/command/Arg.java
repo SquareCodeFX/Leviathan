@@ -17,31 +17,29 @@ import de.feelix.leviathan.util.Preconditions;
  */
 public final class Arg<T> {
     private final String name;
-    private final boolean optional;
     private final ArgumentParser<T> parser;
-    private final String permission; // optional permission required to use/see this argument
-    private final boolean greedy; // if true and this is the last argument, it will capture the rest of the input as a single string
+    private final ArgContext context;
     private final OptionType optionType; // broad type hint for mapping
 
     /**
-     * Create an argument.
+     * Create an argument with default context.
      * @param name argument name (no whitespace)
      * @param optional whether this argument is optional
      * @param parser parser used to parse this argument's token(s)
      */
     public Arg(@NotNull String name, boolean optional, @NotNull ArgumentParser<T> parser) {
-        this(name, optional, parser, null, false);
+        this(name, parser, ArgContext.builder().optional(optional).build());
     }
 
     /**
-     * Create an argument with a permission requirement.
+     * Create an argument with a permission requirement (default greedy=false).
      * @param name argument name (no whitespace)
      * @param optional whether this argument is optional
      * @param parser parser used to parse this argument's token(s)
      * @param permission required permission to use/see this argument (null/blank for none)
      */
     public Arg(@NotNull String name, boolean optional, @NotNull ArgumentParser<T> parser, @Nullable String permission) {
-        this(name, optional, parser, permission, false);
+        this(name, parser, ArgContext.builder().optional(optional).permission(permission).build());
     }
 
     /**
@@ -53,6 +51,13 @@ public final class Arg<T> {
      * @param greedy if true and this is last, captures the rest of the input as one string value
      */
     public Arg(@NotNull String name, boolean optional, @NotNull ArgumentParser<T> parser, @Nullable String permission, boolean greedy) {
+        this(name, parser, ArgContext.builder().optional(optional).permission(permission).greedy(greedy).build());
+    }
+
+    /**
+     * Construct an argument with an explicit {@link ArgContext}.
+     */
+    public Arg(@NotNull String name, @NotNull ArgumentParser<T> parser, @NotNull ArgContext context) {
         this.name = Preconditions.checkNotNull(name, "name");
         if (this.name.isBlank()) {
             throw new CommandConfigurationException("Argument name must not be blank");
@@ -60,10 +65,8 @@ public final class Arg<T> {
         if (this.name.chars().anyMatch(Character::isWhitespace)) {
             throw new CommandConfigurationException("Argument name must not contain whitespace: '" + this.name + "'");
         }
-        this.optional = optional;
         this.parser = Preconditions.checkNotNull(parser, "parser");
-        this.permission = (permission == null || permission.isBlank()) ? null : permission;
-        this.greedy = greedy;
+        this.context = Preconditions.checkNotNull(context, "context");
         // infer option type from parser's public type name
         OptionType inferred;
         try {
@@ -85,7 +88,7 @@ public final class Arg<T> {
      * @return whether the argument is optional
      */
     public boolean optional() {
-        return optional;
+        return context.optional();
     }
 
     /**
@@ -98,12 +101,12 @@ public final class Arg<T> {
     /**
      * @return the required permission to use this argument, or null if none
      */
-    public @Nullable String permission() { return permission; }
+    public @Nullable String permission() { return context.permission(); }
 
     /**
      * @return true if this is a greedy trailing string argument
      */
-    public boolean greedy() { return greedy; }
+    public boolean greedy() { return context.greedy(); }
 
     /**
      * @return the broad option type for this argument, inferred from its parser
@@ -111,23 +114,46 @@ public final class Arg<T> {
     public @NotNull OptionType optionType() { return optionType; }
 
     /**
+     * @return the associated {@link ArgContext}
+     */
+    public @NotNull ArgContext context() { return context; }
+
+    /**
      * Return a copy of this argument with updated optionality.
      */
     public @NotNull Arg<T> optional(boolean optional) {
-        return new Arg<>(name, optional, parser, permission, greedy);
+        ArgContext.Builder b = ArgContext.builder()
+                .optional(optional)
+                .greedy(context.greedy())
+                .permission(context.permission())
+                .completionsPredefined(new java.util.ArrayList<>(context.completionsPredefined()))
+                .completionsDynamic(context.completionsDynamic());
+        return new Arg<>(name, parser, b.build());
     }
 
     /**
      * Return a copy of this argument with an updated permission requirement.
      */
     public @NotNull Arg<T> withPermission(@Nullable String permission) {
-        return new Arg<>(name, optional, parser, permission, greedy);
+        ArgContext.Builder b = ArgContext.builder()
+                .optional(context.optional())
+                .greedy(context.greedy())
+                .permission(permission)
+                .completionsPredefined(new java.util.ArrayList<>(context.completionsPredefined()))
+                .completionsDynamic(context.completionsDynamic());
+        return new Arg<>(name, parser, b.build());
     }
 
     /**
      * Return a copy of this argument with updated greedy flag.
      */
     public @NotNull Arg<T> withGreedy(boolean greedy) {
-        return new Arg<>(name, optional, parser, permission, greedy);
+        ArgContext.Builder b = ArgContext.builder()
+                .optional(context.optional())
+                .greedy(greedy)
+                .permission(context.permission())
+                .completionsPredefined(new java.util.ArrayList<>(context.completionsPredefined()))
+                .completionsDynamic(context.completionsDynamic());
+        return new Arg<>(name, parser, b.build());
     }
 }
