@@ -1062,9 +1062,18 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
             ArgContext.DynamicCompletionProvider provider = current.context().completionsDynamic();
             DynamicCompletionContext dctx = new DynamicCompletionContext(
                 sender, alias, providedArgs, currentArgIndex, prefix, this.args, parsedSoFar, this);
-            suggestions = provider.provide(dctx);
-            if (suggestions == null) suggestions = java.util.Collections.emptyList();
-            java.util.Collections.sort(suggestions);
+            List<String> dyn = provider.provide(dctx);
+            if (dyn == null) dyn = java.util.Collections.emptyList();
+            String pfxLow = prefix == null ? "" : prefix.toLowerCase(java.util.Locale.ROOT);
+            java.util.List<String> filtered = new java.util.ArrayList<>();
+            for (String s : dyn) {
+                if (s == null) continue;
+                if (pfxLow.isEmpty() || s.toLowerCase(java.util.Locale.ROOT).startsWith(pfxLow)) {
+                    filtered.add(s);
+                }
+            }
+            java.util.Collections.sort(filtered);
+            suggestions = filtered;
         } else {
             suggestions = current.parser().complete(prefix, sender);
             if (suggestions == null) {
