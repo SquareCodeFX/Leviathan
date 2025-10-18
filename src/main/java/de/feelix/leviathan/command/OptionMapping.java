@@ -36,40 +36,35 @@ public interface OptionMapping {
      *
      * @param type expected target class
      * @param <T>  target type parameter
-     * @return non-null value of the requested type
-     * @throws ApiMisuseException if the argument is missing or the value is not assignable to {@code type}
+     * @return value of the requested type, or null if the argument is not available or not assignable to {@code type}
      */
-    <T> @NotNull T getAs(@NotNull Class<T> type);
+    <T> @Nullable T getAs(@NotNull Class<T> type);
 
     /**
      * Convenience getter for String values.
      *
-     * @return non-null String value
-     * @throws ApiMisuseException if missing or not a String
+     * @return String value, or null if the argument is not available or not a String
      */
-    @NotNull String getAsString();
+    @Nullable String getAsString();
 
     /**
      * Convenience getter for Integer values.
      *
-     * @return non-null Integer value
-     * @throws ApiMisuseException if missing or not an Integer
+     * @return Integer value, or null if the argument is not available or not an Integer
      */
-    @NotNull Integer getAsInt();
+    @Nullable Integer getAsInt();
 
     /**
      * Convenience getter for Long values.
      *
-     * @return non-null Long value
-     * @throws ApiMisuseException if missing or not a Long
+     * @return Long value, or null if the argument is not available or not a Long
      */
-    @NotNull Long getAsLong();
+    @Nullable Long getAsLong();
 
     /**
      * Convenience getter for UUID values.
      *
-     * @return non-null UUID value
-     * @throws ApiMisuseException if missing or not a UUID
+     * @return UUID value, or null if the argument is not available or not a UUID
      */
-    @NotNull UUID getAsUuid();
+    @Nullable UUID getAsUuid();
 }

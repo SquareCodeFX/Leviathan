@@ -112,9 +112,9 @@ public final class CommandContext {
     /**
      * Functional retrieval using an {@link OptionMapping} and a mapper function.
      * Example usage: {@code String n = ctx.arg("name", ArgumentMapper::getAsString);}.
-     * @throws ApiMisuseException if the argument is missing or cannot be converted
+     * @return the mapped value, or null if the argument is not available
      */
-    public <T> @NotNull T arg(@NotNull String name, @NotNull Function<OptionMapping, T> mapper) {
+    public <T> @Nullable T arg(@NotNull String name, @NotNull Function<OptionMapping, T> mapper) {
         Preconditions.checkNotNull(name, "name");
         Preconditions.checkNotNull(mapper, "mapper");
         return mapper.apply(new MappingImpl(name));
@@ -129,27 +129,26 @@ public final class CommandContext {
         @Override public @NotNull OptionType optionType() { return inferType(raw()); }
 
         @Override
-        public <T> @NotNull T getAs(@NotNull Class<T> type) {
+        public <T> @Nullable T getAs(@NotNull Class<T> type) {
             Preconditions.checkNotNull(type, "type");
             if (!values.containsKey(name)) {
-                throw new ApiMisuseException("Required argument '" + name + "' is missing in CommandContext");
+                return null;
             }
             Object o = values.get(name);
             if (o == null) {
-                throw new ApiMisuseException("Argument '" + name + "' is null");
+                return null;
             }
             if (!type.isInstance(o)) {
-                String actual = o.getClass().getName();
-                throw new ApiMisuseException("Argument '" + name + "' has type " + actual + ", not assignable to " + type.getName());
+                return null;
             }
             @SuppressWarnings("unchecked") T t = (T) o;
             return t;
         }
 
-        @Override public @NotNull String getAsString() { return getAs(String.class); }
-        @Override public @NotNull Integer getAsInt() { return getAs(Integer.class); }
-        @Override public @NotNull Long getAsLong() { return getAs(Long.class); }
-        @Override public @NotNull UUID getAsUuid() { return getAs(UUID.class); }
+        @Override public @Nullable String getAsString() { return getAs(String.class); }
+        @Override public @Nullable Integer getAsInt() { return getAs(Integer.class); }
+        @Override public @Nullable Long getAsLong() { return getAs(Long.class); }
+        @Override public @Nullable UUID getAsUuid() { return getAs(UUID.class); }
     }
 
     private static @NotNull OptionType inferType(Object o) {

@@ -396,13 +396,6 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
             return this;
         }
 
-
-
-
-
-
-
-
         /**
          * Define the action that should run when the command is executed.
          * @param action callback invoked with the sender and parsed context

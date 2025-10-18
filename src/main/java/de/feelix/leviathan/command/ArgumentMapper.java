@@ -1,6 +1,7 @@
 package de.feelix.leviathan.command;
 
 import de.feelix.leviathan.annotations.NotNull;
+import de.feelix.leviathan.annotations.Nullable;
 
 import java.util.UUID;
 
@@ -12,46 +13,42 @@ public final class ArgumentMapper {
     private ArgumentMapper() {}
 
     /**
-     * Retrieve the value as a non-null String via the provided mapping.
+     * Retrieve the value as a String via the provided mapping.
      *
      * @param mapping the option mapping supplied by the command context
-     * @return non-null string value
-     * @throws de.feelix.leviathan.exceptions.ApiMisuseException if the underlying value is missing or not a String
+     * @return string value, or null if the underlying value is missing or not a String
      */
-    public static @NotNull String getAsString(@NotNull OptionMapping mapping) {
+    public static @Nullable String getAsString(@NotNull OptionMapping mapping) {
         return mapping.getAsString();
     }
 
     /**
-     * Retrieve the value as a non-null Integer via the provided mapping.
+     * Retrieve the value as an Integer via the provided mapping.
      *
      * @param mapping the option mapping supplied by the command context
-     * @return non-null integer value
-     * @throws de.feelix.leviathan.exceptions.ApiMisuseException if the underlying value is missing or not an Integer
+     * @return integer value, or null if the underlying value is missing or not an Integer
      */
-    public static @NotNull Integer getAsInt(@NotNull OptionMapping mapping) {
+    public static @Nullable Integer getAsInt(@NotNull OptionMapping mapping) {
         return mapping.getAsInt();
     }
 
     /**
-     * Retrieve the value as a non-null Long via the provided mapping.
+     * Retrieve the value as a Long via the provided mapping.
      *
      * @param mapping the option mapping supplied by the command context
-     * @return non-null long value
-     * @throws de.feelix.leviathan.exceptions.ApiMisuseException if the underlying value is missing or not a Long
+     * @return long value, or null if the underlying value is missing or not a Long
      */
-    public static @NotNull Long getAsLong(@NotNull OptionMapping mapping) {
+    public static @Nullable Long getAsLong(@NotNull OptionMapping mapping) {
         return mapping.getAsLong();
     }
 
     /**
-     * Retrieve the value as a non-null UUID via the provided mapping.
+     * Retrieve the value as a UUID via the provided mapping.
      *
      * @param mapping the option mapping supplied by the command context
-     * @return non-null UUID value
-     * @throws de.feelix.leviathan.exceptions.ApiMisuseException if the underlying value is missing or not a UUID
+     * @return UUID value, or null if the underlying value is missing or not a UUID
      */
-    public static @NotNull UUID getAsUuid(@NotNull OptionMapping mapping) {
+    public static @Nullable UUID getAsUuid(@NotNull OptionMapping mapping) {
         return mapping.getAsUuid();
     }
 
@@ -61,10 +58,9 @@ public final class ArgumentMapper {
      * @param mapping the option mapping supplied by the command context
      * @param type    expected type class
      * @param <T>     target value type
-     * @return non-null value of the requested type
-     * @throws de.feelix.leviathan.exceptions.ApiMisuseException if the underlying value is missing or not assignable to {@code type}
+     * @return value of the requested type, or null if the underlying value is missing or not assignable to {@code type}
      */
-    public static <T> @NotNull T getAs(@NotNull OptionMapping mapping, @NotNull Class<T> type) {
+    public static <T> @Nullable T getAs(@NotNull OptionMapping mapping, @NotNull Class<T> type) {
         return mapping.getAs(type);
     }
 }
