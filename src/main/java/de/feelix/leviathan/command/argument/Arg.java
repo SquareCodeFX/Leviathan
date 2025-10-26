@@ -7,6 +7,8 @@ import de.feelix.leviathan.exceptions.CommandConfigurationException;
 import de.feelix.leviathan.parser.ArgumentParser;
 import de.feelix.leviathan.util.Preconditions;
 
+import java.util.ArrayList;
+
 /**
  * Describes a single command argument with its parser and metadata.
  * <p>
@@ -130,7 +132,7 @@ public final class Arg<T> {
                 .optional(context.optional())
                 .greedy(context.greedy())
                 .permission(context.permission())
-                .completionsPredefined(new java.util.ArrayList<>(context.completionsPredefined()))
+                .completionsPredefined(new ArrayList<>(context.completionsPredefined()))
                 .completionsDynamic(context.completionsDynamic())
                 .intRange(context.intMin(), context.intMax())
                 .longRange(context.longMin(), context.longMax())

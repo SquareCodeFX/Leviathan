@@ -5,6 +5,7 @@ import de.feelix.leviathan.command.argument.Arg;
 import de.feelix.leviathan.command.argument.ArgContext;
 import de.feelix.leviathan.command.core.FluentCommand;
 import de.feelix.leviathan.command.guard.Guard;
+import de.feelix.leviathan.command.validation.ValidationHelper;
 import de.feelix.leviathan.exceptions.ParsingException;
 import de.feelix.leviathan.parser.ParseResult;
 import de.feelix.leviathan.util.Preconditions;
@@ -213,7 +214,19 @@ public final class TabCompletionHandler {
                 return false;
             }
             
-            parsedSoFar.put(prev.name(), res.value().orElse(null));
+            Object parsedValue = res.value().orElse(null);
+            
+            // Apply validations from ArgContext (range, length, pattern, custom validators)
+            ArgContext ctx = prev.context();
+            String validationError = ValidationHelper.validateValue(parsedValue, ctx, prev.name(), prev.parser().getTypeName());
+            if (validationError != null) {
+                if (command.sendErrors()) {
+                    sender.sendMessage("§cInvalid value for '" + prev.name() + "': " + validationError);
+                }
+                return false;
+            }
+            
+            parsedSoFar.put(prev.name(), parsedValue);
         }
         return true;
     }
