@@ -75,7 +75,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
     private final long asyncTimeoutMillis;
     final List<Guard> guards;
     private final List<CrossArgumentValidator> crossArgumentValidators;
-    private final @Nullable ExceptionHandler exceptionHandler;
+    @Nullable ExceptionHandler exceptionHandler;
     private final long perUserCooldownMillis;
     private final long perServerCooldownMillis;
     private final String cachedUsage;
@@ -94,13 +94,13 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
 
     /**
      * Register this already-built command instance as executor and tab-completer for the
-     * command with the same name declared in plugin.yml. Also registers all aliases.
+     * command with the same name declared in plugin.yml.
      * This is intended for root commands only.
      * If this command was added as a subcommand to another command, calling this will throw.
      *
      * @param plugin plugin registering the command (must declare the command in plugin.yml)
      * @throws ApiMisuseException            if this command is marked as a subcommand
-     * @throws CommandConfigurationException if the command or any alias is not declared in plugin.yml
+     * @throws CommandConfigurationException if the command is not declared in plugin.yml
      */
     public void register(@NotNull JavaPlugin plugin) {
         Preconditions.checkNotNull(plugin, "plugin");
@@ -118,16 +118,6 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
         }
         pc.setExecutor(this);
         pc.setTabCompleter(this);
-
-        // Register all aliases
-        for (String alias : aliases) {
-            org.bukkit.command.PluginCommand aliasCmd = plugin.getCommand(alias);
-            if (aliasCmd == null) {
-                throw new CommandConfigurationException("Alias command not declared in plugin.yml: " + alias);
-            }
-            aliasCmd.setExecutor(this);
-            aliasCmd.setTabCompleter(this);
-        }
     }
 
     /**
@@ -288,8 +278,19 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
      */
     private void sendErrorMessage(@NotNull CommandSender sender, @NotNull ErrorType errorType,
                                   @NotNull String message, @Nullable Throwable exception) {
-        boolean suppressDefault = exceptionHandler != null &&
-                                  exceptionHandler.handle(sender, errorType, message, exception);
+        boolean suppressDefault = false;
+        if (exceptionHandler != null) {
+            try {
+                suppressDefault = exceptionHandler.handle(sender, errorType, message, exception);
+            } catch (Throwable handlerException) {
+                // Exception handler itself threw an exception - log it and continue with default behavior
+                sender.sendMessage("§cError in exception handler: " + handlerException.getMessage());
+                if (plugin != null) {
+                    plugin.getLogger().severe("Exception handler threw an exception while handling " + errorType + ": " + handlerException.getMessage());
+                    handlerException.printStackTrace();
+                }
+            }
+        }
         if (sendErrors && !suppressDefault) {
             sender.sendMessage(message);
         }
@@ -495,8 +496,22 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
                         msg = "Â§cAn internal error occurred while executing this command.";
                         errorType = ErrorType.EXECUTION;
                     }
-                    boolean suppressDefault = exceptionHandler != null &&
-                                              exceptionHandler.handle(sender, errorType, msg, cause);
+                    boolean suppressDefault = false;
+                    if (exceptionHandler != null) {
+                        try {
+                            suppressDefault = exceptionHandler.handle(sender, errorType, msg, cause);
+                        } catch (Throwable handlerException) {
+                            // Exception handler itself threw an exception - log it and continue with default behavior
+                            String handlerMsg = "§cError in exception handler: " + handlerException.getMessage();
+                            if (plugin != null) {
+                                plugin.getServer().getScheduler().runTask(plugin, () -> sender.sendMessage(handlerMsg));
+                                plugin.getLogger().severe("Exception handler threw an exception while handling " + errorType + ": " + handlerException.getMessage());
+                                handlerException.printStackTrace();
+                            } else {
+                                sender.sendMessage(handlerMsg);
+                            }
+                        }
+                    }
                     if (sendErrors && !suppressDefault) {
                         if (plugin != null)
                             plugin.getServer().getScheduler().runTask(plugin, () -> sender.sendMessage(msg));
@@ -512,8 +527,19 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
                     } catch (Throwable t) {
                         Throwable cause = (t.getCause() != null) ? t.getCause() : t;
                         String errorMsg = "Â§cAn internal error occurred while executing this command.";
-                        boolean suppressDefault = exceptionHandler != null &&
-                                                  exceptionHandler.handle(sender, ErrorType.EXECUTION, errorMsg, cause);
+                        boolean suppressDefault = false;
+                        if (exceptionHandler != null) {
+                            try {
+                                suppressDefault = exceptionHandler.handle(sender, ErrorType.EXECUTION, errorMsg, cause);
+                            } catch (Throwable handlerException) {
+                                // Exception handler itself threw an exception - log it and continue with default behavior
+                                sender.sendMessage("§cError in exception handler: " + handlerException.getMessage());
+                                if (plugin != null) {
+                                    plugin.getLogger().severe("Exception handler threw an exception while handling EXECUTION: " + handlerException.getMessage());
+                                    handlerException.printStackTrace();
+                                }
+                            }
+                        }
                         if (sendErrors && !suppressDefault) {
                             sender.sendMessage(errorMsg);
                         }

@@ -75,10 +75,13 @@ public final class FluentCommandBuilder {
     }
 
     /**
-     * Set additional command aliases. These aliases will be registered alongside the primary command name.
-     * Each alias must be declared as a command in plugin.yml.
+     * Set additional command aliases for subcommand routing.
+     * <p>
+     * <b>Note:</b> Aliases are intended for subcommands only. When this command is registered as a subcommand,
+     * these aliases allow users to invoke it using alternative names. For main commands, use Bukkit's native
+     * alias support in plugin.yml instead.
      *
-     * @param aliases additional command names/aliases
+     * @param aliases additional command names/aliases for subcommand routing
      * @return this builder
      */
     public @NotNull FluentCommandBuilder aliases(@NotNull String... aliases) {
@@ -93,10 +96,13 @@ public final class FluentCommandBuilder {
     }
 
     /**
-     * Add a single command alias. This alias will be registered alongside the primary command name.
-     * The alias must be declared as a command in plugin.yml.
+     * Add a single command alias for subcommand routing.
+     * <p>
+     * <b>Note:</b> Aliases are intended for subcommands only. When this command is registered as a subcommand,
+     * this alias allows users to invoke it using an alternative name. For main commands, use Bukkit's native
+     * alias support in plugin.yml instead.
      *
-     * @param alias additional command name/alias
+     * @param alias additional command name/alias for subcommand routing
      * @return this builder
      */
     public @NotNull FluentCommandBuilder alias(@NotNull String alias) {
@@ -554,16 +560,36 @@ public final class FluentCommandBuilder {
                 }
             }
         }
-        // Validate subcommand aliases (already checked on add), create immutable copy with lower-case keys
+        // Validate subcommands and register both primary names and aliases in the routing map
         Map<String, FluentCommand> subs = new LinkedHashMap<>();
         for (Map.Entry<String, FluentCommand> e : subcommands.entrySet()) {
             String k = e.getKey();
             if (k == null || k.trim().isEmpty() || e.getValue() == null) {
                 throw new CommandConfigurationException("Invalid subcommand entry");
             }
+            FluentCommand subCmd = e.getValue();
+            
+            // Forward parent's exceptionHandler to subcommand if subcommand doesn't have its own
+            if (subCmd.exceptionHandler == null && this.exceptionHandler != null) {
+                subCmd.exceptionHandler = this.exceptionHandler;
+            }
+            
+            // Register primary name
             String low = k.toLowerCase(Locale.ROOT);
-            if (subs.put(low, e.getValue()) != null) {
+            if (subs.put(low, subCmd) != null) {
                 throw new CommandConfigurationException("Duplicate subcommand alias: '" + k + "'");
+            }
+            
+            // Register all aliases for this subcommand
+            for (String alias : subCmd.aliases()) {
+                if (alias == null || alias.trim().isEmpty()) {
+                    continue;
+                }
+                String aliasLow = alias.toLowerCase(Locale.ROOT);
+                if (subs.containsKey(aliasLow)) {
+                    throw new CommandConfigurationException("Duplicate subcommand alias: '" + alias + "'");
+                }
+                subs.put(aliasLow, subCmd);
             }
         }
         return new FluentCommand(
@@ -576,11 +602,11 @@ public final class FluentCommandBuilder {
 
     /**
      * Build and register this command instance as executor and tab-completer for the
-     * command with the same name declared in plugin.yml. Also registers all aliases.
+     * command with the same name declared in plugin.yml.
      * Also stores the plugin instance inside the command for potential future use.
      *
      * @param plugin plugin registering the command (must declare the command in plugin.yml)
-     * @throws CommandConfigurationException if the command or any alias is not declared in plugin.yml
+     * @throws CommandConfigurationException if the command is not declared in plugin.yml
      */
     public void register(@NotNull JavaPlugin plugin) {
         Preconditions.checkNotNull(plugin, "plugin");
@@ -594,15 +620,5 @@ public final class FluentCommandBuilder {
         }
         pc.setExecutor(cmd);
         pc.setTabCompleter(cmd);
-
-        // Register all aliases
-        for (String alias : aliases) {
-            org.bukkit.command.PluginCommand aliasCmd = plugin.getCommand(alias);
-            if (aliasCmd == null) {
-                throw new CommandConfigurationException("Alias command not declared in plugin.yml: " + alias);
-            }
-            aliasCmd.setExecutor(cmd);
-            aliasCmd.setTabCompleter(cmd);
-        }
     }
 }
