@@ -165,7 +165,7 @@ public final class TabCompletionHandler {
             if (!lastIsGreedy) {
                 // Too many arguments typed
                 if (command.validateOnTab() && command.sendErrors()) {
-                    sender.sendMessage("§cToo many arguments. Usage: /" + alias + " " + command.usage());
+                    sender.sendMessage("§cToo many arguments. Usage: /" + command.fullCommandPath(alias) + " " + command.usage());
                 }
                 return -1;
             }

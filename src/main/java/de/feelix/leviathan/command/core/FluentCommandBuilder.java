@@ -592,12 +592,19 @@ public final class FluentCommandBuilder {
                 subs.put(aliasLow, subCmd);
             }
         }
-        return new FluentCommand(
+        FluentCommand cmd = new FluentCommand(
             name, aliases, description, permission, playerOnly, sendErrors, args, action, async, validateOnTab, subs,
             asyncAction, (asyncTimeoutMillis == null ? 0L : asyncTimeoutMillis),
             guards, crossArgumentValidators, exceptionHandler,
             perUserCooldownMillis, perServerCooldownMillis
         );
+        
+        // Set parent reference for all subcommands
+        for (FluentCommand subCmd : new java.util.HashSet<>(subs.values())) {
+            subCmd.setParent(cmd);
+        }
+        
+        return cmd;
     }
 
     /**

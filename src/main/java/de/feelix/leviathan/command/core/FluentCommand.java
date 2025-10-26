@@ -81,6 +81,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
     private final String cachedUsage;
     JavaPlugin plugin;
     private boolean subOnly = false;
+    @Nullable private FluentCommand parent = null;
 
 
     /**
@@ -90,6 +91,33 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
      */
     void markAsSubcommand() {
         this.subOnly = true;
+    }
+
+    /**
+     * Sets the parent command for this subcommand. Intended for internal use by the Builder
+     * when registering subcommands to maintain the command hierarchy.
+     *
+     * @param parent the parent command
+     */
+    void setParent(@NotNull FluentCommand parent) {
+        this.parent = parent;
+    }
+
+    /**
+     * Builds the full command path by traversing up the parent chain.
+     * For example, if this is a "history" subcommand under "venias", this returns "venias history".
+     * For root commands, this simply returns the command name.
+     *
+     * @param alias the alias used to invoke this specific command
+     * @return the full command path as a string
+     */
+    @NotNull
+    public String fullCommandPath(@NotNull String alias) {
+        if (parent == null) {
+            return alias;
+        }
+        // Recursively build the path from root to this command
+        return parent.fullCommandPath(parent.name()) + " " + alias;
     }
 
     /**
@@ -366,7 +394,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
         int required = (int) args.stream().filter(a -> !a.optional()).count();
         boolean lastIsGreedy = !args.isEmpty() && args.get(args.size() - 1).greedy();
         if (providedArgs.length < required) {
-            sendErrorMessage(sender, ErrorType.USAGE, "§cUsage: /" + label + " " + usage(), null);
+            sendErrorMessage(sender, ErrorType.USAGE, "§cUsage: /" + fullCommandPath(label) + " " + usage(), null);
             return true;
         }
 
@@ -434,7 +462,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
 
         // Check for extra arguments after parsing (handles optional args case)
         if (!lastIsGreedy && tokenIndex < providedArgs.length) {
-            sendErrorMessage(sender, ErrorType.USAGE, "§cToo many arguments. Usage: /" + label + " " + usage(), null);
+            sendErrorMessage(sender, ErrorType.USAGE, "§cToo many arguments. Usage: /" + fullCommandPath(label) + " " + usage(), null);
             return true;
         }
 
