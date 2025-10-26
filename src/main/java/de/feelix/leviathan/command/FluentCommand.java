@@ -199,6 +199,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
      */
     public static final class Builder {
         private final String name;
+        private final List<String> aliases = new ArrayList<>();
         private String description = "";
         private String permission = null;
         private boolean playerOnly = false;
@@ -240,6 +241,36 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
          */
         public @NotNull Builder permission(@Nullable String permission) {
             this.permission = permission;
+            return this;
+        }
+
+        /**
+         * Set additional command aliases. These aliases will be registered alongside the primary command name.
+         * Each alias must be declared as a command in plugin.yml.
+         * @param aliases additional command names/aliases
+         * @return this builder
+         */
+        public @NotNull Builder aliases(@NotNull String... aliases) {
+            if (aliases != null) {
+                for (String alias : aliases) {
+                    if (alias != null && !alias.trim().isEmpty()) {
+                        this.aliases.add(alias.trim());
+                    }
+                }
+            }
+            return this;
+        }
+
+        /**
+         * Add a single command alias. This alias will be registered alongside the primary command name.
+         * The alias must be declared as a command in plugin.yml.
+         * @param alias additional command name/alias
+         * @return this builder
+         */
+        public @NotNull Builder alias(@NotNull String alias) {
+            if (alias != null && !alias.trim().isEmpty()) {
+                this.aliases.add(alias.trim());
+            }
             return this;
         }
 
@@ -683,7 +714,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
                 }
             }
             return new FluentCommand(
-                name, description, permission, playerOnly, sendErrors, args, action, async, validateOnTab, subs,
+                name, aliases, description, permission, playerOnly, sendErrors, args, action, async, validateOnTab, subs,
                 asyncAction, (asyncTimeoutMillis == null ? 0L : asyncTimeoutMillis),
                 guards, crossArgumentValidators, exceptionHandler
             );
@@ -691,25 +722,38 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
 
         /**
          * Build and register this command instance as executor and tab-completer for the
-         * command with the same name declared in plugin.yml. Also stores the plugin instance
-         * inside the command for potential future use.
+         * command with the same name declared in plugin.yml. Also registers all aliases.
+         * Also stores the plugin instance inside the command for potential future use.
          * @param plugin plugin registering the command (must declare the command in plugin.yml)
-         * @throws CommandConfigurationException if the command is not declared in plugin.yml
+         * @throws CommandConfigurationException if the command or any alias is not declared in plugin.yml
          */
         public void register(@NotNull JavaPlugin plugin) {
             Preconditions.checkNotNull(plugin, "plugin");
             FluentCommand cmd = build();
             cmd.plugin = plugin;
+            
+            // Register primary command
             org.bukkit.command.PluginCommand pc = plugin.getCommand(name);
             if (pc == null) {
                 throw new CommandConfigurationException("Command not declared in plugin.yml: " + name);
             }
             pc.setExecutor(cmd);
             pc.setTabCompleter(cmd);
+            
+            // Register all aliases
+            for (String alias : aliases) {
+                org.bukkit.command.PluginCommand aliasCmd = plugin.getCommand(alias);
+                if (aliasCmd == null) {
+                    throw new CommandConfigurationException("Alias command not declared in plugin.yml: " + alias);
+                }
+                aliasCmd.setExecutor(cmd);
+                aliasCmd.setTabCompleter(cmd);
+            }
         }
     }
 
     private final String name;
+    private final List<String> aliases; // additional command aliases
     private final String description;
     private final String permission;
     private final boolean playerOnly;
@@ -739,12 +783,13 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
 
     /**
      * Register this already-built command instance as executor and tab-completer for the
-     * command with the same name declared in plugin.yml. This is intended for root commands only.
+     * command with the same name declared in plugin.yml. Also registers all aliases.
+     * This is intended for root commands only.
      * If this command was added as a subcommand to another command, calling this will throw.
      *
      * @param plugin plugin registering the command (must declare the command in plugin.yml)
      * @throws ApiMisuseException if this command is marked as a subcommand
-     * @throws CommandConfigurationException if the command is not declared in plugin.yml
+     * @throws CommandConfigurationException if the command or any alias is not declared in plugin.yml
      */
     public void register(@NotNull JavaPlugin plugin) {
         Preconditions.checkNotNull(plugin, "plugin");
@@ -752,12 +797,24 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
             throw new ApiMisuseException("Subcommand '" + name + "' must not be registered directly. Register only the root command containing it.");
         }
         this.plugin = plugin;
+        
+        // Register primary command
         org.bukkit.command.PluginCommand pc = plugin.getCommand(name);
         if (pc == null) {
             throw new CommandConfigurationException("Command not declared in plugin.yml: " + name);
         }
         pc.setExecutor(this);
         pc.setTabCompleter(this);
+        
+        // Register all aliases
+        for (String alias : aliases) {
+            org.bukkit.command.PluginCommand aliasCmd = plugin.getCommand(alias);
+            if (aliasCmd == null) {
+                throw new CommandConfigurationException("Alias command not declared in plugin.yml: " + alias);
+            }
+            aliasCmd.setExecutor(this);
+            aliasCmd.setTabCompleter(this);
+        }
     }
 
     /**
@@ -777,6 +834,13 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
     }
 
     /**
+     * @return an immutable list of additional command aliases
+     */
+    public @NotNull List<String> getAliases() {
+        return aliases;
+    }
+
+    /**
      * @return the command-level permission node, or null if none
      */
     public @Nullable String getPermission() {
@@ -784,13 +848,14 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
     }
 
 
-    private FluentCommand(String name, String description, String permission, boolean playerOnly, boolean sendErrors,
+    private FluentCommand(String name, List<String> aliases, String description, String permission, boolean playerOnly, boolean sendErrors,
                          List<Arg<?>> args, CommandAction action, boolean async, boolean validateOnTab,
                          Map<String, FluentCommand> subcommands,
                           @Nullable AsyncCommandAction asyncActionAdv, long asyncTimeoutMillis,
                           List<Guard> guards, List<CrossArgumentValidator> crossArgumentValidators,
                           @Nullable ExceptionHandler exceptionHandler) {
         this.name = Preconditions.checkNotNull(name, "name");
+        this.aliases = List.copyOf(aliases == null ? List.of() : aliases);
         this.description = (description == null) ? "" : description;
         this.permission = permission;
         this.playerOnly = playerOnly;
