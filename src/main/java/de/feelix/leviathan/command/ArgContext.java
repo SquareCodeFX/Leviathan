@@ -59,6 +59,9 @@ public final class ArgContext {
     private final @Nullable Integer stringMaxLength;
     private final @Nullable Pattern stringPattern;
     private final List<Validator<?>> customValidators;
+    
+    // Did-You-Mean feature
+    private final boolean didYouMean;
 
     private ArgContext(boolean optional,
                        boolean greedy,
@@ -76,7 +79,8 @@ public final class ArgContext {
                        @Nullable Integer stringMinLength,
                        @Nullable Integer stringMaxLength,
                        @Nullable Pattern stringPattern,
-                       @Nullable List<Validator<?>> customValidators) {
+                       @Nullable List<Validator<?>> customValidators,
+                       boolean didYouMean) {
         this.optional = optional;
         this.greedy = greedy;
         this.permission = (permission == null || permission.isBlank()) ? null : permission;
@@ -98,6 +102,7 @@ public final class ArgContext {
         this.stringPattern = stringPattern;
         List<Validator<?>> valList = (customValidators == null) ? List.of() : new ArrayList<>(customValidators);
         this.customValidators = Collections.unmodifiableList(valList);
+        this.didYouMean = didYouMean;
     }
 
     public static @NotNull Builder builder() {
@@ -127,6 +132,7 @@ public final class ArgContext {
     public @Nullable Integer stringMaxLength() { return stringMaxLength; }
     public @Nullable Pattern stringPattern() { return stringPattern; }
     public @NotNull List<Validator<?>> customValidators() { return customValidators; }
+    public boolean didYouMean() { return didYouMean; }
 
     public static final class Builder {
         private boolean optional;
@@ -148,6 +154,7 @@ public final class ArgContext {
         private @Nullable Integer stringMaxLength;
         private @Nullable Pattern stringPattern;
         private List<Validator<?>> customValidators = new ArrayList<>();
+        private boolean didYouMean = false;
 
         public @NotNull Builder optional(boolean optional) { this.optional = optional; return this; }
         public @NotNull Builder greedy(boolean greedy) { this.greedy = greedy; return this; }
@@ -217,10 +224,16 @@ public final class ArgContext {
             return this;
         }
         
+        // Did-You-Mean feature
+        public @NotNull Builder didYouMean(boolean didYouMean) {
+            this.didYouMean = didYouMean;
+            return this;
+        }
+        
         public @NotNull ArgContext build() {
             return new ArgContext(optional, greedy, permission, completionsPredefined, completionsDynamic,
                 intMin, intMax, longMin, longMax, doubleMin, doubleMax, floatMin, floatMax,
-                stringMinLength, stringMaxLength, stringPattern, customValidators);
+                stringMinLength, stringMaxLength, stringPattern, customValidators, didYouMean);
         }
     }
 }

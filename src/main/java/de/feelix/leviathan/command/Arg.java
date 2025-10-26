@@ -133,7 +133,8 @@ public final class Arg<T> {
                 .doubleRange(context.doubleMin(), context.doubleMax())
                 .floatRange(context.floatMin(), context.floatMax())
                 .stringLengthRange(context.stringMinLength(), context.stringMaxLength())
-                .stringPattern(context.stringPattern());
+                .stringPattern(context.stringPattern())
+                .didYouMean(context.didYouMean());
         for (ArgContext.Validator<?> validator : context.customValidators()) {
             b.addValidator(validator);
         }
@@ -155,7 +156,8 @@ public final class Arg<T> {
                 .doubleRange(context.doubleMin(), context.doubleMax())
                 .floatRange(context.floatMin(), context.floatMax())
                 .stringLengthRange(context.stringMinLength(), context.stringMaxLength())
-                .stringPattern(context.stringPattern());
+                .stringPattern(context.stringPattern())
+                .didYouMean(context.didYouMean());
         for (ArgContext.Validator<?> validator : context.customValidators()) {
             b.addValidator(validator);
         }
@@ -177,7 +179,8 @@ public final class Arg<T> {
                 .doubleRange(context.doubleMin(), context.doubleMax())
                 .floatRange(context.floatMin(), context.floatMax())
                 .stringLengthRange(context.stringMinLength(), context.stringMaxLength())
-                .stringPattern(context.stringPattern());
+                .stringPattern(context.stringPattern())
+                .didYouMean(context.didYouMean());
         for (ArgContext.Validator<?> validator : context.customValidators()) {
             b.addValidator(validator);
         }
