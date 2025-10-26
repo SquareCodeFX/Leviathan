@@ -1,12 +1,12 @@
-package de.feelix.leviathan.command;
+package de.feelix.leviathan.command.argument;
 
 import de.feelix.leviathan.annotations.NotNull;
 import de.feelix.leviathan.annotations.Nullable;
+import de.feelix.leviathan.command.completion.DynamicCompletionContext;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
 /**
@@ -153,7 +153,7 @@ public final class ArgContext {
         private @Nullable Integer stringMinLength;
         private @Nullable Integer stringMaxLength;
         private @Nullable Pattern stringPattern;
-        private List<Validator<?>> customValidators = new ArrayList<>();
+        private final List<Validator<?>> customValidators = new ArrayList<>();
         private boolean didYouMean = false;
 
         public @NotNull Builder optional(boolean optional) { this.optional = optional; return this; }

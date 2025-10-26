@@ -1,13 +1,15 @@
-package de.feelix.leviathan.command;
+package de.feelix.leviathan.command.argument;
 
 import de.feelix.leviathan.annotations.NotNull;
 import de.feelix.leviathan.annotations.Nullable;
+import de.feelix.leviathan.command.core.CommandContext;
+import de.feelix.leviathan.command.mapping.OptionMapping;
 
 import java.util.UUID;
 
 /**
  * Utility methods that can be used as method references with {@link CommandContext#arg(String, java.util.function.Function)},
- * for example: {@code context.arg("name", ArgumentMapper::getAsString)}.
+ * for example: {@code context.arg("name", ArgumentMapper::asString)}.
  */
 public final class ArgumentMapper {
     private ArgumentMapper() {}
@@ -18,8 +20,8 @@ public final class ArgumentMapper {
      * @param mapping the option mapping supplied by the command context
      * @return string value, or null if the underlying value is missing or not a String
      */
-    public static @Nullable String getAsString(@NotNull OptionMapping mapping) {
-        return mapping.getAsString();
+    public static @Nullable String asString(@NotNull OptionMapping mapping) {
+        return mapping.asString();
     }
 
     /**
@@ -28,8 +30,8 @@ public final class ArgumentMapper {
      * @param mapping the option mapping supplied by the command context
      * @return integer value, or null if the underlying value is missing or not an Integer
      */
-    public static @Nullable Integer getAsInt(@NotNull OptionMapping mapping) {
-        return mapping.getAsInt();
+    public static @Nullable Integer asInt(@NotNull OptionMapping mapping) {
+        return mapping.asInt();
     }
 
     /**
@@ -38,8 +40,8 @@ public final class ArgumentMapper {
      * @param mapping the option mapping supplied by the command context
      * @return long value, or null if the underlying value is missing or not a Long
      */
-    public static @Nullable Long getAsLong(@NotNull OptionMapping mapping) {
-        return mapping.getAsLong();
+    public static @Nullable Long asLong(@NotNull OptionMapping mapping) {
+        return mapping.asLong();
     }
 
     /**
@@ -48,8 +50,8 @@ public final class ArgumentMapper {
      * @param mapping the option mapping supplied by the command context
      * @return UUID value, or null if the underlying value is missing or not a UUID
      */
-    public static @Nullable UUID getAsUuid(@NotNull OptionMapping mapping) {
-        return mapping.getAsUuid();
+    public static @Nullable UUID asUuid(@NotNull OptionMapping mapping) {
+        return mapping.asUuid();
     }
 
     /**
@@ -60,7 +62,7 @@ public final class ArgumentMapper {
      * @param <T>     target value type
      * @return value of the requested type, or null if the underlying value is missing or not assignable to {@code type}
      */
-    public static <T> @Nullable T getAs(@NotNull OptionMapping mapping, @NotNull Class<T> type) {
-        return mapping.getAs(type);
+    public static <T> @Nullable T as(@NotNull OptionMapping mapping, @NotNull Class<T> type) {
+        return mapping.as(type);
     }
 }

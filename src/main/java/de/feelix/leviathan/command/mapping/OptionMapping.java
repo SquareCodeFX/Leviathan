@@ -1,8 +1,8 @@
-package de.feelix.leviathan.command;
+package de.feelix.leviathan.command.mapping;
 
 import de.feelix.leviathan.annotations.NotNull;
 import de.feelix.leviathan.annotations.Nullable;
-import de.feelix.leviathan.exceptions.ApiMisuseException;
+import de.feelix.leviathan.command.core.CommandContext;
 
 import java.util.UUID;
 
@@ -38,33 +38,33 @@ public interface OptionMapping {
      * @param <T>  target type parameter
      * @return value of the requested type, or null if the argument is not available or not assignable to {@code type}
      */
-    <T> @Nullable T getAs(@NotNull Class<T> type);
+    <T> @Nullable T as(@NotNull Class<T> type);
 
     /**
      * Convenience getter for String values.
      *
      * @return String value, or null if the argument is not available or not a String
      */
-    @Nullable String getAsString();
+    @Nullable String asString();
 
     /**
      * Convenience getter for Integer values.
      *
      * @return Integer value, or null if the argument is not available or not an Integer
      */
-    @Nullable Integer getAsInt();
+    @Nullable Integer asInt();
 
     /**
      * Convenience getter for Long values.
      *
      * @return Long value, or null if the argument is not available or not a Long
      */
-    @Nullable Long getAsLong();
+    @Nullable Long asLong();
 
     /**
      * Convenience getter for UUID values.
      *
      * @return UUID value, or null if the argument is not available or not a UUID
      */
-    @Nullable UUID getAsUuid();
+    @Nullable UUID asUuid();
 }

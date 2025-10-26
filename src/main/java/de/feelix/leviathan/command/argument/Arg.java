@@ -1,7 +1,8 @@
-package de.feelix.leviathan.command;
+package de.feelix.leviathan.command.argument;
 
 import de.feelix.leviathan.annotations.NotNull;
 import de.feelix.leviathan.annotations.Nullable;
+import de.feelix.leviathan.command.mapping.OptionType;
 import de.feelix.leviathan.exceptions.CommandConfigurationException;
 import de.feelix.leviathan.parser.ArgumentParser;
 import de.feelix.leviathan.util.Preconditions;
@@ -119,11 +120,14 @@ public final class Arg<T> {
     public @NotNull ArgContext context() { return context; }
 
     /**
-     * Return a copy of this argument with updated optionality.
+     * Helper method to copy all properties from the current context into a new builder.
+     * This eliminates code duplication in the various withXxx() methods.
+     *
+     * @return a new builder populated with all current context properties
      */
-    public @NotNull Arg<T> optional(boolean optional) {
+    private @NotNull ArgContext.Builder copyContextToBuilder() {
         ArgContext.Builder b = ArgContext.builder()
-                .optional(optional)
+                .optional(context.optional())
                 .greedy(context.greedy())
                 .permission(context.permission())
                 .completionsPredefined(new java.util.ArrayList<>(context.completionsPredefined()))
@@ -138,52 +142,27 @@ public final class Arg<T> {
         for (ArgContext.Validator<?> validator : context.customValidators()) {
             b.addValidator(validator);
         }
-        return new Arg<>(name, parser, b.build());
+        return b;
+    }
+
+    /**
+     * Return a copy of this argument with updated optionality.
+     */
+    public @NotNull Arg<T> optional(boolean optional) {
+        return new Arg<>(name, parser, copyContextToBuilder().optional(optional).build());
     }
 
     /**
      * Return a copy of this argument with an updated permission requirement.
      */
     public @NotNull Arg<T> withPermission(@Nullable String permission) {
-        ArgContext.Builder b = ArgContext.builder()
-                .optional(context.optional())
-                .greedy(context.greedy())
-                .permission(permission)
-                .completionsPredefined(new java.util.ArrayList<>(context.completionsPredefined()))
-                .completionsDynamic(context.completionsDynamic())
-                .intRange(context.intMin(), context.intMax())
-                .longRange(context.longMin(), context.longMax())
-                .doubleRange(context.doubleMin(), context.doubleMax())
-                .floatRange(context.floatMin(), context.floatMax())
-                .stringLengthRange(context.stringMinLength(), context.stringMaxLength())
-                .stringPattern(context.stringPattern())
-                .didYouMean(context.didYouMean());
-        for (ArgContext.Validator<?> validator : context.customValidators()) {
-            b.addValidator(validator);
-        }
-        return new Arg<>(name, parser, b.build());
+        return new Arg<>(name, parser, copyContextToBuilder().permission(permission).build());
     }
 
     /**
      * Return a copy of this argument with updated greedy flag.
      */
     public @NotNull Arg<T> withGreedy(boolean greedy) {
-        ArgContext.Builder b = ArgContext.builder()
-                .optional(context.optional())
-                .greedy(greedy)
-                .permission(context.permission())
-                .completionsPredefined(new java.util.ArrayList<>(context.completionsPredefined()))
-                .completionsDynamic(context.completionsDynamic())
-                .intRange(context.intMin(), context.intMax())
-                .longRange(context.longMin(), context.longMax())
-                .doubleRange(context.doubleMin(), context.doubleMax())
-                .floatRange(context.floatMin(), context.floatMax())
-                .stringLengthRange(context.stringMinLength(), context.stringMaxLength())
-                .stringPattern(context.stringPattern())
-                .didYouMean(context.didYouMean());
-        for (ArgContext.Validator<?> validator : context.customValidators()) {
-            b.addValidator(validator);
-        }
-        return new Arg<>(name, parser, b.build());
+        return new Arg<>(name, parser, copyContextToBuilder().greedy(greedy).build());
     }
 }

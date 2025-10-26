@@ -1,4 +1,4 @@
-package de.feelix.leviathan.command;
+package de.feelix.leviathan.command.mapping;
 
 import de.feelix.leviathan.annotations.NotNull;
 import de.feelix.leviathan.annotations.Nullable;
@@ -33,3 +33,4 @@ public enum OptionType {
         };
     }
 }
+

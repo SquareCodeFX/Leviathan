@@ -1,6 +1,8 @@
-package de.feelix.leviathan.command;
+package de.feelix.leviathan.command.completion;
 
 import de.feelix.leviathan.annotations.NotNull;
+import de.feelix.leviathan.command.argument.Arg;
+import de.feelix.leviathan.command.core.FluentCommand;
 import org.bukkit.command.CommandSender;
 
 import java.util.Collections;

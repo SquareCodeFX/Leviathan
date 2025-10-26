@@ -1,7 +1,9 @@
-package de.feelix.leviathan.command;
+package de.feelix.leviathan.command.core;
 
 import de.feelix.leviathan.annotations.NotNull;
 import de.feelix.leviathan.annotations.Nullable;
+import de.feelix.leviathan.command.mapping.OptionMapping;
+import de.feelix.leviathan.command.mapping.OptionType;
 import de.feelix.leviathan.exceptions.ApiMisuseException;
 import de.feelix.leviathan.util.Preconditions;
 
@@ -47,7 +49,7 @@ public final class CommandContext {
      * @return Optional of the value if present and assignable to the given type, otherwise empty
      */
     @SuppressWarnings("unchecked")
-    public @NotNull <T> Optional<T> getOptional(@NotNull String name, @NotNull Class<T> type) {
+    public @NotNull <T> Optional<T> optional(@NotNull String name, @NotNull Class<T> type) {
         Preconditions.checkNotNull(name, "name");
         Preconditions.checkNotNull(type, "type");
         Object o = values.get(name);
@@ -80,7 +82,7 @@ public final class CommandContext {
      * @throws ApiMisuseException if missing or type-incompatible
      */
     @SuppressWarnings("unchecked")
-    public @NotNull <T> T getOrThrow(@NotNull String name, @NotNull Class<T> type) {
+    public @NotNull <T> T orThrow(@NotNull String name, @NotNull Class<T> type) {
         Preconditions.checkNotNull(name, "name");
         Preconditions.checkNotNull(type, "type");
         if (!values.containsKey(name)) {
@@ -95,10 +97,10 @@ public final class CommandContext {
     }
 
     /**
-     * Alias for {@link #getOrThrow(String, Class)} for readability when a required argument is expected.
+     * Alias for {@link #orThrow(String, Class)} for readability when a required argument is expected.
      */
     public @NotNull <T> T require(@NotNull String name, @NotNull Class<T> type) {
-        return getOrThrow(name, type);
+        return orThrow(name, type);
     }
 
     /**
@@ -111,7 +113,7 @@ public final class CommandContext {
 
     /**
      * Functional retrieval using an {@link OptionMapping} and a mapper function.
-     * Example usage: {@code String n = ctx.arg("name", ArgumentMapper::getAsString);}.
+     * Example usage: {@code String n = ctx.arg("name", ArgumentMapper::asString);}.
      * @return the mapped value, or null if the argument is not available
      */
     public <T> @Nullable T arg(@NotNull String name, @NotNull Function<OptionMapping, T> mapper) {
@@ -129,7 +131,7 @@ public final class CommandContext {
         @Override public @NotNull OptionType optionType() { return inferType(raw()); }
 
         @Override
-        public <T> @Nullable T getAs(@NotNull Class<T> type) {
+        public <T> @Nullable T as(@NotNull Class<T> type) {
             Preconditions.checkNotNull(type, "type");
             if (!values.containsKey(name)) {
                 return null;
@@ -145,10 +147,10 @@ public final class CommandContext {
             return t;
         }
 
-        @Override public @Nullable String getAsString() { return getAs(String.class); }
-        @Override public @Nullable Integer getAsInt() { return getAs(Integer.class); }
-        @Override public @Nullable Long getAsLong() { return getAs(Long.class); }
-        @Override public @Nullable UUID getAsUuid() { return getAs(UUID.class); }
+        @Override public @Nullable String asString() { return as(String.class); }
+        @Override public @Nullable Integer asInt() { return as(Integer.class); }
+        @Override public @Nullable Long asLong() { return as(Long.class); }
+        @Override public @Nullable UUID asUuid() { return as(UUID.class); }
     }
 
     private static @NotNull OptionType inferType(Object o) {
