@@ -26,7 +26,7 @@ public interface Guard {
      * @return non-null message string
      */
     default @NotNull String errorMessage() { 
-        return "Â§cYou cannot use this command."; 
+        return "§cYou cannot use this command."; 
     }
     
     /**
@@ -45,7 +45,7 @@ public interface Guard {
             
             @Override 
             public @NotNull String errorMessage() { 
-                return "Â§cYou lack permission: " + perm; 
+                return "§cYou lack permission: " + perm; 
             }
         };
     }
@@ -67,9 +67,8 @@ public interface Guard {
             
             @Override 
             public @NotNull String errorMessage() { 
-                return "Â§cYou must be in world '" + worldName + "'."; 
+                return "§cYou must be in world '" + worldName + "'."; 
             }
         };
     }
 }
-
