@@ -127,7 +127,16 @@ public final class Arg<T> {
                 .greedy(context.greedy())
                 .permission(context.permission())
                 .completionsPredefined(new java.util.ArrayList<>(context.completionsPredefined()))
-                .completionsDynamic(context.completionsDynamic());
+                .completionsDynamic(context.completionsDynamic())
+                .intRange(context.intMin(), context.intMax())
+                .longRange(context.longMin(), context.longMax())
+                .doubleRange(context.doubleMin(), context.doubleMax())
+                .floatRange(context.floatMin(), context.floatMax())
+                .stringLengthRange(context.stringMinLength(), context.stringMaxLength())
+                .stringPattern(context.stringPattern());
+        for (ArgContext.Validator<?> validator : context.customValidators()) {
+            b.addValidator(validator);
+        }
         return new Arg<>(name, parser, b.build());
     }
 
@@ -140,7 +149,16 @@ public final class Arg<T> {
                 .greedy(context.greedy())
                 .permission(permission)
                 .completionsPredefined(new java.util.ArrayList<>(context.completionsPredefined()))
-                .completionsDynamic(context.completionsDynamic());
+                .completionsDynamic(context.completionsDynamic())
+                .intRange(context.intMin(), context.intMax())
+                .longRange(context.longMin(), context.longMax())
+                .doubleRange(context.doubleMin(), context.doubleMax())
+                .floatRange(context.floatMin(), context.floatMax())
+                .stringLengthRange(context.stringMinLength(), context.stringMaxLength())
+                .stringPattern(context.stringPattern());
+        for (ArgContext.Validator<?> validator : context.customValidators()) {
+            b.addValidator(validator);
+        }
         return new Arg<>(name, parser, b.build());
     }
 
@@ -153,7 +171,16 @@ public final class Arg<T> {
                 .greedy(greedy)
                 .permission(context.permission())
                 .completionsPredefined(new java.util.ArrayList<>(context.completionsPredefined()))
-                .completionsDynamic(context.completionsDynamic());
+                .completionsDynamic(context.completionsDynamic())
+                .intRange(context.intMin(), context.intMax())
+                .longRange(context.longMin(), context.longMax())
+                .doubleRange(context.doubleMin(), context.doubleMax())
+                .floatRange(context.floatMin(), context.floatMax())
+                .stringLengthRange(context.stringMinLength(), context.stringMaxLength())
+                .stringPattern(context.stringPattern());
+        for (ArgContext.Validator<?> validator : context.customValidators()) {
+            b.addValidator(validator);
+        }
         return new Arg<>(name, parser, b.build());
     }
 }

@@ -101,6 +101,21 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
         default @NotNull String errorMessage() { return "§cYou cannot use this command."; }
     }
 
+    /**
+     * Cross-argument validator for validating relationships between multiple arguments.
+     * Invoked after all arguments have been parsed and individually validated.
+     */
+    @FunctionalInterface
+    public interface CrossArgumentValidator {
+        /**
+         * Validates the parsed argument values.
+         *
+         * @param context the command context containing all parsed argument values
+         * @return null if valid, or an error message string if invalid
+         */
+        @Nullable String validate(@NotNull CommandContext context);
+    }
+
     // Helper guards
     public static @NotNull Guard permission(@NotNull String perm) {
         Preconditions.checkNotNull(perm, "perm");
@@ -150,6 +165,8 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
         private Long asyncTimeoutMillis = null;
         // Guards
         private final List<Guard> guards = new ArrayList<>();
+        // Cross-argument validators
+        private final List<CrossArgumentValidator> crossArgumentValidators = new ArrayList<>();
 
         private Builder(String name) {
             this.name = Preconditions.checkNotNull(name, "name");
@@ -483,6 +500,20 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
         }
 
         /**
+         * Add a cross-argument validator to enforce constraints between multiple arguments.
+         * These validators are invoked after all arguments have been parsed and individually validated.
+         * Multiple validators can be added and will form a validation chain.
+         *
+         * @param validator the cross-argument validator to add
+         * @return this builder
+         */
+        public @NotNull Builder addCrossArgumentValidator(@NotNull CrossArgumentValidator validator) {
+            Preconditions.checkNotNull(validator, "validator");
+            this.crossArgumentValidators.add(validator);
+            return this;
+        }
+
+        /**
          * Configure whether the action should run asynchronously via {@link CompletableFuture}.
          * @param async true to execute off the main thread
          * @return this builder
@@ -592,7 +623,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
             return new FluentCommand(
                 name, description, permission, playerOnly, sendErrors, args, action, async, validateOnTab, subs,
                 asyncAction, (asyncTimeoutMillis == null ? 0L : asyncTimeoutMillis),
-                guards
+                guards, crossArgumentValidators
             );
         }
 
@@ -630,6 +661,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
     private final AsyncCommandAction asyncActionAdv; // nullable
     private final long asyncTimeoutMillis; // 0 = no timeout
     private final java.util.List<Guard> guards;
+    private final java.util.List<CrossArgumentValidator> crossArgumentValidators;
 
     private JavaPlugin plugin; // set during register()
     private boolean subOnly = false; // marked when attached as a subcommand of another command
@@ -693,7 +725,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
                          List<Arg<?>> args, CommandAction action, boolean async, boolean validateOnTab,
                          Map<String, FluentCommand> subcommands,
                           @Nullable AsyncCommandAction asyncActionAdv, long asyncTimeoutMillis,
-                          List<Guard> guards) {
+                          List<Guard> guards, List<CrossArgumentValidator> crossArgumentValidators) {
         this.name = Preconditions.checkNotNull(name, "name");
         this.description = (description == null) ? "" : description;
         this.permission = permission;
@@ -707,6 +739,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
         this.asyncActionAdv = asyncActionAdv;
         this.asyncTimeoutMillis = asyncTimeoutMillis;
         this.guards = java.util.List.copyOf(guards == null ? java.util.List.of() : guards);
+        this.crossArgumentValidators = java.util.List.copyOf(crossArgumentValidators == null ? java.util.List.of() : crossArgumentValidators);
     }
 
     /**
@@ -727,6 +760,95 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
         Preconditions.checkNotNull(label, "label");
         Preconditions.checkNotNull(providedArgs, "providedArgs");
         return execute(sender, label, providedArgs);
+    }
+
+    /**
+     * Validates a parsed value against the validation rules defined in ArgContext.
+     *
+     * @param value the parsed value to validate
+     * @param ctx the ArgContext containing validation rules
+     * @param argName the argument name (for error messages)
+     * @param typeName the type name (for error messages)
+     * @return null if valid, or an error message string if invalid
+     */
+    @SuppressWarnings("unchecked")
+    private @Nullable String validateValue(@Nullable Object value, @NotNull ArgContext ctx, @NotNull String argName, @NotNull String typeName) {
+        if (value == null) {
+            return null; // null values pass validation (optionality is handled separately)
+        }
+        
+        // Integer range validation
+        if (value instanceof Integer) {
+            Integer intVal = (Integer) value;
+            if (ctx.intMin() != null && intVal < ctx.intMin()) {
+                return "must be at least " + ctx.intMin() + " (got " + intVal + ")";
+            }
+            if (ctx.intMax() != null && intVal > ctx.intMax()) {
+                return "must be at most " + ctx.intMax() + " (got " + intVal + ")";
+            }
+        }
+        
+        // Long range validation
+        if (value instanceof Long) {
+            Long longVal = (Long) value;
+            if (ctx.longMin() != null && longVal < ctx.longMin()) {
+                return "must be at least " + ctx.longMin() + " (got " + longVal + ")";
+            }
+            if (ctx.longMax() != null && longVal > ctx.longMax()) {
+                return "must be at most " + ctx.longMax() + " (got " + longVal + ")";
+            }
+        }
+        
+        // Double range validation
+        if (value instanceof Double) {
+            Double doubleVal = (Double) value;
+            if (ctx.doubleMin() != null && doubleVal < ctx.doubleMin()) {
+                return "must be at least " + ctx.doubleMin() + " (got " + doubleVal + ")";
+            }
+            if (ctx.doubleMax() != null && doubleVal > ctx.doubleMax()) {
+                return "must be at most " + ctx.doubleMax() + " (got " + doubleVal + ")";
+            }
+        }
+        
+        // Float range validation
+        if (value instanceof Float) {
+            Float floatVal = (Float) value;
+            if (ctx.floatMin() != null && floatVal < ctx.floatMin()) {
+                return "must be at least " + ctx.floatMin() + " (got " + floatVal + ")";
+            }
+            if (ctx.floatMax() != null && floatVal > ctx.floatMax()) {
+                return "must be at most " + ctx.floatMax() + " (got " + floatVal + ")";
+            }
+        }
+        
+        // String validation
+        if (value instanceof String) {
+            String strVal = (String) value;
+            if (ctx.stringMinLength() != null && strVal.length() < ctx.stringMinLength()) {
+                return "length must be at least " + ctx.stringMinLength() + " (got " + strVal.length() + ")";
+            }
+            if (ctx.stringMaxLength() != null && strVal.length() > ctx.stringMaxLength()) {
+                return "length must be at most " + ctx.stringMaxLength() + " (got " + strVal.length() + ")";
+            }
+            if (ctx.stringPattern() != null && !ctx.stringPattern().matcher(strVal).matches()) {
+                return "does not match required pattern: " + ctx.stringPattern().pattern();
+            }
+        }
+        
+        // Custom validators
+        for (ArgContext.Validator<?> validator : ctx.customValidators()) {
+            try {
+                ArgContext.Validator<Object> objValidator = (ArgContext.Validator<Object>) validator;
+                String error = objValidator.validate(value);
+                if (error != null) {
+                    return error;
+                }
+            } catch (ClassCastException e) {
+                // Type mismatch - skip this validator
+            }
+        }
+        
+        return null; // All validations passed
     }
 
     /**
@@ -823,8 +945,34 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
                 }
                 return true;
             }
-            values.put(arg.name(), res.value().orElse(null));
+            Object parsedValue = res.value().orElse(null);
+            
+            // Apply validations from ArgContext
+            ArgContext ctx = arg.context();
+            String validationError = validateValue(parsedValue, ctx, arg.name(), parser.getTypeName());
+            if (validationError != null) {
+                if (sendErrors) {
+                    sender.sendMessage("§cInvalid value for '" + arg.name() + "': " + validationError);
+                }
+                return true;
+            }
+            
+            values.put(arg.name(), parsedValue);
             argIndex++;
+        }
+
+        // Cross-argument validation: validate relationships between multiple arguments
+        if (!crossArgumentValidators.isEmpty()) {
+            CommandContext tempCtx = new CommandContext(values, providedArgs);
+            for (CrossArgumentValidator validator : crossArgumentValidators) {
+                String error = validator.validate(tempCtx);
+                if (error != null) {
+                    if (sendErrors) {
+                        sender.sendMessage("§cValidation error: " + error);
+                    }
+                    return true;
+                }
+            }
         }
 
         // Optional arguments not provided: simply absent from context
