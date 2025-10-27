@@ -4,7 +4,6 @@ import de.feelix.leviathan.annotations.NotNull;
 import de.feelix.leviathan.annotations.Nullable;
 import de.feelix.leviathan.command.mapping.OptionType;
 import de.feelix.leviathan.exceptions.CommandConfigurationException;
-import de.feelix.leviathan.parser.ArgumentParser;
 import de.feelix.leviathan.util.Preconditions;
 
 import java.util.ArrayList;

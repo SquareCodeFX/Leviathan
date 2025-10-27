@@ -4,6 +4,10 @@ import de.feelix.leviathan.annotations.NotNull;
 import de.feelix.leviathan.annotations.Nullable;
 import de.feelix.leviathan.command.core.CommandContext;
 import de.feelix.leviathan.command.mapping.OptionMapping;
+import org.bukkit.Material;
+import org.bukkit.OfflinePlayer;
+import org.bukkit.World;
+import org.bukkit.entity.Player;
 
 import java.util.UUID;
 
@@ -52,6 +56,76 @@ public final class ArgumentMapper {
      */
     public static @Nullable UUID asUuid(@NotNull OptionMapping mapping) {
         return mapping.asUuid();
+    }
+
+    /**
+     * Retrieve the value as a Double via the provided mapping.
+     *
+     * @param mapping the option mapping supplied by the command context
+     * @return double value, or null if the underlying value is missing or not a Double
+     */
+    public static @Nullable Double asDouble(@NotNull OptionMapping mapping) {
+        return mapping.as(Double.class);
+    }
+
+    /**
+     * Retrieve the value as a Float via the provided mapping.
+     *
+     * @param mapping the option mapping supplied by the command context
+     * @return float value, or null if the underlying value is missing or not a Float
+     */
+    public static @Nullable Float asFloat(@NotNull OptionMapping mapping) {
+        return mapping.as(Float.class);
+    }
+
+    /**
+     * Retrieve the value as a Boolean via the provided mapping.
+     *
+     * @param mapping the option mapping supplied by the command context
+     * @return boolean value, or null if the underlying value is missing or not a Boolean
+     */
+    public static @Nullable Boolean asBoolean(@NotNull OptionMapping mapping) {
+        return mapping.as(Boolean.class);
+    }
+
+    /**
+     * Retrieve the value as a Player via the provided mapping.
+     *
+     * @param mapping the option mapping supplied by the command context
+     * @return player value, or null if the underlying value is missing or not a Player
+     */
+    public static @Nullable Player asPlayer(@NotNull OptionMapping mapping) {
+        return mapping.as(Player.class);
+    }
+
+    /**
+     * Retrieve the value as an OfflinePlayer via the provided mapping.
+     *
+     * @param mapping the option mapping supplied by the command context
+     * @return offline player value, or null if the underlying value is missing or not an OfflinePlayer
+     */
+    public static @Nullable OfflinePlayer asOfflinePlayer(@NotNull OptionMapping mapping) {
+        return mapping.as(OfflinePlayer.class);
+    }
+
+    /**
+     * Retrieve the value as a World via the provided mapping.
+     *
+     * @param mapping the option mapping supplied by the command context
+     * @return world value, or null if the underlying value is missing or not a World
+     */
+    public static @Nullable World asWorld(@NotNull OptionMapping mapping) {
+        return mapping.as(World.class);
+    }
+
+    /**
+     * Retrieve the value as a Material via the provided mapping.
+     *
+     * @param mapping the option mapping supplied by the command context
+     * @return material value, or null if the underlying value is missing or not a Material
+     */
+    public static @Nullable Material asMaterial(@NotNull OptionMapping mapping) {
+        return mapping.as(Material.class);
     }
 
     /**

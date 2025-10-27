@@ -1,4 +1,4 @@
-package de.feelix.leviathan.parser;
+package de.feelix.leviathan.command.argument;
 
 import de.feelix.leviathan.annotations.NotNull;
 import org.bukkit.command.CommandSender;
