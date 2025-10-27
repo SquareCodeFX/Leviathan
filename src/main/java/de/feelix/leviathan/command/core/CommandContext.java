@@ -112,6 +112,81 @@ public final class CommandContext {
     }
 
     /**
+     * Retrieve a typed value by argument name, returning the provided default value when missing or of a different type.
+     * @param name argument name
+     * @param type expected type class
+     * @param defaultValue value to return if the argument is missing or has a different type
+     * @return the value or the default value
+     */
+    public @NotNull <T> T getOrDefault(@NotNull String name, @NotNull Class<T> type, @NotNull T defaultValue) {
+        Preconditions.checkNotNull(name, "name");
+        Preconditions.checkNotNull(type, "type");
+        Preconditions.checkNotNull(defaultValue, "defaultValue");
+        T value = get(name, type);
+        return value != null ? value : defaultValue;
+    }
+
+    /**
+     * Convenience method to retrieve a String argument or return a default value.
+     * @param name argument name
+     * @param defaultValue value to return if the argument is missing
+     * @return the string value or the default value
+     */
+    public @NotNull String getStringOrDefault(@NotNull String name, @NotNull String defaultValue) {
+        return getOrDefault(name, String.class, defaultValue);
+    }
+
+    /**
+     * Convenience method to retrieve an Integer argument or return a default value.
+     * @param name argument name
+     * @param defaultValue value to return if the argument is missing
+     * @return the integer value or the default value
+     */
+    public @NotNull Integer getIntOrDefault(@NotNull String name, @NotNull Integer defaultValue) {
+        return getOrDefault(name, Integer.class, defaultValue);
+    }
+
+    /**
+     * Convenience method to retrieve a Long argument or return a default value.
+     * @param name argument name
+     * @param defaultValue value to return if the argument is missing
+     * @return the long value or the default value
+     */
+    public @NotNull Long getLongOrDefault(@NotNull String name, @NotNull Long defaultValue) {
+        return getOrDefault(name, Long.class, defaultValue);
+    }
+
+    /**
+     * Convenience method to retrieve a Double argument or return a default value.
+     * @param name argument name
+     * @param defaultValue value to return if the argument is missing
+     * @return the double value or the default value
+     */
+    public @NotNull Double getDoubleOrDefault(@NotNull String name, @NotNull Double defaultValue) {
+        return getOrDefault(name, Double.class, defaultValue);
+    }
+
+    /**
+     * Convenience method to retrieve a Float argument or return a default value.
+     * @param name argument name
+     * @param defaultValue value to return if the argument is missing
+     * @return the float value or the default value
+     */
+    public @NotNull Float getFloatOrDefault(@NotNull String name, @NotNull Float defaultValue) {
+        return getOrDefault(name, Float.class, defaultValue);
+    }
+
+    /**
+     * Convenience method to retrieve a Boolean argument or return a default value.
+     * @param name argument name
+     * @param defaultValue value to return if the argument is missing
+     * @return the boolean value or the default value
+     */
+    public @NotNull Boolean getBooleanOrDefault(@NotNull String name, @NotNull Boolean defaultValue) {
+        return getOrDefault(name, Boolean.class, defaultValue);
+    }
+
+    /**
      * Functional retrieval using an {@link OptionMapping} and a mapper function.
      * Example usage: {@code String n = ctx.arg("name", ArgumentMapper::asString);}.
      * @return the mapped value, or null if the argument is not available

@@ -9,8 +9,8 @@ import de.feelix.leviathan.command.guard.Guard;
 import de.feelix.leviathan.command.validation.CrossArgumentValidator;
 import de.feelix.leviathan.exceptions.CommandConfigurationException;
 import de.feelix.leviathan.exceptions.ParsingException;
-import de.feelix.leviathan.parser.ArgParsers;
-import de.feelix.leviathan.parser.ArgumentParser;
+import de.feelix.leviathan.command.argument.ArgParsers;
+import de.feelix.leviathan.command.argument.ArgumentParser;
 import de.feelix.leviathan.util.Preconditions;
 import org.bukkit.command.CommandSender;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -222,6 +222,235 @@ public final class FluentCommandBuilder {
      */
     public @NotNull FluentCommandBuilder argUUID(@NotNull String name, @NotNull ArgContext argContext) {
         return arg(new Arg<>(name, ArgParsers.uuidParser(), Preconditions.checkNotNull(argContext, "argContext")));
+    }
+
+    /**
+     * Add a required double argument.
+     *
+     * @param name argument name (no whitespace)
+     * @return this builder
+     */
+    public @NotNull FluentCommandBuilder argDouble(@NotNull String name) {
+        return arg(new Arg<>(name, false, ArgParsers.doubleParser()));
+    }
+
+    /**
+     * Add a double argument with explicit {@link ArgContext}.
+     *
+     * @param name       argument name (no whitespace)
+     * @param argContext per-argument configuration
+     * @return this builder
+     */
+    public @NotNull FluentCommandBuilder argDouble(@NotNull String name, @NotNull ArgContext argContext) {
+        return arg(new Arg<>(name, ArgParsers.doubleParser(), Preconditions.checkNotNull(argContext, "argContext")));
+    }
+
+    /**
+     * Add a required float argument.
+     *
+     * @param name argument name (no whitespace)
+     * @return this builder
+     */
+    public @NotNull FluentCommandBuilder argFloat(@NotNull String name) {
+        return arg(new Arg<>(name, false, ArgParsers.floatParser()));
+    }
+
+    /**
+     * Add a float argument with explicit {@link ArgContext}.
+     *
+     * @param name       argument name (no whitespace)
+     * @param argContext per-argument configuration
+     * @return this builder
+     */
+    public @NotNull FluentCommandBuilder argFloat(@NotNull String name, @NotNull ArgContext argContext) {
+        return arg(new Arg<>(name, ArgParsers.floatParser(), Preconditions.checkNotNull(argContext, "argContext")));
+    }
+
+    /**
+     * Add a required boolean argument.
+     * Accepts: true, false, yes, no, on, off, 1, 0 (case-insensitive).
+     *
+     * @param name argument name (no whitespace)
+     * @return this builder
+     */
+    public @NotNull FluentCommandBuilder argBoolean(@NotNull String name) {
+        return arg(new Arg<>(name, false, ArgParsers.booleanParser()));
+    }
+
+    /**
+     * Add a boolean argument with explicit {@link ArgContext}.
+     *
+     * @param name       argument name (no whitespace)
+     * @param argContext per-argument configuration
+     * @return this builder
+     */
+    public @NotNull FluentCommandBuilder argBoolean(@NotNull String name, @NotNull ArgContext argContext) {
+        return arg(new Arg<>(name, ArgParsers.booleanParser(), Preconditions.checkNotNull(argContext, "argContext")));
+    }
+
+    /**
+     * Add a required online player argument.
+     *
+     * @param name argument name (no whitespace)
+     * @return this builder
+     */
+    public @NotNull FluentCommandBuilder argPlayer(@NotNull String name) {
+        return arg(new Arg<>(name, false, ArgParsers.playerParser()));
+    }
+
+    /**
+     * Add a player argument with explicit {@link ArgContext}.
+     *
+     * @param name       argument name (no whitespace)
+     * @param argContext per-argument configuration
+     * @return this builder
+     */
+    public @NotNull FluentCommandBuilder argPlayer(@NotNull String name, @NotNull ArgContext argContext) {
+        return arg(new Arg<>(name, ArgParsers.playerParser(), Preconditions.checkNotNull(argContext, "argContext")));
+    }
+
+    /**
+     * Add a required offline player argument.
+     *
+     * @param name argument name (no whitespace)
+     * @return this builder
+     */
+    public @NotNull FluentCommandBuilder argOfflinePlayer(@NotNull String name) {
+        return arg(new Arg<>(name, false, ArgParsers.offlinePlayerParser()));
+    }
+
+    /**
+     * Add an offline player argument with explicit {@link ArgContext}.
+     *
+     * @param name       argument name (no whitespace)
+     * @param argContext per-argument configuration
+     * @return this builder
+     */
+    public @NotNull FluentCommandBuilder argOfflinePlayer(@NotNull String name, @NotNull ArgContext argContext) {
+        return arg(new Arg<>(name, ArgParsers.offlinePlayerParser(), Preconditions.checkNotNull(argContext, "argContext")));
+    }
+
+    /**
+     * Add a required world argument.
+     *
+     * @param name argument name (no whitespace)
+     * @return this builder
+     */
+    public @NotNull FluentCommandBuilder argWorld(@NotNull String name) {
+        return arg(new Arg<>(name, false, ArgParsers.worldParser()));
+    }
+
+    /**
+     * Add a world argument with explicit {@link ArgContext}.
+     *
+     * @param name       argument name (no whitespace)
+     * @param argContext per-argument configuration
+     * @return this builder
+     */
+    public @NotNull FluentCommandBuilder argWorld(@NotNull String name, @NotNull ArgContext argContext) {
+        return arg(new Arg<>(name, ArgParsers.worldParser(), Preconditions.checkNotNull(argContext, "argContext")));
+    }
+
+    /**
+     * Add a required material argument.
+     *
+     * @param name argument name (no whitespace)
+     * @return this builder
+     */
+    public @NotNull FluentCommandBuilder argMaterial(@NotNull String name) {
+        return arg(new Arg<>(name, false, ArgParsers.materialParser()));
+    }
+
+    /**
+     * Add a material argument with explicit {@link ArgContext}.
+     *
+     * @param name       argument name (no whitespace)
+     * @param argContext per-argument configuration
+     * @return this builder
+     */
+    public @NotNull FluentCommandBuilder argMaterial(@NotNull String name, @NotNull ArgContext argContext) {
+        return arg(new Arg<>(name, ArgParsers.materialParser(), Preconditions.checkNotNull(argContext, "argContext")));
+    }
+
+    /**
+     * Add a required enum argument.
+     *
+     * @param name      argument name (no whitespace)
+     * @param enumClass the enum class to parse
+     * @param <E>       enum type
+     * @return this builder
+     */
+    public <E extends Enum<E>> @NotNull FluentCommandBuilder argEnum(@NotNull String name, @NotNull Class<E> enumClass) {
+        return arg(new Arg<>(name, false, ArgParsers.enumParser(enumClass)));
+    }
+
+    /**
+     * Add an enum argument with explicit {@link ArgContext}.
+     *
+     * @param name       argument name (no whitespace)
+     * @param enumClass  the enum class to parse
+     * @param argContext per-argument configuration
+     * @param <E>        enum type
+     * @return this builder
+     */
+    public <E extends Enum<E>> @NotNull FluentCommandBuilder argEnum(@NotNull String name, @NotNull Class<E> enumClass, @NotNull ArgContext argContext) {
+        return arg(new Arg<>(name, ArgParsers.enumParser(enumClass), Preconditions.checkNotNull(argContext, "argContext")));
+    }
+
+    /**
+     * Add a required integer argument with range validation.
+     * Convenience method that combines argInt with range validation in one call.
+     *
+     * @param name argument name (no whitespace)
+     * @param min  minimum value (inclusive)
+     * @param max  maximum value (inclusive)
+     * @return this builder
+     */
+    public @NotNull FluentCommandBuilder argIntRange(@NotNull String name, int min, int max) {
+        return arg(new Arg<>(name, ArgParsers.intParser(), 
+            ArgContext.builder().intRange(min, max).build()));
+    }
+
+    /**
+     * Add a required long argument with range validation.
+     * Convenience method that combines argLong with range validation in one call.
+     *
+     * @param name argument name (no whitespace)
+     * @param min  minimum value (inclusive)
+     * @param max  maximum value (inclusive)
+     * @return this builder
+     */
+    public @NotNull FluentCommandBuilder argLongRange(@NotNull String name, long min, long max) {
+        return arg(new Arg<>(name, ArgParsers.longParser(), 
+            ArgContext.builder().longRange(min, max).build()));
+    }
+
+    /**
+     * Add a required double argument with range validation.
+     * Convenience method that combines argDouble with range validation in one call.
+     *
+     * @param name argument name (no whitespace)
+     * @param min  minimum value (inclusive)
+     * @param max  maximum value (inclusive)
+     * @return this builder
+     */
+    public @NotNull FluentCommandBuilder argDoubleRange(@NotNull String name, double min, double max) {
+        return arg(new Arg<>(name, ArgParsers.doubleParser(), 
+            ArgContext.builder().doubleRange(min, max).build()));
+    }
+
+    /**
+     * Add a required float argument with range validation.
+     * Convenience method that combines argFloat with range validation in one call.
+     *
+     * @param name argument name (no whitespace)
+     * @param min  minimum value (inclusive)
+     * @param max  maximum value (inclusive)
+     * @return this builder
+     */
+    public @NotNull FluentCommandBuilder argFloatRange(@NotNull String name, float min, float max) {
+        return arg(new Arg<>(name, ArgParsers.floatParser(), 
+            ArgContext.builder().floatRange(min, max).build()));
     }
 
 
