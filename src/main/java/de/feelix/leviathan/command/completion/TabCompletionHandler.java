@@ -7,7 +7,7 @@ import de.feelix.leviathan.command.core.FluentCommand;
 import de.feelix.leviathan.command.guard.Guard;
 import de.feelix.leviathan.command.validation.ValidationHelper;
 import de.feelix.leviathan.exceptions.ParsingException;
-import de.feelix.leviathan.parser.ParseResult;
+import de.feelix.leviathan.command.argument.ParseResult;
 import de.feelix.leviathan.util.Preconditions;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;

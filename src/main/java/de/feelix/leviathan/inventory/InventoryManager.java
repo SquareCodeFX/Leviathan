@@ -93,11 +93,7 @@ public final class InventoryManager implements Listener {
     }
 
     @EventHandler
-    /**
-         * Route InventoryClick events targeting a UI created by this API to the owning FluentInventory.
-         * Non-UI clicks are ignored. Click cancellation is handled by FluentInventory.
-         */
-        public void onInventoryClick(InventoryClickEvent event) {
+    public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
         Inventory top = event.getView().getTopInventory();
         InventoryHolder holder = top.getHolder();
@@ -110,11 +106,7 @@ public final class InventoryManager implements Listener {
     }
 
     @EventHandler
-    /**
-         * Cancel drag operations within managed UI inventories to preserve layout integrity.
-         * Only drags targeting API-created inventories are affected; others are ignored.
-         */
-        public void onInventoryDrag(InventoryDragEvent event) {
+    public void onInventoryDrag(InventoryDragEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
         Inventory top = event.getView().getTopInventory();
         InventoryHolder holder = top.getHolder();
@@ -128,10 +120,7 @@ public final class InventoryManager implements Listener {
     }
 
     @EventHandler
-    /**
-         * Handle InventoryClose events for managed UIs to run onClose callbacks and cleanup tracking.
-         */
-        public void onInventoryClose(InventoryCloseEvent event) {
+    public void onInventoryClose(InventoryCloseEvent event) {
         if (!(event.getPlayer() instanceof Player player)) return;
         Inventory top = event.getView().getTopInventory();
         InventoryHolder holder = top.getHolder();
