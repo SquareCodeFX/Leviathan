@@ -9,8 +9,12 @@ import de.feelix.leviathan.annotations.Nullable;
 public enum OptionType {
     INT,
     LONG,
+    DOUBLE,
+    FLOAT,
     STRING,
     UUID,
+    BOOLEAN,
+    PLAYER,
     CHOICE,
     UNKNOWN;
 
@@ -23,8 +27,12 @@ public enum OptionType {
         return switch (t) {
             case "int" -> INT;
             case "long" -> LONG;
+            case "double" -> DOUBLE;
+            case "float" -> FLOAT;
             case "string" -> STRING;
             case "uuid" -> UUID;
+            case "boolean" -> BOOLEAN;
+            case "player" -> PLAYER;
             case "command" -> // treat command choice like generic choice
                 CHOICE;
             default ->
@@ -33,4 +41,3 @@ public enum OptionType {
         };
     }
 }
-

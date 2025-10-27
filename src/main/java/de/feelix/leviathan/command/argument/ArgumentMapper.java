@@ -129,6 +129,19 @@ public final class ArgumentMapper {
     }
 
     /**
+     * Retrieve the value as an enum constant via the provided mapping.
+     * Provides type-safe enum casting for command arguments parsed with enumParser.
+     *
+     * @param mapping   the option mapping supplied by the command context
+     * @param enumClass the enum class
+     * @param <E>       enum type
+     * @return enum value, or null if the underlying value is missing or not of the specified enum type
+     */
+    public static <E extends Enum<E>> @Nullable E asEnum(@NotNull OptionMapping mapping, @NotNull Class<E> enumClass) {
+        return mapping.as(enumClass);
+    }
+
+    /**
      * Retrieve the value as the requested type via the provided mapping.
      *
      * @param mapping the option mapping supplied by the command context

@@ -187,6 +187,26 @@ public final class CommandContext {
     }
 
     /**
+     * Convenience method to retrieve a UUID argument or return a default value.
+     * @param name argument name
+     * @param defaultValue value to return if the argument is missing
+     * @return the UUID value or the default value
+     */
+    public @NotNull UUID getUuidOrDefault(@NotNull String name, @NotNull UUID defaultValue) {
+        return getOrDefault(name, UUID.class, defaultValue);
+    }
+
+    /**
+     * Convenience method to retrieve a Player argument or return a default value.
+     * @param name argument name
+     * @param defaultValue value to return if the argument is missing
+     * @return the Player value or the default value
+     */
+    public @NotNull org.bukkit.entity.Player getPlayerOrDefault(@NotNull String name, @NotNull org.bukkit.entity.Player defaultValue) {
+        return getOrDefault(name, org.bukkit.entity.Player.class, defaultValue);
+    }
+
+    /**
      * Functional retrieval using an {@link OptionMapping} and a mapper function.
      * Example usage: {@code String n = ctx.arg("name", ArgumentMapper::asString);}.
      * @return the mapped value, or null if the argument is not available
@@ -231,8 +251,12 @@ public final class CommandContext {
     private static @NotNull OptionType inferType(Object o) {
         if (o instanceof Integer) return OptionType.INT;
         if (o instanceof Long) return OptionType.LONG;
+        if (o instanceof Double) return OptionType.DOUBLE;
+        if (o instanceof Float) return OptionType.FLOAT;
         if (o instanceof String) return OptionType.STRING;
         if (o instanceof UUID) return OptionType.UUID;
+        if (o instanceof Boolean) return OptionType.BOOLEAN;
+        if (o instanceof org.bukkit.entity.Player) return OptionType.PLAYER;
         return (o == null) ? OptionType.UNKNOWN : OptionType.CHOICE;
     }
 }

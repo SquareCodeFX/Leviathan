@@ -453,6 +453,20 @@ public final class FluentCommandBuilder {
             ArgContext.builder().floatRange(min, max).build()));
     }
 
+    /**
+     * Add a required string argument with length validation.
+     * Convenience method that combines argString with length validation in one call.
+     *
+     * @param name      argument name (no whitespace)
+     * @param minLength minimum length (inclusive)
+     * @param maxLength maximum length (inclusive)
+     * @return this builder
+     */
+    public @NotNull FluentCommandBuilder argStringLength(@NotNull String name, int minLength, int maxLength) {
+        return arg(new Arg<>(name, ArgParsers.stringParser(), 
+            ArgContext.builder().stringLengthRange(minLength, maxLength).build()));
+    }
+
 
     /**
      * Enable or disable validation of previously entered arguments during tab completion.
