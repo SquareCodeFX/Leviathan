@@ -46,6 +46,8 @@ public final class FluentCommandBuilder {
     // Cooldowns
     private long perUserCooldownMillis = 0L;
     private long perServerCooldownMillis = 0L;
+    // Auto help
+    private boolean enableHelp = false;
 
     FluentCommandBuilder(String name) {
         this.name = Preconditions.checkNotNull(name, "name");
@@ -132,6 +134,19 @@ public final class FluentCommandBuilder {
      */
     public @NotNull FluentCommandBuilder sendErrors(boolean send) {
         this.sendErrors = send;
+        return this;
+    }
+
+    /**
+     * Enable or disable automatic help messages for this command.
+     * When enabled, executing the command without arguments will display a help message
+     * showing either subcommands or usage information.
+     *
+     * @param enable true to enable automatic help, false to disable (default: false)
+     * @return this builder
+     */
+    public @NotNull FluentCommandBuilder enableHelp(boolean enable) {
+        this.enableHelp = enable;
         return this;
     }
 
@@ -839,7 +854,7 @@ public final class FluentCommandBuilder {
             name, aliases, description, permission, playerOnly, sendErrors, args, action, async, validateOnTab, subs,
             asyncAction, (asyncTimeoutMillis == null ? 0L : asyncTimeoutMillis),
             guards, crossArgumentValidators, exceptionHandler,
-            perUserCooldownMillis, perServerCooldownMillis
+            perUserCooldownMillis, perServerCooldownMillis, enableHelp
         );
         
         // Set parent reference for all subcommands

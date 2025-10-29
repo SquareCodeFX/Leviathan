@@ -78,6 +78,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
     @Nullable ExceptionHandler exceptionHandler;
     private final long perUserCooldownMillis;
     private final long perServerCooldownMillis;
+    private final boolean enableHelp;
     private final String cachedUsage;
     JavaPlugin plugin;
     private boolean subOnly = false;
@@ -235,7 +236,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
                   @Nullable AsyncCommandAction asyncActionAdv, long asyncTimeoutMillis,
                   List<Guard> guards, List<CrossArgumentValidator> crossArgumentValidators,
                   @Nullable ExceptionHandler exceptionHandler,
-                  long perUserCooldownMillis, long perServerCooldownMillis) {
+                  long perUserCooldownMillis, long perServerCooldownMillis, boolean enableHelp) {
         this.name = Preconditions.checkNotNull(name, "name");
         this.aliases = List.copyOf(aliases == null ? List.of() : aliases);
         this.description = (description == null) ? "" : description;
@@ -255,6 +256,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
         this.exceptionHandler = exceptionHandler;
         this.perUserCooldownMillis = perUserCooldownMillis;
         this.perServerCooldownMillis = perServerCooldownMillis;
+        this.enableHelp = enableHelp;
         // Pre-compute usage string for performance
         this.cachedUsage = computeUsageString();
     }
@@ -379,13 +381,39 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
+        // Auto help: display help message when enabled and no arguments provided
+        if (enableHelp && providedArgs.length == 0) {
+            // Show help if command has subcommands or required arguments
+            int required = (int) args.stream().filter(a -> !a.optional()).count();
+            if (!subcommands.isEmpty() || required > 0) {
+                sender.sendMessage(generateHelpMessage(label));
+                return true;
+            }
+        }
+
         // Automatic subcommand routing: if the first token matches a registered subcommand, delegate to it
         if (!subcommands.isEmpty() && providedArgs.length >= 1) {
             String first = providedArgs[0].toLowerCase(Locale.ROOT);
             FluentCommand sub = subcommands.get(first);
             if (sub != null) {
                 String[] remaining = Arrays.copyOfRange(providedArgs, 1, providedArgs.length);
-                return sub.execute(sender, sub.name(), remaining);
+                try {
+                    return sub.execute(sender, sub.name(), remaining);
+                } catch (Throwable t) {
+                    // Catch any unexpected exception during subcommand execution
+                    String errorMsg = "§cInternal error while executing subcommand '" + first + "'.";
+                    sendErrorMessage(sender, ErrorType.INTERNAL_ERROR, errorMsg, t);
+                    if (plugin != null) {
+                        plugin.getLogger().severe("Subcommand '" + first + "' threw unexpected exception: " + t.getMessage());
+                        t.printStackTrace();
+                    }
+                    return true;
+                }
+            }
+            // Invalid subcommand provided: show help if enabled
+            if (enableHelp) {
+                sender.sendMessage(generateHelpMessage(label));
+                return true;
             }
         }
 
@@ -419,11 +447,26 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
             } else {
                 token = providedArgs[tokenIndex++];
             }
-            ParseResult<?> res = parser.parse(token, sender);
-            if (res == null) {
-                throw new ParsingException(
-                    "Parser " + parser.getClass().getName() + " returned null ParseResult for argument '" + arg.name()
-                    + "'");
+            ParseResult<?> res;
+            try {
+                res = parser.parse(token, sender);
+                if (res == null) {
+                    throw new ParsingException(
+                        "Parser " + parser.getClass().getName() + " returned null ParseResult for argument '" + arg.name()
+                        + "'");
+                }
+            } catch (ParsingException pe) {
+                // Re-throw ParsingException as it indicates a developer error
+                throw pe;
+            } catch (Throwable t) {
+                // Catch any unexpected exception from parser and handle gracefully
+                String errorMsg = "§cInternal error while parsing argument '" + arg.name() + "'.";
+                sendErrorMessage(sender, ErrorType.INTERNAL_ERROR, errorMsg, t);
+                if (plugin != null) {
+                    plugin.getLogger().severe("Parser " + parser.getClass().getName() + " threw unexpected exception for argument '" + arg.name() + "': " + t.getMessage());
+                    t.printStackTrace();
+                }
+                return true;
             }
             if (!res.isSuccess()) {
                 String msg = res.error().orElse("invalid value");
@@ -435,9 +478,16 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
                 if (sendErrors) {
                     ArgContext argCtx = arg.context();
                     if (argCtx.didYouMean() && !argCtx.completionsPredefined().isEmpty()) {
-                        List<String> suggestions = StringSimilarity.findSimilar(token, argCtx.completionsPredefined());
-                        if (!suggestions.isEmpty()) {
-                            sender.sendMessage("§eDid you mean: " + String.join(", ", suggestions) + "?");
+                        try {
+                            List<String> suggestions = StringSimilarity.findSimilar(token, argCtx.completionsPredefined());
+                            if (!suggestions.isEmpty()) {
+                                sender.sendMessage("§eDid you mean: " + String.join(", ", suggestions) + "?");
+                            }
+                        } catch (Throwable t) {
+                            // Silently ignore errors in suggestion generation - it's non-critical
+                            if (plugin != null) {
+                                plugin.getLogger().warning("Failed to generate 'Did you mean' suggestions for argument '" + arg.name() + "': " + t.getMessage());
+                            }
                         }
                     }
                 }
@@ -447,7 +497,19 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
 
             // Apply validations from ArgContext
             ArgContext ctx = arg.context();
-            String validationError = ValidationHelper.validateValue(parsedValue, ctx, arg.name(), parser.getTypeName());
+            String validationError;
+            try {
+                validationError = ValidationHelper.validateValue(parsedValue, ctx, arg.name(), parser.getTypeName());
+            } catch (Throwable t) {
+                // Catch any unexpected exception during validation
+                String errorMsg = "§cInternal error while validating argument '" + arg.name() + "'.";
+                sendErrorMessage(sender, ErrorType.INTERNAL_ERROR, errorMsg, t);
+                if (plugin != null) {
+                    plugin.getLogger().severe("Validation failed with unexpected exception for argument '" + arg.name() + "': " + t.getMessage());
+                    t.printStackTrace();
+                }
+                return true;
+            }
             if (validationError != null) {
                 sendErrorMessage(
                     sender, ErrorType.VALIDATION,
@@ -470,7 +532,19 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
         if (!crossArgumentValidators.isEmpty()) {
             CommandContext tempCtx = new CommandContext(values, providedArgs);
             for (CrossArgumentValidator validator : crossArgumentValidators) {
-                String error = validator.validate(tempCtx);
+                String error;
+                try {
+                    error = validator.validate(tempCtx);
+                } catch (Throwable t) {
+                    // Catch any unexpected exception during cross-argument validation
+                    String errorMsg = "§cInternal error during cross-argument validation.";
+                    sendErrorMessage(sender, ErrorType.INTERNAL_ERROR, errorMsg, t);
+                    if (plugin != null) {
+                        plugin.getLogger().severe("Cross-argument validator " + validator.getClass().getName() + " threw unexpected exception: " + t.getMessage());
+                        t.printStackTrace();
+                    }
+                    return true;
+                }
                 if (error != null) {
                     sendErrorMessage(sender, ErrorType.CROSS_VALIDATION, "§cValidation error: " + error, null);
                     return true;
@@ -480,10 +554,24 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
 
         // Update cooldown tracking after successful validation
         if (perServerCooldownMillis > 0) {
-            CooldownManager.updateServerCooldown(name);
+            try {
+                CooldownManager.updateServerCooldown(name);
+            } catch (Throwable t) {
+                // Log but don't fail the command if cooldown update fails
+                if (plugin != null) {
+                    plugin.getLogger().warning("Failed to update server cooldown for command '" + name + "': " + t.getMessage());
+                }
+            }
         }
         if (perUserCooldownMillis > 0) {
-            CooldownManager.updateUserCooldown(name, sender.getName());
+            try {
+                CooldownManager.updateUserCooldown(name, sender.getName());
+            } catch (Throwable t) {
+                // Log but don't fail the command if cooldown update fails
+                if (plugin != null) {
+                    plugin.getLogger().warning("Failed to update user cooldown for command '" + name + "' and user '" + sender.getName() + "': " + t.getMessage());
+                }
+            }
         }
 
         // Optional arguments not provided: simply absent from context
@@ -499,7 +587,11 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
                         } else {
                             sender.sendMessage(msg);
                         }
-                    } catch (Throwable ignored) {
+                    } catch (Throwable t) {
+                        // Log progress callback errors instead of silently ignoring
+                        if (plugin != null) {
+                            plugin.getLogger().warning("Failed to send progress message for command '" + name + "': " + t.getMessage());
+                        }
                     }
                 };
                 java.util.concurrent.CompletableFuture<Void> future = java.util.concurrent.CompletableFuture.runAsync(
@@ -602,6 +694,51 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
     @NotNull
     public String usage() {
         return cachedUsage;
+    }
+
+    /**
+     * Generates a dynamic help message for this command.
+     * If the command has subcommands, displays a list of available subcommands with their usage.
+     * If the command has no subcommands, displays the usage format for this command.
+     *
+     * @param label the command label used to invoke this command
+     * @return the formatted help message
+     */
+    @NotNull
+    private String generateHelpMessage(@NotNull String label) {
+        String commandPath = fullCommandPath(label);
+        
+        if (!subcommands.isEmpty()) {
+            StringBuilder sb = new StringBuilder();
+            // Format command name: first letter uppercase, rest lowercase
+            String formattedName = name.isEmpty() ? "" : 
+                Character.toUpperCase(name.charAt(0)) + name.substring(1).toLowerCase(Locale.ROOT);
+            sb.append("§b").append(formattedName).append(" SubCommands: §7(/").append(commandPath).append(" …)\n");
+            
+            // Get unique subcommands (since aliases point to the same command)
+            Set<FluentCommand> uniqueSubcommands = new java.util.LinkedHashSet<>(subcommands.values());
+            
+            for (FluentCommand sub : uniqueSubcommands) {
+                sb.append("§3> §a").append(sub.name());
+                String subUsage = sub.usage();
+                if (!subUsage.isEmpty() && !subUsage.equals("<subcommand>")) {
+                    sb.append(" §3- §7").append(subUsage);
+                }
+                if (!sub.description().isEmpty()) {
+                    sb.append(" §3- §7").append(sub.description());
+                }
+                sb.append("\n");
+            }
+            
+            return sb.toString().trim();
+        } else {
+            String usageStr = usage();
+            if (usageStr.isEmpty()) {
+                return "§cUsage: /" + commandPath;
+            } else {
+                return "§cUsage: /" + commandPath + " " + usageStr;
+            }
+        }
     }
 
 

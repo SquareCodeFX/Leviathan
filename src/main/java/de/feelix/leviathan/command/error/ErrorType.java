@@ -35,6 +35,8 @@ public enum ErrorType {
     TIMEOUT,
     
     /** Invalid argument count */
-    USAGE
+    USAGE,
+    
+    /** Internal error during command processing (unexpected exception) */
+    INTERNAL_ERROR
 }
-
