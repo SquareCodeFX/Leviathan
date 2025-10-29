@@ -697,6 +697,44 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
     }
 
     /**
+     * Categorizes a command based on its argument requirements.
+     * Returns a sorting key:
+     * 0 = no arguments
+     * 1 = only optional arguments
+     * 2 = both optional and required arguments
+     * 3 = only required arguments
+     *
+     * @param command the command to categorize
+     * @return the category key for sorting
+     */
+    private int categorizeByArguments(@NotNull FluentCommand command) {
+        List<Arg<?>> args = command.args();
+        
+        if (args.isEmpty()) {
+            return 0; // No arguments - first
+        }
+        
+        boolean hasOptional = false;
+        boolean hasRequired = false;
+        
+        for (Arg<?> arg : args) {
+            if (arg.optional()) {
+                hasOptional = true;
+            } else {
+                hasRequired = true;
+            }
+        }
+        
+        if (hasRequired && hasOptional) {
+            return 2; // Both optional and required - between
+        } else if (hasOptional) {
+            return 1; // Only optional - second
+        } else {
+            return 3; // Only required - last
+        }
+    }
+
+    /**
      * Generates a dynamic help message for this command.
      * If the command has subcommands, displays a list of available subcommands with their usage.
      * If the command has no subcommands, displays the usage format for this command.
@@ -718,7 +756,15 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
             // Get unique subcommands (since aliases point to the same command)
             Set<FluentCommand> uniqueSubcommands = new java.util.LinkedHashSet<>(subcommands.values());
             
-            for (FluentCommand sub : uniqueSubcommands) {
+            // Sort subcommands by argument requirements:
+            // 1. No arguments first
+            // 2. Optional arguments only
+            // 3. Both optional and required
+            // 4. Required arguments only last
+            List<FluentCommand> sortedSubcommands = new ArrayList<>(uniqueSubcommands);
+            sortedSubcommands.sort(Comparator.comparingInt(this::categorizeByArguments));
+            
+            for (FluentCommand sub : sortedSubcommands) {
                 sb.append("§3> §a").append(sub.name());
                 String subUsage = sub.usage();
                 if (!subUsage.isEmpty() && !subUsage.equals("<subcommand>")) {
@@ -740,7 +786,6 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
             }
         }
     }
-
 
     /**
      * Provide tab-completion options for the current argument token.
