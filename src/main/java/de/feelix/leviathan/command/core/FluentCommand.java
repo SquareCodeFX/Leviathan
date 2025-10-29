@@ -481,7 +481,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
                         try {
                             List<String> suggestions = StringSimilarity.findSimilar(token, argCtx.completionsPredefined());
                             if (!suggestions.isEmpty()) {
-                                sender.sendMessage("§eDid you mean: " + String.join(", ", suggestions) + "?");
+                                sender.sendMessage("§cDid you mean: " + String.join(", ", suggestions) + "?");
                             }
                         } catch (Throwable t) {
                             // Silently ignore errors in suggestion generation - it's non-critical
