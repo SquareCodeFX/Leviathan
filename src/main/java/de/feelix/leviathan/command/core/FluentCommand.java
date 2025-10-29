@@ -30,6 +30,8 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
 /**
@@ -594,7 +596,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
                         }
                     }
                 };
-                java.util.concurrent.CompletableFuture<Void> future = java.util.concurrent.CompletableFuture.runAsync(
+                CompletableFuture<Void> future = CompletableFuture.runAsync(
                     () -> {
                         try {
                             asyncActionAdv.execute(sender, ctx, token, progress);
@@ -604,13 +606,13 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
                         }
                     });
                 if (asyncTimeoutMillis > 0L) {
-                    future = future.orTimeout(asyncTimeoutMillis, java.util.concurrent.TimeUnit.MILLISECONDS);
+                    future = future.orTimeout(asyncTimeoutMillis, TimeUnit.MILLISECONDS);
                 }
                 future.exceptionally(ex -> {
                     Throwable cause = (ex.getCause() != null) ? ex.getCause() : ex;
                     String msg;
                     ErrorType errorType;
-                    if (cause instanceof java.util.concurrent.TimeoutException) {
+                    if (cause instanceof TimeoutException) {
                         msg = "§cCommand timed out after " + asyncTimeoutMillis + " ms.";
                         errorType = ErrorType.TIMEOUT;
                         token.cancel();
@@ -643,7 +645,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
                 });
             } else {
                 // Execute asynchronously using CompletableFuture (no Bukkit scheduler).
-                java.util.concurrent.CompletableFuture.runAsync(() -> {
+                CompletableFuture.runAsync(() -> {
                     try {
                         action.execute(sender, ctx);
                     } catch (Throwable t) {
