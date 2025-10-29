@@ -3,11 +3,11 @@ package de.feelix.leviathan.command.completion;
 import de.feelix.leviathan.annotations.NotNull;
 import de.feelix.leviathan.command.argument.Arg;
 import de.feelix.leviathan.command.argument.ArgContext;
+import de.feelix.leviathan.command.argument.ParseResult;
 import de.feelix.leviathan.command.core.FluentCommand;
 import de.feelix.leviathan.command.guard.Guard;
 import de.feelix.leviathan.command.validation.ValidationHelper;
 import de.feelix.leviathan.exceptions.ParsingException;
-import de.feelix.leviathan.command.argument.ParseResult;
 import de.feelix.leviathan.util.Preconditions;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -268,7 +268,7 @@ public final class TabCompletionHandler {
         List<String> completions = current.context().completionsPredefined();
         
         // Check for predefined completions first
-        if (completions != null && !completions.isEmpty()) {
+        if (!completions.isEmpty()) {
             return filterAndSort(completions, prefix);
         }
         

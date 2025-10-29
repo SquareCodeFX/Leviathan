@@ -40,7 +40,7 @@ public final class ArgContext {
     private final boolean optional;
     private final boolean greedy;
     private final @Nullable String permission;
-    private final List<String> completionsPredefined;
+    private final @NotNull List<String> completionsPredefined;
     /**
      * Optional dynamic completion provider. When present, FluentCommand will invoke it on tab-complete.
      */
@@ -138,7 +138,7 @@ public final class ArgContext {
         private boolean optional;
         private boolean greedy;
         private @Nullable String permission;
-        private List<String> completionsPredefined = new ArrayList<>();
+        private @NotNull List<String> completionsPredefined = new ArrayList<>();
         private @Nullable DynamicCompletionProvider completionsDynamic;
         
         // Validation fields
@@ -160,7 +160,12 @@ public final class ArgContext {
         public @NotNull Builder greedy(boolean greedy) { this.greedy = greedy; return this; }
         public @NotNull Builder permission(@Nullable String permission) { this.permission = permission; return this; }
         public @NotNull Builder completionsPredefined(@NotNull List<String> completions) {
-            this.completionsPredefined = new ArrayList<>(completions);
+            this.completionsPredefined = new ArrayList<>();
+            for (String completion : completions) {
+                if (completion != null) {
+                    this.completionsPredefined.add(completion);
+                }
+            }
             return this;
         }
         public @NotNull Builder completionsDynamic(@Nullable DynamicCompletionProvider provider) { this.completionsDynamic = provider; return this; }
