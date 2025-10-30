@@ -32,6 +32,7 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -433,6 +434,27 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
         int tokenIndex = 0;
         while (argIndex < args.size() && tokenIndex < providedArgs.length) {
             Arg<?> arg = args.get(argIndex);
+            
+            // Evaluate conditional argument
+            if (arg.condition() != null) {
+                CommandContext tempCtx = new CommandContext(values, providedArgs);
+                try {
+                    if (!arg.condition().test(tempCtx)) {
+                        // Condition is false, skip this argument
+                        argIndex++;
+                        continue;
+                    }
+                } catch (Throwable t) {
+                    String errorMsg = "§cInternal error while evaluating condition for argument '" + arg.name() + "'.";
+                    sendErrorMessage(sender, ErrorType.INTERNAL_ERROR, errorMsg, t);
+                    if (plugin != null) {
+                        plugin.getLogger().severe("Condition evaluation failed for argument '" + arg.name() + "': " + t.getMessage());
+                        t.printStackTrace();
+                    }
+                    return true;
+                }
+            }
+            
             // Per-argument permission check
             if (arg.permission() != null && !arg.permission().isEmpty() && !sender.hasPermission(arg.permission())) {
                 sendErrorMessage(
@@ -497,6 +519,23 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
             }
             Object parsedValue = res.value().orElse(null);
 
+            // Apply transformation if transformer is present
+            if (arg.transformer() != null && parsedValue != null) {
+                try {
+                    @SuppressWarnings("unchecked")
+                    Function<Object, Object> transformer = (Function<Object, Object>) arg.transformer();
+                    parsedValue = transformer.apply(parsedValue);
+                } catch (Throwable t) {
+                    String errorMsg = "§cInternal error while transforming argument '" + arg.name() + "'.";
+                    sendErrorMessage(sender, ErrorType.INTERNAL_ERROR, errorMsg, t);
+                    if (plugin != null) {
+                        plugin.getLogger().severe("Transformation failed for argument '" + arg.name() + "': " + t.getMessage());
+                        t.printStackTrace();
+                    }
+                    return true;
+                }
+            }
+
             // Apply validations from ArgContext
             ArgContext ctx = arg.context();
             String validationError;
@@ -522,6 +561,13 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
 
             values.put(arg.name(), parsedValue);
             argIndex++;
+        }
+
+        // Apply default values for missing optional arguments
+        for (Arg<?> arg : args) {
+            if (!values.containsKey(arg.name()) && arg.context().defaultValue() != null) {
+                values.put(arg.name(), arg.context().defaultValue());
+            }
         }
 
         // Check for extra arguments after parsing (handles optional args case)

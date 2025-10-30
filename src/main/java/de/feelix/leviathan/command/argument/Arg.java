@@ -2,11 +2,14 @@ package de.feelix.leviathan.command.argument;
 
 import de.feelix.leviathan.annotations.NotNull;
 import de.feelix.leviathan.annotations.Nullable;
+import de.feelix.leviathan.command.core.CommandContext;
 import de.feelix.leviathan.command.mapping.OptionType;
 import de.feelix.leviathan.exceptions.CommandConfigurationException;
 import de.feelix.leviathan.util.Preconditions;
 
 import java.util.ArrayList;
+import java.util.function.Function;
+import java.util.function.Predicate;
 
 /**
  * Describes a single command argument with its parser and metadata.
@@ -22,6 +25,8 @@ public final class Arg<T> {
     private final ArgumentParser<T> parser;
     private final ArgContext context;
     private final OptionType optionType; // broad type hint for mapping
+    private final @Nullable Predicate<CommandContext> condition; // conditional argument evaluation
+    private final @Nullable Function<T, T> transformer; // value transformation
 
     /**
      * Create an argument with default context.
@@ -60,6 +65,14 @@ public final class Arg<T> {
      * Construct an argument with an explicit {@link ArgContext}.
      */
     public Arg(@NotNull String name, @NotNull ArgumentParser<T> parser, @NotNull ArgContext context) {
+        this(name, parser, context, null, null);
+    }
+
+    /**
+     * Private constructor with condition and transformer support.
+     */
+    private Arg(@NotNull String name, @NotNull ArgumentParser<T> parser, @NotNull ArgContext context,
+                @Nullable Predicate<CommandContext> condition, @Nullable Function<T, T> transformer) {
         this.name = Preconditions.checkNotNull(name, "name");
         if (this.name.isBlank()) {
             throw new CommandConfigurationException("Argument name must not be blank");
@@ -69,6 +82,8 @@ public final class Arg<T> {
         }
         this.parser = Preconditions.checkNotNull(parser, "parser");
         this.context = Preconditions.checkNotNull(context, "context");
+        this.condition = condition;
+        this.transformer = transformer;
         // infer option type from parser's public type name
         OptionType inferred;
         try {
@@ -121,6 +136,16 @@ public final class Arg<T> {
     public @NotNull ArgContext context() { return context; }
 
     /**
+     * @return the condition predicate for this argument, or null if none
+     */
+    public @Nullable Predicate<CommandContext> condition() { return condition; }
+
+    /**
+     * @return the transformer function for this argument, or null if none
+     */
+    public @Nullable Function<T, T> transformer() { return transformer; }
+
+    /**
      * Helper method to copy all properties from the current context into a new builder.
      * This eliminates code duplication in the various withXxx() methods.
      *
@@ -139,7 +164,8 @@ public final class Arg<T> {
                 .floatRange(context.floatMin(), context.floatMax())
                 .stringLengthRange(context.stringMinLength(), context.stringMaxLength())
                 .stringPattern(context.stringPattern())
-                .didYouMean(context.didYouMean());
+                .didYouMean(context.didYouMean())
+                .defaultValue(context.defaultValue());
         for (ArgContext.Validator<?> validator : context.customValidators()) {
             b.addValidator(validator);
         }
@@ -150,20 +176,50 @@ public final class Arg<T> {
      * Return a copy of this argument with updated optionality.
      */
     public @NotNull Arg<T> optional(boolean optional) {
-        return new Arg<>(name, parser, copyContextToBuilder().optional(optional).build());
+        return new Arg<>(name, parser, copyContextToBuilder().optional(optional).build(), condition, transformer);
     }
 
     /**
      * Return a copy of this argument with an updated permission requirement.
      */
     public @NotNull Arg<T> withPermission(@Nullable String permission) {
-        return new Arg<>(name, parser, copyContextToBuilder().permission(permission).build());
+        return new Arg<>(name, parser, copyContextToBuilder().permission(permission).build(), condition, transformer);
     }
 
     /**
      * Return a copy of this argument with updated greedy flag.
      */
     public @NotNull Arg<T> withGreedy(boolean greedy) {
-        return new Arg<>(name, parser, copyContextToBuilder().greedy(greedy).build());
+        return new Arg<>(name, parser, copyContextToBuilder().greedy(greedy).build(), condition, transformer);
+    }
+
+    /**
+     * Return a copy of this argument with a default value.
+     * When this argument is not provided by the user, the default value will be used.
+     * @param value the default value to use when the argument is missing
+     * @return a new Arg instance with the default value set
+     */
+    public @NotNull Arg<T> defaultValue(@Nullable T value) {
+        return new Arg<>(name, parser, copyContextToBuilder().defaultValue(value).build(), condition, transformer);
+    }
+
+    /**
+     * Return a copy of this argument with a condition.
+     * The argument will only be parsed if the condition evaluates to true.
+     * @param condition the predicate to evaluate based on previously parsed arguments
+     * @return a new Arg instance with the condition set
+     */
+    public @NotNull Arg<T> withCondition(@Nullable Predicate<CommandContext> condition) {
+        return new Arg<>(name, parser, context, condition, transformer);
+    }
+
+    /**
+     * Return a copy of this argument with a transformer.
+     * The transformer will be applied to the parsed value before validation.
+     * @param transformer the function to transform the parsed value
+     * @return a new Arg instance with the transformer set
+     */
+    public @NotNull Arg<T> transform(@Nullable Function<T, T> transformer) {
+        return new Arg<>(name, parser, context, condition, transformer);
     }
 }

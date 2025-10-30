@@ -17,6 +17,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Predicate;
 
 /**
  * Builder for {@link FluentCommand}. Provides a fluent API to define arguments,
@@ -597,6 +598,42 @@ public final class FluentCommandBuilder {
     public <T> @NotNull FluentCommandBuilder arg(@NotNull String name, @NotNull ArgumentParser<T> parser,
                                                  @NotNull ArgContext argContext) {
         return arg(new Arg<>(name, parser, Preconditions.checkNotNull(argContext, "argContext")));
+    }
+
+    /**
+     * Add a conditional argument that is only parsed if the condition evaluates to true.
+     * The condition is evaluated based on previously parsed arguments.
+     *
+     * @param name      argument name (no whitespace)
+     * @param parser    custom parser for the argument
+     * @param condition predicate that determines if this argument should be parsed
+     * @return this builder
+     */
+    public <T> @NotNull FluentCommandBuilder argIf(@NotNull String name, @NotNull ArgumentParser<T> parser,
+                                                    @NotNull Predicate<CommandContext> condition) {
+        Preconditions.checkNotNull(name, "name");
+        Preconditions.checkNotNull(parser, "parser");
+        Preconditions.checkNotNull(condition, "condition");
+        return arg(new Arg<>(name, false, parser).withCondition(condition));
+    }
+
+    /**
+     * Add a conditional argument with explicit {@link ArgContext}.
+     *
+     * @param name       argument name (no whitespace)
+     * @param parser     custom parser for the argument
+     * @param condition  predicate that determines if this argument should be parsed
+     * @param argContext per-argument configuration
+     * @return this builder
+     */
+    public <T> @NotNull FluentCommandBuilder argIf(@NotNull String name, @NotNull ArgumentParser<T> parser,
+                                                    @NotNull Predicate<CommandContext> condition,
+                                                    @NotNull ArgContext argContext) {
+        Preconditions.checkNotNull(name, "name");
+        Preconditions.checkNotNull(parser, "parser");
+        Preconditions.checkNotNull(condition, "condition");
+        Preconditions.checkNotNull(argContext, "argContext");
+        return arg(new Arg<>(name, parser, argContext).withCondition(condition));
     }
 
     /**
