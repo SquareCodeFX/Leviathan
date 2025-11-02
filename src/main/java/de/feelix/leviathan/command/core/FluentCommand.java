@@ -16,6 +16,7 @@ import de.feelix.leviathan.command.validation.CrossArgumentValidator;
 import de.feelix.leviathan.command.validation.ValidationHelper;
 import de.feelix.leviathan.exceptions.ApiMisuseException;
 import de.feelix.leviathan.exceptions.CommandConfigurationException;
+import de.feelix.leviathan.exceptions.CommandExecutionException;
 import de.feelix.leviathan.exceptions.ParsingException;
 import de.feelix.leviathan.command.argument.ArgumentParser;
 import de.feelix.leviathan.command.argument.ParseResult;
@@ -647,7 +648,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
                         try {
                             asyncActionAdv.execute(sender, ctx, token, progress);
                         } catch (Throwable t) {
-                            throw new de.feelix.leviathan.exceptions.CommandExecutionException(
+                            throw new CommandExecutionException(
                                 "Error executing command '" + name + "' asynchronously", t);
                         }
                     });
@@ -713,7 +714,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
                         if (sendErrors && !suppressDefault) {
                             sender.sendMessage(errorMsg);
                         }
-                        throw new de.feelix.leviathan.exceptions.CommandExecutionException(
+                        throw new CommandExecutionException(
                             "Error executing command '" + name + "' asynchronously", cause);
                     }
                 });
@@ -727,7 +728,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
                     sender, ErrorType.EXECUTION,
                     "§cAn internal error occurred while executing this command.", cause
                 );
-                throw new de.feelix.leviathan.exceptions.CommandExecutionException(
+                throw new CommandExecutionException(
                     "Error executing command '" + name + "'", cause);
             }
         }

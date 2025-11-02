@@ -224,7 +224,7 @@ public class FluentInventory {
             event.setCancelled(cancelUnhandledClicks);
         }
 
-        // Ensure visual is up to date (in case handlers modified items)
+        // Ensure the visual is up to date (in case handlers modified items)
         ItemButton current = buttons.get(raw);
         if (current != null) {
             inventory.setItem(raw, current.getItem());

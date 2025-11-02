@@ -55,9 +55,9 @@ public final class Paginator {
         int end = Math.min(start + slots.length, items.size());
 
         // Clear the area first
-        for (int slot : slots) inv.set(slot, (ItemButton) null);
+        for (int slot : slots) inv.set(slot, null);
 
-        // Fill current page
+        // Fill the current page
         int s = 0;
         for (int i = start; i < end; i++) {
             inv.set(slots[s++], items.get(i));
