@@ -817,10 +817,10 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
                 sb.append("§3> §a").append(sub.name());
                 String subUsage = sub.usage();
                 if (!subUsage.isEmpty() && !subUsage.equals("<subcommand>")) {
-                    sb.append(" §3- §7").append(subUsage);
+                    sb.append(" §8- §7").append(subUsage);
                 }
                 if (!sub.description().isEmpty()) {
-                    sb.append(" §3- §7").append(sub.description());
+                    sb.append(" §8- §7").append(sub.description());
                 }
                 sb.append("\n");
             }
