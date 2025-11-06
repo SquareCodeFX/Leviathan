@@ -232,7 +232,6 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
         return plugin;
     }
 
-
     FluentCommand(String name, List<String> aliases, String description, String permission, boolean playerOnly,
                   boolean sendErrors,
                   List<Arg<?>> args, CommandAction action, boolean async, boolean validateOnTab,
@@ -254,9 +253,9 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
         this.action = Preconditions.checkNotNull(action, "action");
         this.asyncActionAdv = asyncActionAdv;
         this.asyncTimeoutMillis = asyncTimeoutMillis;
-        this.guards = java.util.List.copyOf(guards == null ? java.util.List.of() : guards);
-        this.crossArgumentValidators = java.util.List.copyOf(
-            crossArgumentValidators == null ? java.util.List.of() : crossArgumentValidators);
+        this.guards = List.copyOf(guards == null ? List.of() : guards);
+        this.crossArgumentValidators = List.copyOf(
+            crossArgumentValidators == null ? List.of() : crossArgumentValidators);
         this.exceptionHandler = exceptionHandler;
         this.perUserCooldownMillis = perUserCooldownMillis;
         this.perServerCooldownMillis = perServerCooldownMillis;
@@ -803,7 +802,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
             sb.append("§b").append(formattedName).append(" SubCommands: §7(/").append(commandPath).append(" …)\n");
             
             // Get unique subcommands (since aliases point to the same command)
-            Set<FluentCommand> uniqueSubcommands = new java.util.LinkedHashSet<>(subcommands.values());
+            Set<FluentCommand> uniqueSubcommands = new LinkedHashSet<>(subcommands.values());
             
             // Sort subcommands by argument requirements:
             // 1. No arguments first
