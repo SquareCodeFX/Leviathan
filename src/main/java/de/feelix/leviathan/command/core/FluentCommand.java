@@ -4,6 +4,8 @@ import de.feelix.leviathan.annotations.NotNull;
 import de.feelix.leviathan.annotations.Nullable;
 import de.feelix.leviathan.command.argument.Arg;
 import de.feelix.leviathan.command.argument.ArgContext;
+import de.feelix.leviathan.command.argument.ArgumentParser;
+import de.feelix.leviathan.command.argument.ParseResult;
 import de.feelix.leviathan.command.async.CancellationToken;
 import de.feelix.leviathan.command.async.Progress;
 import de.feelix.leviathan.command.completion.TabCompletionHandler;
@@ -18,8 +20,6 @@ import de.feelix.leviathan.exceptions.ApiMisuseException;
 import de.feelix.leviathan.exceptions.CommandConfigurationException;
 import de.feelix.leviathan.exceptions.CommandExecutionException;
 import de.feelix.leviathan.exceptions.ParsingException;
-import de.feelix.leviathan.command.argument.ArgumentParser;
-import de.feelix.leviathan.command.argument.ParseResult;
 import de.feelix.leviathan.util.Preconditions;
 import de.feelix.leviathan.util.StringSimilarity;
 import org.bukkit.command.Command;
@@ -803,19 +803,18 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
     @NotNull
     private String generateHelpMessage(@NotNull String label) {
         String commandPath = fullCommandPath(label);
+
+        String prefix =
+            this.helpMessagePrefix != null && !this.helpMessagePrefix.isEmpty() ? this.helpMessagePrefix : "";
         
         if (!subcommands.isEmpty()) {
             StringBuilder sb = new StringBuilder();
-            // Add prefix if configured
-            if (helpMessagePrefix != null && !helpMessagePrefix.isEmpty()) {
-                sb.append(helpMessagePrefix);
-                if (!helpMessagePrefix.endsWith("\n")) {
-                    sb.append("\n");
-                }
-            }
             // Format command name: first letter uppercase, rest lowercase
             String formattedName = name.isEmpty() ? "" : 
                 Character.toUpperCase(name.charAt(0)) + name.substring(1).toLowerCase(Locale.ROOT);
+
+            if (!prefix.isEmpty()) sb.append(prefix);
+
             sb.append("§b").append(formattedName).append(" SubCommands: §7(/").append(commandPath).append(" …)\n");
             
             // Get unique subcommands (since aliases point to the same command)
@@ -830,6 +829,9 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
             sortedSubcommands.sort(Comparator.comparingInt(this::categorizeByArguments));
             
             for (FluentCommand sub : sortedSubcommands) {
+
+                if (!prefix.isEmpty()) sb.append(prefix);
+
                 sb.append("§3> §a").append(sub.name());
                 String subUsage = sub.usage();
                 if (!subUsage.isEmpty() && !subUsage.equals("<subcommand>")) {
