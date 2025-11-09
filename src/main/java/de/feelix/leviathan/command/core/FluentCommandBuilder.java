@@ -49,6 +49,8 @@ public final class FluentCommandBuilder {
     private long perServerCooldownMillis = 0L;
     // Auto help
     private boolean enableHelp = false;
+    // Help message prefix
+    private @Nullable String helpMessagePrefix = null;
 
     FluentCommandBuilder(String name) {
         this.name = Preconditions.checkNotNull(name, "name");
@@ -148,6 +150,18 @@ public final class FluentCommandBuilder {
      */
     public @NotNull FluentCommandBuilder enableHelp(boolean enable) {
         this.enableHelp = enable;
+        return this;
+    }
+
+    /**
+     * Set an optional prefix for help messages.
+     * When configured, the prefix will be prepended to both element help messages and subcommand list messages.
+     *
+     * @param prefix the prefix to add to help messages (can be null to disable)
+     * @return this builder
+     */
+    public @NotNull FluentCommandBuilder helpMessagePrefix(@Nullable String prefix) {
+        this.helpMessagePrefix = prefix;
         return this;
     }
 
@@ -891,7 +905,7 @@ public final class FluentCommandBuilder {
             name, aliases, description, permission, playerOnly, sendErrors, args, action, async, validateOnTab, subs,
             asyncAction, (asyncTimeoutMillis == null ? 0L : asyncTimeoutMillis),
             guards, crossArgumentValidators, exceptionHandler,
-            perUserCooldownMillis, perServerCooldownMillis, enableHelp
+            perUserCooldownMillis, perServerCooldownMillis, enableHelp, helpMessagePrefix
         );
         
         // Set parent reference for all subcommands

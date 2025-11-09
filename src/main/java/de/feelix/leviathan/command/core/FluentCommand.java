@@ -83,6 +83,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
     private final long perUserCooldownMillis;
     private final long perServerCooldownMillis;
     private final boolean enableHelp;
+    @Nullable private final String helpMessagePrefix;
     private final String cachedUsage;
     JavaPlugin plugin;
     private boolean subOnly = false;
@@ -232,6 +233,13 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
         return plugin;
     }
 
+    /**
+     * @return the optional prefix for help messages, or null if not configured
+     */
+    public @Nullable String helpMessagePrefix() {
+        return helpMessagePrefix;
+    }
+
     FluentCommand(String name, List<String> aliases, String description, String permission, boolean playerOnly,
                   boolean sendErrors,
                   List<Arg<?>> args, CommandAction action, boolean async, boolean validateOnTab,
@@ -239,7 +247,8 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
                   @Nullable AsyncCommandAction asyncActionAdv, long asyncTimeoutMillis,
                   List<Guard> guards, List<CrossArgumentValidator> crossArgumentValidators,
                   @Nullable ExceptionHandler exceptionHandler,
-                  long perUserCooldownMillis, long perServerCooldownMillis, boolean enableHelp) {
+                  long perUserCooldownMillis, long perServerCooldownMillis, boolean enableHelp,
+                  @Nullable String helpMessagePrefix) {
         this.name = Preconditions.checkNotNull(name, "name");
         this.aliases = List.copyOf(aliases == null ? List.of() : aliases);
         this.description = (description == null) ? "" : description;
@@ -260,6 +269,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
         this.perUserCooldownMillis = perUserCooldownMillis;
         this.perServerCooldownMillis = perServerCooldownMillis;
         this.enableHelp = enableHelp;
+        this.helpMessagePrefix = helpMessagePrefix;
         // Pre-compute usage string for performance
         this.cachedUsage = computeUsageString();
     }
@@ -796,6 +806,13 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
         
         if (!subcommands.isEmpty()) {
             StringBuilder sb = new StringBuilder();
+            // Add prefix if configured
+            if (helpMessagePrefix != null && !helpMessagePrefix.isEmpty()) {
+                sb.append(helpMessagePrefix);
+                if (!helpMessagePrefix.endsWith("\n")) {
+                    sb.append("\n");
+                }
+            }
             // Format command name: first letter uppercase, rest lowercase
             String formattedName = name.isEmpty() ? "" : 
                 Character.toUpperCase(name.charAt(0)) + name.substring(1).toLowerCase(Locale.ROOT);
@@ -827,11 +844,17 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
             return sb.toString().trim();
         } else {
             String usageStr = usage();
+            String usageMessage;
             if (usageStr.isEmpty()) {
-                return "§cUsage: /" + commandPath;
+                usageMessage = "§cUsage: /" + commandPath;
             } else {
-                return "§cUsage: /" + commandPath + " " + usageStr;
+                usageMessage = "§cUsage: /" + commandPath + " " + usageStr;
             }
+            // Add prefix if configured
+            if (helpMessagePrefix != null && !helpMessagePrefix.isEmpty()) {
+                return helpMessagePrefix + (helpMessagePrefix.endsWith("\n") ? "" : "\n") + usageMessage;
+            }
+            return usageMessage;
         }
     }
 
