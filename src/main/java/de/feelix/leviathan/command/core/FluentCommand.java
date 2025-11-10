@@ -14,6 +14,8 @@ import de.feelix.leviathan.command.cooldown.CooldownResult;
 import de.feelix.leviathan.command.error.ErrorType;
 import de.feelix.leviathan.command.error.ExceptionHandler;
 import de.feelix.leviathan.command.guard.Guard;
+import de.feelix.leviathan.command.message.DefaultMessageProvider;
+import de.feelix.leviathan.command.message.MessageProvider;
 import de.feelix.leviathan.command.validation.CrossArgumentValidator;
 import de.feelix.leviathan.command.validation.ValidationHelper;
 import de.feelix.leviathan.exceptions.ApiMisuseException;
@@ -83,8 +85,8 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
     private final long perUserCooldownMillis;
     private final long perServerCooldownMillis;
     private final boolean enableHelp;
-    @Nullable private final String helpMessagePrefix;
     private final String cachedUsage;
+    private final MessageProvider messages;
     JavaPlugin plugin;
     private boolean subOnly = false;
     @Nullable private FluentCommand parent = null;
@@ -233,13 +235,6 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
         return plugin;
     }
 
-    /**
-     * @return the optional prefix for help messages, or null if not configured
-     */
-    public @Nullable String helpMessagePrefix() {
-        return helpMessagePrefix;
-    }
-
     FluentCommand(String name, List<String> aliases, String description, String permission, boolean playerOnly,
                   boolean sendErrors,
                   List<Arg<?>> args, CommandAction action, boolean async, boolean validateOnTab,
@@ -248,7 +243,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
                   List<Guard> guards, List<CrossArgumentValidator> crossArgumentValidators,
                   @Nullable ExceptionHandler exceptionHandler,
                   long perUserCooldownMillis, long perServerCooldownMillis, boolean enableHelp,
-                  @Nullable String helpMessagePrefix) {
+                  @Nullable MessageProvider messages) {
         this.name = Preconditions.checkNotNull(name, "name");
         this.aliases = List.copyOf(aliases == null ? List.of() : aliases);
         this.description = (description == null) ? "" : description;
@@ -269,7 +264,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
         this.perUserCooldownMillis = perUserCooldownMillis;
         this.perServerCooldownMillis = perServerCooldownMillis;
         this.enableHelp = enableHelp;
-        this.helpMessagePrefix = helpMessagePrefix;
+        this.messages = (messages != null) ? messages : new DefaultMessageProvider();
         // Pre-compute usage string for performance
         this.cachedUsage = computeUsageString();
     }
@@ -327,7 +322,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
                 suppressDefault = exceptionHandler.handle(sender, errorType, message, exception);
             } catch (Throwable handlerException) {
                 // Exception handler itself threw an exception - log it and continue with default behavior
-                sender.sendMessage("§cError in exception handler: " + handlerException.getMessage());
+                sender.sendMessage(messages.exceptionHandlerError(handlerException.getMessage()));
                 if (plugin != null) {
                     plugin.getLogger().severe("Exception handler threw an exception while handling " + errorType + ": " + handlerException.getMessage());
                     handlerException.printStackTrace();
@@ -354,11 +349,11 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
         Preconditions.checkNotNull(label, "label");
         Preconditions.checkNotNull(providedArgs, "providedArgs");
         if (permission != null && !permission.isEmpty() && !sender.hasPermission(permission)) {
-            sendErrorMessage(sender, ErrorType.PERMISSION, "§cYou don't have permission to use this command.", null);
+            sendErrorMessage(sender, ErrorType.PERMISSION, messages.noPermission(), null);
             return true;
         }
         if (playerOnly && !(sender instanceof Player)) {
-            sendErrorMessage(sender, ErrorType.PLAYER_ONLY, "§cThis command can only be used by players.", null);
+            sendErrorMessage(sender, ErrorType.PLAYER_ONLY, messages.playerOnly(), null);
             return true;
         }
 
@@ -370,7 +365,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
                     return true;
                 }
             } catch (Throwable t) {
-                sendErrorMessage(sender, ErrorType.GUARD_FAILED, "§cYou cannot use this command.", t);
+                sendErrorMessage(sender, ErrorType.GUARD_FAILED, messages.guardFailed(), t);
                 return true;
             }
         }
@@ -379,18 +374,16 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
         CooldownResult serverCooldown = CooldownManager.checkServerCooldown(
             name, perServerCooldownMillis);
         if (serverCooldown.onCooldown()) {
-            String errorMsg = CooldownManager.formatCooldownMessage(
-                "§cThis command is on cooldown. Please wait %s.", serverCooldown.remainingMillis());
-            sendErrorMessage(sender, ErrorType.GUARD_FAILED, errorMsg, null);
+            String formattedTime = CooldownManager.formatCooldownMessage("%s", serverCooldown.remainingMillis());
+            sendErrorMessage(sender, ErrorType.GUARD_FAILED, messages.serverCooldown(formattedTime), null);
             return true;
         }
 
         CooldownResult userCooldown = CooldownManager.checkUserCooldown(
             name, sender.getName(), perUserCooldownMillis);
         if (userCooldown.onCooldown()) {
-            String errorMsg = CooldownManager.formatCooldownMessage(
-                "§cYou must wait %s before using this command again.", userCooldown.remainingMillis());
-            sendErrorMessage(sender, ErrorType.GUARD_FAILED, errorMsg, null);
+            String formattedTime = CooldownManager.formatCooldownMessage("%s", userCooldown.remainingMillis());
+            sendErrorMessage(sender, ErrorType.GUARD_FAILED, messages.userCooldown(formattedTime), null);
             return true;
         }
 
@@ -414,7 +407,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
                     return sub.execute(sender, sub.name(), remaining);
                 } catch (Throwable t) {
                     // Catch any unexpected exception during subcommand execution
-                    String errorMsg = "§cInternal error while executing subcommand '" + first + "'.";
+                    String errorMsg = messages.subcommandInternalError(first);
                     sendErrorMessage(sender, ErrorType.INTERNAL_ERROR, errorMsg, t);
                     if (plugin != null) {
                         plugin.getLogger().severe("Subcommand '" + first + "' threw unexpected exception: " + t.getMessage());
@@ -435,7 +428,8 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
         int required = (int) args.stream().filter(a -> !a.optional()).count();
         boolean lastIsGreedy = !args.isEmpty() && args.get(args.size() - 1).greedy();
         if (providedArgs.length < required) {
-            sendErrorMessage(sender, ErrorType.USAGE, "§cUsage: /" + fullCommandPath(label) + " " + usage(), null);
+            sendErrorMessage(
+                sender, ErrorType.USAGE, messages.insufficientArguments(fullCommandPath(label), usage()), null);
             return true;
         }
 
@@ -455,7 +449,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
                         continue;
                     }
                 } catch (Throwable t) {
-                    String errorMsg = "§cInternal error while evaluating condition for argument '" + arg.name() + "'.";
+                    String errorMsg = messages.argumentConditionError(arg.name());
                     sendErrorMessage(sender, ErrorType.INTERNAL_ERROR, errorMsg, t);
                     if (plugin != null) {
                         plugin.getLogger().severe("Condition evaluation failed for argument '" + arg.name() + "': " + t.getMessage());
@@ -469,7 +463,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
             if (arg.permission() != null && !arg.permission().isEmpty() && !sender.hasPermission(arg.permission())) {
                 sendErrorMessage(
                     sender, ErrorType.ARGUMENT_PERMISSION,
-                    "§cYou don't have permission to use argument '" + arg.name() + "'.", null
+                    messages.argumentPermissionDenied(arg.name()), null
                 );
                 return true;
             }
@@ -494,7 +488,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
                 throw pe;
             } catch (Throwable t) {
                 // Catch any unexpected exception from parser and handle gracefully
-                String errorMsg = "§cInternal error while parsing argument '" + arg.name() + "'.";
+                String errorMsg = messages.argumentParsingError(arg.name());
                 sendErrorMessage(sender, ErrorType.INTERNAL_ERROR, errorMsg, t);
                 if (plugin != null) {
                     plugin.getLogger().severe("Parser " + parser.getClass().getName() + " threw unexpected exception for argument '" + arg.name() + "': " + t.getMessage());
@@ -504,8 +498,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
             }
             if (!res.isSuccess()) {
                 String msg = res.error().orElse("invalid value");
-                String errorMsg =
-                    "§cInvalid value for '" + arg.name() + "' (expected " + parser.getTypeName() + "): " + msg;
+                String errorMsg = messages.invalidArgumentValue(arg.name(), parser.getTypeName(), msg);
                 sendErrorMessage(sender, ErrorType.PARSING, errorMsg, null);
 
                 // Did-You-Mean suggestions (only shown if main error was sent)
@@ -515,7 +508,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
                         try {
                             List<String> suggestions = StringSimilarity.findSimilar(token, argCtx.completionsPredefined());
                             if (!suggestions.isEmpty()) {
-                                sender.sendMessage("§cDid you mean: " + String.join(", ", suggestions) + "?");
+                                sender.sendMessage(messages.didYouMean(String.join(", ", suggestions)));
                             }
                         } catch (Throwable t) {
                             // Silently ignore errors in suggestion generation - it's non-critical
@@ -536,7 +529,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
                     Function<Object, Object> transformer = (Function<Object, Object>) arg.transformer();
                     parsedValue = transformer.apply(parsedValue);
                 } catch (Throwable t) {
-                    String errorMsg = "§cInternal error while transforming argument '" + arg.name() + "'.";
+                    String errorMsg = messages.argumentTransformationError(arg.name());
                     sendErrorMessage(sender, ErrorType.INTERNAL_ERROR, errorMsg, t);
                     if (plugin != null) {
                         plugin.getLogger().severe("Transformation failed for argument '" + arg.name() + "': " + t.getMessage());
@@ -550,10 +543,11 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
             ArgContext ctx = arg.context();
             String validationError;
             try {
-                validationError = ValidationHelper.validateValue(parsedValue, ctx, arg.name(), parser.getTypeName());
+                validationError = ValidationHelper.validateValue(
+                    parsedValue, ctx, arg.name(), parser.getTypeName(), messages);
             } catch (Throwable t) {
                 // Catch any unexpected exception during validation
-                String errorMsg = "§cInternal error while validating argument '" + arg.name() + "'.";
+                String errorMsg = messages.argumentValidationError(arg.name());
                 sendErrorMessage(sender, ErrorType.INTERNAL_ERROR, errorMsg, t);
                 if (plugin != null) {
                     plugin.getLogger().severe("Validation failed with unexpected exception for argument '" + arg.name() + "': " + t.getMessage());
@@ -564,7 +558,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
             if (validationError != null) {
                 sendErrorMessage(
                     sender, ErrorType.VALIDATION,
-                    "§cInvalid value for '" + arg.name() + "': " + validationError, null
+                    messages.validationFailed(arg.name(), validationError), null
                 );
                 return true;
             }
@@ -582,7 +576,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
 
         // Check for extra arguments after parsing (handles optional args case)
         if (!lastIsGreedy && tokenIndex < providedArgs.length) {
-            sendErrorMessage(sender, ErrorType.USAGE, "§cToo many arguments. Usage: /" + fullCommandPath(label) + " " + usage(), null);
+            sendErrorMessage(sender, ErrorType.USAGE, messages.tooManyArguments(fullCommandPath(label), usage()), null);
             return true;
         }
 
@@ -595,7 +589,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
                     error = validator.validate(tempCtx);
                 } catch (Throwable t) {
                     // Catch any unexpected exception during cross-argument validation
-                    String errorMsg = "§cInternal error during cross-argument validation.";
+                    String errorMsg = messages.crossValidationInternalError();
                     sendErrorMessage(sender, ErrorType.INTERNAL_ERROR, errorMsg, t);
                     if (plugin != null) {
                         plugin.getLogger().severe("Cross-argument validator " + validator.getClass().getName() + " threw unexpected exception: " + t.getMessage());
@@ -604,7 +598,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
                     return true;
                 }
                 if (error != null) {
-                    sendErrorMessage(sender, ErrorType.CROSS_VALIDATION, "§cValidation error: " + error, null);
+                    sendErrorMessage(sender, ErrorType.CROSS_VALIDATION, messages.crossValidationFailed(error), null);
                     return true;
                 }
             }
@@ -669,11 +663,11 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
                     String msg;
                     ErrorType errorType;
                     if (cause instanceof TimeoutException) {
-                        msg = "§cCommand timed out after " + asyncTimeoutMillis + " ms.";
+                        msg = messages.commandTimeout(asyncTimeoutMillis);
                         errorType = ErrorType.TIMEOUT;
                         token.cancel();
                     } else {
-                        msg = "§cAn internal error occurred while executing this command.";
+                        msg = messages.executionError();
                         errorType = ErrorType.EXECUTION;
                     }
                     boolean suppressDefault = false;
@@ -682,7 +676,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
                             suppressDefault = exceptionHandler.handle(sender, errorType, msg, cause);
                         } catch (Throwable handlerException) {
                             // Exception handler itself threw an exception - log it and continue with default behavior
-                            String handlerMsg = "§cError in exception handler: " + handlerException.getMessage();
+                            String handlerMsg = messages.exceptionHandlerError(handlerException.getMessage());
                             if (plugin != null) {
                                 plugin.getServer().getScheduler().runTask(plugin, () -> sender.sendMessage(handlerMsg));
                                 plugin.getLogger().severe("Exception handler threw an exception while handling " + errorType + ": " + handlerException.getMessage());
@@ -706,14 +700,14 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
                         action.execute(sender, ctx);
                     } catch (Throwable t) {
                         Throwable cause = (t.getCause() != null) ? t.getCause() : t;
-                        String errorMsg = "§cAn internal error occurred while executing this command.";
+                        String errorMsg = messages.executionError();
                         boolean suppressDefault = false;
                         if (exceptionHandler != null) {
                             try {
                                 suppressDefault = exceptionHandler.handle(sender, ErrorType.EXECUTION, errorMsg, cause);
                             } catch (Throwable handlerException) {
                                 // Exception handler itself threw an exception - log it and continue with default behavior
-                                sender.sendMessage("§cError in exception handler: " + handlerException.getMessage());
+                                sender.sendMessage(messages.exceptionHandlerError(handlerException.getMessage()));
                                 if (plugin != null) {
                                     plugin.getLogger().severe("Exception handler threw an exception while handling EXECUTION: " + handlerException.getMessage());
                                     handlerException.printStackTrace();
@@ -735,7 +729,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
                 Throwable cause = (t.getCause() != null) ? t.getCause() : t;
                 sendErrorMessage(
                     sender, ErrorType.EXECUTION,
-                    "§cAn internal error occurred while executing this command.", cause
+                    messages.executionError(), cause
                 );
                 throw new CommandExecutionException(
                     "Error executing command '" + name + "'", cause);
@@ -803,9 +797,6 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
     @NotNull
     private String generateHelpMessage(@NotNull String label) {
         String commandPath = fullCommandPath(label);
-
-        String prefix =
-            this.helpMessagePrefix != null && !this.helpMessagePrefix.isEmpty() ? this.helpMessagePrefix : "";
         
         if (!subcommands.isEmpty()) {
             StringBuilder sb = new StringBuilder();
@@ -813,9 +804,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
             String formattedName = name.isEmpty() ? "" : 
                 Character.toUpperCase(name.charAt(0)) + name.substring(1).toLowerCase(Locale.ROOT);
 
-            if (!prefix.isEmpty()) sb.append(prefix);
-
-            sb.append("§b").append(formattedName).append(" SubCommands: §7(/").append(commandPath).append(" …)\n");
+            sb.append(messages.helpSubCommandsHeader(formattedName, commandPath));
             
             // Get unique subcommands (since aliases point to the same command)
             Set<FluentCommand> uniqueSubcommands = new LinkedHashSet<>(subcommands.values());
@@ -830,15 +819,13 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
             
             for (FluentCommand sub : sortedSubcommands) {
 
-                if (!prefix.isEmpty()) sb.append(prefix);
-
-                sb.append("§3> §a").append(sub.name());
+                sb.append(messages.helpSubCommandPrefix(sub.name()));
                 String subUsage = sub.usage();
                 if (!subUsage.isEmpty() && !subUsage.equals("<subcommand>")) {
-                    sb.append(" §8- §7").append(subUsage);
+                    sb.append(messages.helpUsageSeparator()).append(subUsage);
                 }
                 if (!sub.description().isEmpty()) {
-                    sb.append(" §8- §7").append(sub.description());
+                    sb.append(messages.helpDescriptionSeparator()).append(sub.description());
                 }
                 sb.append("\n");
             }
@@ -846,17 +833,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
             return sb.toString().trim();
         } else {
             String usageStr = usage();
-            String usageMessage;
-            if (usageStr.isEmpty()) {
-                usageMessage = "§cUsage: /" + commandPath;
-            } else {
-                usageMessage = "§cUsage: /" + commandPath + " " + usageStr;
-            }
-            // Add prefix if configured
-            if (helpMessagePrefix != null && !helpMessagePrefix.isEmpty()) {
-                return helpMessagePrefix + (helpMessagePrefix.endsWith("\n") ? "" : "\n") + usageMessage;
-            }
-            return usageMessage;
+            return messages.helpUsage(commandPath, usageStr);
         }
     }
 
@@ -869,6 +846,6 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
     @Override
     public @NotNull List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command,
                                                @NotNull String alias, @NotNull String[] providedArgs) {
-        return TabCompletionHandler.generateCompletions(sender, alias, providedArgs, this);
+        return TabCompletionHandler.generateCompletions(sender, alias, providedArgs, this, messages);
     }
 }

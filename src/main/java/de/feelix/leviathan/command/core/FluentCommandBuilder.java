@@ -6,6 +6,7 @@ import de.feelix.leviathan.command.argument.Arg;
 import de.feelix.leviathan.command.argument.ArgContext;
 import de.feelix.leviathan.command.error.ExceptionHandler;
 import de.feelix.leviathan.command.guard.Guard;
+import de.feelix.leviathan.command.message.MessageProvider;
 import de.feelix.leviathan.command.validation.CrossArgumentValidator;
 import de.feelix.leviathan.exceptions.CommandConfigurationException;
 import de.feelix.leviathan.exceptions.ParsingException;
@@ -49,8 +50,8 @@ public final class FluentCommandBuilder {
     private long perServerCooldownMillis = 0L;
     // Auto help
     private boolean enableHelp = false;
-    // Help message prefix
-    private @Nullable String helpMessagePrefix = null;
+    // Message provider
+    private @Nullable MessageProvider messages = null;
 
     FluentCommandBuilder(String name) {
         this.name = Preconditions.checkNotNull(name, "name");
@@ -154,14 +155,15 @@ public final class FluentCommandBuilder {
     }
 
     /**
-     * Set an optional prefix for help messages.
-     * When configured, the prefix will be prepended to both element help messages and subcommand list messages.
+     * Set a custom message provider for this command.
+     * Allows customization of all user-facing messages (errors, validation, help, etc.).
+     * If not set, {@link de.feelix.leviathan.command.message.DefaultMessageProvider} will be used.
      *
-     * @param prefix the prefix to add to help messages (can be null to disable)
+     * @param provider the message provider to use (can be null to use default)
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder helpMessagePrefix(@Nullable String prefix) {
-        this.helpMessagePrefix = prefix;
+    public @NotNull FluentCommandBuilder messages(@Nullable MessageProvider provider) {
+        this.messages = provider;
         return this;
     }
 
@@ -695,6 +697,7 @@ public final class FluentCommandBuilder {
      */
     public @NotNull FluentCommandBuilder require(@NotNull Class<? extends CommandSender> type) {
         Preconditions.checkNotNull(type, "type");
+        final MessageProvider msgProvider = this.messages;
         this.guards.add(new Guard() {
             @Override
             public boolean test(@NotNull CommandSender sender) {
@@ -703,6 +706,9 @@ public final class FluentCommandBuilder {
 
             @Override
             public @NotNull String errorMessage() {
+                if (msgProvider != null) {
+                    return msgProvider.requiresType(type.getSimpleName());
+                }
                 return "§cThis command requires a " + type.getSimpleName() + ".";
             }
         });
@@ -905,7 +911,7 @@ public final class FluentCommandBuilder {
             name, aliases, description, permission, playerOnly, sendErrors, args, action, async, validateOnTab, subs,
             asyncAction, (asyncTimeoutMillis == null ? 0L : asyncTimeoutMillis),
             guards, crossArgumentValidators, exceptionHandler,
-            perUserCooldownMillis, perServerCooldownMillis, enableHelp, helpMessagePrefix
+            perUserCooldownMillis, perServerCooldownMillis, enableHelp, messages
         );
         
         // Set parent reference for all subcommands

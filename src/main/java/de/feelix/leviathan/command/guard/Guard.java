@@ -1,6 +1,7 @@
 package de.feelix.leviathan.command.guard;
 
 import de.feelix.leviathan.annotations.NotNull;
+import de.feelix.leviathan.command.message.MessageProvider;
 import de.feelix.leviathan.util.Preconditions;
 import org.bukkit.GameMode;
 import org.bukkit.command.CommandSender;
@@ -36,10 +37,12 @@ public interface Guard {
      * Creates a permission-based guard that checks if the sender has the specified permission.
      *
      * @param perm the permission node to check
+     * @param messages the message provider for error messages
      * @return a guard that tests for the permission
      */
-    static @NotNull Guard permission(@NotNull String perm) {
+    static @NotNull Guard permission(@NotNull String perm, @NotNull MessageProvider messages) {
         Preconditions.checkNotNull(perm, "perm");
+        Preconditions.checkNotNull(messages, "messages");
         return new Guard() {
             @Override 
             public boolean test(@NotNull CommandSender sender) { 
@@ -48,7 +51,7 @@ public interface Guard {
             
             @Override 
             public @NotNull String errorMessage() { 
-                return "§cYou lack permission: " + perm; 
+                return messages.guardPermission(perm); 
             }
         };
     }
@@ -57,10 +60,12 @@ public interface Guard {
      * Creates a world-based guard that checks if the sender (must be a player) is in the specified world.
      *
      * @param worldName the name of the world to check
+     * @param messages the message provider for error messages
      * @return a guard that tests for the world
      */
-    static @NotNull Guard inWorld(@NotNull String worldName) {
+    static @NotNull Guard inWorld(@NotNull String worldName, @NotNull MessageProvider messages) {
         Preconditions.checkNotNull(worldName, "worldName");
+        Preconditions.checkNotNull(messages, "messages");
         return new Guard() {
             @Override 
             public boolean test(@NotNull CommandSender sender) {
@@ -70,7 +75,7 @@ public interface Guard {
             
             @Override 
             public @NotNull String errorMessage() { 
-                return "§cYou must be in world '" + worldName + "'."; 
+                return messages.guardInWorld(worldName); 
             }
         };
     }
@@ -79,10 +84,12 @@ public interface Guard {
      * Creates a gamemode-based guard that checks if the sender (must be a player) is in the specified game mode.
      *
      * @param gameMode the game mode to check
+     * @param messages the message provider for error messages
      * @return a guard that tests for the game mode
      */
-    static @NotNull Guard inGameMode(@NotNull GameMode gameMode) {
+    static @NotNull Guard inGameMode(@NotNull GameMode gameMode, @NotNull MessageProvider messages) {
         Preconditions.checkNotNull(gameMode, "gameMode");
+        Preconditions.checkNotNull(messages, "messages");
         return new Guard() {
             @Override 
             public boolean test(@NotNull CommandSender sender) {
@@ -92,7 +99,7 @@ public interface Guard {
             
             @Override 
             public @NotNull String errorMessage() { 
-                return "§cYou must be in " + gameMode.name() + " mode."; 
+                return messages.guardGameMode(gameMode.name()); 
             }
         };
     }
@@ -100,9 +107,11 @@ public interface Guard {
     /**
      * Creates an operator-status guard that checks if the sender is an operator.
      *
+     * @param messages the message provider for error messages
      * @return a guard that tests for operator status
      */
-    static @NotNull Guard opOnly() {
+    static @NotNull Guard opOnly(@NotNull MessageProvider messages) {
+        Preconditions.checkNotNull(messages, "messages");
         return new Guard() {
             @Override 
             public boolean test(@NotNull CommandSender sender) {
@@ -111,7 +120,7 @@ public interface Guard {
             
             @Override 
             public @NotNull String errorMessage() { 
-                return "§cThis command is only available to operators."; 
+                return messages.guardOpOnly(); 
             }
         };
     }
@@ -121,9 +130,11 @@ public interface Guard {
      *
      * @param minLevel minimum level (inclusive)
      * @param maxLevel maximum level (inclusive)
+     * @param messages the message provider for error messages
      * @return a guard that tests for level range
      */
-    static @NotNull Guard levelRange(int minLevel, int maxLevel) {
+    static @NotNull Guard levelRange(int minLevel, int maxLevel, @NotNull MessageProvider messages) {
+        Preconditions.checkNotNull(messages, "messages");
         return new Guard() {
             @Override 
             public boolean test(@NotNull CommandSender sender) {
@@ -134,7 +145,7 @@ public interface Guard {
             
             @Override 
             public @NotNull String errorMessage() { 
-                return "§cYou must be between level " + minLevel + " and " + maxLevel + " to use this command."; 
+                return messages.guardLevelRange(minLevel, maxLevel); 
             }
         };
     }
@@ -143,9 +154,11 @@ public interface Guard {
      * Creates a minimum-level guard that checks if the player's experience level meets the requirement.
      *
      * @param minLevel minimum level required (inclusive)
+     * @param messages the message provider for error messages
      * @return a guard that tests for minimum level
      */
-    static @NotNull Guard minLevel(int minLevel) {
+    static @NotNull Guard minLevel(int minLevel, @NotNull MessageProvider messages) {
+        Preconditions.checkNotNull(messages, "messages");
         return new Guard() {
             @Override 
             public boolean test(@NotNull CommandSender sender) {
@@ -155,7 +168,7 @@ public interface Guard {
             
             @Override 
             public @NotNull String errorMessage() { 
-                return "§cYou must be at least level " + minLevel + " to use this command."; 
+                return messages.guardMinLevel(minLevel); 
             }
         };
     }
@@ -164,9 +177,11 @@ public interface Guard {
      * Creates a health-threshold guard that checks if the player's health is above the specified value.
      *
      * @param minHealth minimum health required (exclusive)
+     * @param messages the message provider for error messages
      * @return a guard that tests for health above threshold
      */
-    static @NotNull Guard healthAbove(double minHealth) {
+    static @NotNull Guard healthAbove(double minHealth, @NotNull MessageProvider messages) {
+        Preconditions.checkNotNull(messages, "messages");
         return new Guard() {
             @Override 
             public boolean test(@NotNull CommandSender sender) {
@@ -176,7 +191,7 @@ public interface Guard {
             
             @Override 
             public @NotNull String errorMessage() { 
-                return "§cYou need more than " + minHealth + " health to use this command."; 
+                return messages.guardHealthAbove(minHealth); 
             }
         };
     }
@@ -185,9 +200,11 @@ public interface Guard {
      * Creates a food-level guard that checks if the player's food level is above the specified value.
      *
      * @param minFoodLevel minimum food level required (exclusive)
+     * @param messages the message provider for error messages
      * @return a guard that tests for food level above threshold
      */
-    static @NotNull Guard foodLevelAbove(int minFoodLevel) {
+    static @NotNull Guard foodLevelAbove(int minFoodLevel, @NotNull MessageProvider messages) {
+        Preconditions.checkNotNull(messages, "messages");
         return new Guard() {
             @Override 
             public boolean test(@NotNull CommandSender sender) {
@@ -197,7 +214,7 @@ public interface Guard {
             
             @Override 
             public @NotNull String errorMessage() { 
-                return "§cYou need more than " + minFoodLevel + " food level to use this command."; 
+                return messages.guardFoodLevelAbove(minFoodLevel); 
             }
         };
     }
@@ -205,9 +222,11 @@ public interface Guard {
     /**
      * Creates a flying guard that checks if the player is currently flying.
      *
+     * @param messages the message provider for error messages
      * @return a guard that tests if player is flying
      */
-    static @NotNull Guard isFlying() {
+    static @NotNull Guard isFlying(@NotNull MessageProvider messages) {
+        Preconditions.checkNotNull(messages, "messages");
         return new Guard() {
             @Override 
             public boolean test(@NotNull CommandSender sender) {
@@ -217,7 +236,7 @@ public interface Guard {
             
             @Override 
             public @NotNull String errorMessage() { 
-                return "§cYou must be flying to use this command."; 
+                return messages.guardFlying(); 
             }
         };
     }

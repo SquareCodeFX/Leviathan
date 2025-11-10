@@ -3,6 +3,7 @@ package de.feelix.leviathan.command.validation;
 import de.feelix.leviathan.annotations.NotNull;
 import de.feelix.leviathan.annotations.Nullable;
 import de.feelix.leviathan.command.argument.ArgContext;
+import de.feelix.leviathan.command.message.MessageProvider;
 
 /**
  * Utility class for validating parsed argument values against validation rules.
@@ -22,16 +23,17 @@ public final class ValidationHelper {
      * @param value the numeric value to validate
      * @param min   the minimum allowed value (null means no minimum)
      * @param max   the maximum allowed value (null means no maximum)
+     * @param messages the message provider for validation messages
      * @param <T>   the numeric type (Integer, Long, Double, Float)
      * @return null if valid, or an error message string if invalid
      */
     private static <T extends Number & Comparable<T>> @Nullable String validateNumericRange(
-        @NotNull T value, @Nullable T min, @Nullable T max) {
+        @NotNull T value, @Nullable T min, @Nullable T max, @NotNull MessageProvider messages) {
         if (min != null && value.compareTo(min) < 0) {
-            return "must be at least " + min + " (got " + value + ")";
+            return messages.numericTooSmall(min.toString(), value.toString());
         }
         if (max != null && value.compareTo(max) > 0) {
-            return "must be at most " + max + " (got " + value + ")";
+            return messages.numericTooLarge(max.toString(), value.toString());
         }
         return null;
     }
@@ -43,27 +45,29 @@ public final class ValidationHelper {
      * @param ctx      the ArgContext containing validation rules
      * @param argName  the argument name (for error messages)
      * @param typeName the type name (for error messages)
+     * @param messages the message provider for validation messages
      * @return null if valid, or an error message string if invalid
      */
     @SuppressWarnings("unchecked")
     public static @Nullable String validateValue(@Nullable Object value, @NotNull ArgContext ctx,
-                                                 @NotNull String argName, @NotNull String typeName) {
+                                                 @NotNull String argName, @NotNull String typeName,
+                                                 @NotNull MessageProvider messages) {
         if (value == null) {
             return null; // null values pass validation (optionality is handled separately)
         }
 
         // Numeric range validation using helper method
         if (value instanceof Integer) {
-            String error = validateNumericRange((Integer) value, ctx.intMin(), ctx.intMax());
+            String error = validateNumericRange((Integer) value, ctx.intMin(), ctx.intMax(), messages);
             if (error != null) return error;
         } else if (value instanceof Long) {
-            String error = validateNumericRange((Long) value, ctx.longMin(), ctx.longMax());
+            String error = validateNumericRange((Long) value, ctx.longMin(), ctx.longMax(), messages);
             if (error != null) return error;
         } else if (value instanceof Double) {
-            String error = validateNumericRange((Double) value, ctx.doubleMin(), ctx.doubleMax());
+            String error = validateNumericRange((Double) value, ctx.doubleMin(), ctx.doubleMax(), messages);
             if (error != null) return error;
         } else if (value instanceof Float) {
-            String error = validateNumericRange((Float) value, ctx.floatMin(), ctx.floatMax());
+            String error = validateNumericRange((Float) value, ctx.floatMin(), ctx.floatMax(), messages);
             if (error != null) return error;
         }
 
@@ -71,13 +75,13 @@ public final class ValidationHelper {
         if (value instanceof String) {
             String strVal = (String) value;
             if (ctx.stringMinLength() != null && strVal.length() < ctx.stringMinLength()) {
-                return "length must be at least " + ctx.stringMinLength() + " (got " + strVal.length() + ")";
+                return messages.stringTooShort(ctx.stringMinLength(), strVal.length());
             }
             if (ctx.stringMaxLength() != null && strVal.length() > ctx.stringMaxLength()) {
-                return "length must be at most " + ctx.stringMaxLength() + " (got " + strVal.length() + ")";
+                return messages.stringTooLong(ctx.stringMaxLength(), strVal.length());
             }
             if (ctx.stringPattern() != null && !ctx.stringPattern().matcher(strVal).matches()) {
-                return "does not match required pattern: " + ctx.stringPattern().pattern();
+                return messages.stringPatternMismatch(ctx.stringPattern().pattern());
             }
         }
 

@@ -6,6 +6,7 @@ import de.feelix.leviathan.command.argument.ArgContext;
 import de.feelix.leviathan.command.argument.ParseResult;
 import de.feelix.leviathan.command.core.FluentCommand;
 import de.feelix.leviathan.command.guard.Guard;
+import de.feelix.leviathan.command.message.MessageProvider;
 import de.feelix.leviathan.command.validation.ValidationHelper;
 import de.feelix.leviathan.exceptions.ParsingException;
 import de.feelix.leviathan.util.Preconditions;
@@ -32,13 +33,15 @@ public final class TabCompletionHandler {
      * @param alias the command alias used
      * @param providedArgs the arguments typed so far
      * @param command the FluentCommand instance
+     * @param messages the message provider for error messages
      * @return list of completion suggestions
      */
     public static @NotNull List<String> generateCompletions(
             @NotNull CommandSender sender,
             @NotNull String alias,
             @NotNull String[] providedArgs,
-            @NotNull FluentCommand command) {
+            @NotNull FluentCommand command,
+            @NotNull MessageProvider messages) {
         
         Preconditions.checkNotNull(sender, "sender");
         Preconditions.checkNotNull(alias, "alias");
@@ -80,13 +83,13 @@ public final class TabCompletionHandler {
         int argCount = command.args().size();
 
         // Determine current argument index
-        int currentArgIndex = determineCurrentArgIndex(index, argCount, lastIsGreedy, command, alias, sender, providedArgs);
+        int currentArgIndex = determineCurrentArgIndex(index, argCount, lastIsGreedy, command, alias, sender, providedArgs, messages);
         if (currentArgIndex < 0) return Collections.emptyList();
 
         // Validate previously entered arguments if enabled
         Map<String, Object> parsedSoFar = new LinkedHashMap<>();
         if (command.validateOnTab() && currentArgIndex > 0) {
-            if (!validatePreviousArguments(currentArgIndex, providedArgs, sender, command, parsedSoFar)) {
+            if (!validatePreviousArguments(currentArgIndex, providedArgs, sender, command, parsedSoFar, messages)) {
                 return Collections.emptyList();
             }
         }
@@ -159,13 +162,14 @@ public final class TabCompletionHandler {
             @NotNull FluentCommand command,
             @NotNull String alias,
             @NotNull CommandSender sender,
-            @NotNull String[] providedArgs) {
+            @NotNull String[] providedArgs,
+            @NotNull MessageProvider messages) {
         
         if (index >= argCount) {
             if (!lastIsGreedy) {
                 // Too many arguments typed
                 if (command.sendErrors()) {
-                    sender.sendMessage("§cToo many arguments. Usage: /" + command.fullCommandPath(alias) + " " + command.usage());
+                    sender.sendMessage(messages.tooManyArguments(command.fullCommandPath(alias), command.usage()));
                 }
                 return -1;
             }
@@ -184,7 +188,8 @@ public final class TabCompletionHandler {
             @NotNull String[] providedArgs,
             @NotNull CommandSender sender,
             @NotNull FluentCommand command,
-            @NotNull Map<String, Object> parsedSoFar) {
+            @NotNull Map<String, Object> parsedSoFar,
+            @NotNull MessageProvider messages) {
         
         for (int i = 0; i < currentArgIndex; i++) {
             Arg<?> prev = command.args().get(i);
@@ -207,9 +212,7 @@ public final class TabCompletionHandler {
             if (!res.isSuccess()) {
                 if (command.sendErrors()) {
                     String msg = res.error().orElse("invalid value");
-                    sender.sendMessage(
-                        "§cInvalid value for '" + prev.name() + "' (expected " 
-                        + prev.parser().getTypeName() + "): " + msg);
+                    sender.sendMessage(messages.invalidArgumentValue(prev.name(), prev.parser().getTypeName(), msg));
                 }
                 return false;
             }
@@ -218,10 +221,10 @@ public final class TabCompletionHandler {
             
             // Apply validations from ArgContext (range, length, pattern, custom validators)
             ArgContext ctx = prev.context();
-            String validationError = ValidationHelper.validateValue(parsedValue, ctx, prev.name(), prev.parser().getTypeName());
+            String validationError = ValidationHelper.validateValue(parsedValue, ctx, prev.name(), prev.parser().getTypeName(), messages);
             if (validationError != null) {
                 if (command.sendErrors()) {
-                    sender.sendMessage("§cInvalid value for '" + prev.name() + "': " + validationError);
+                    sender.sendMessage(messages.validationFailed(prev.name(), validationError));
                 }
                 return false;
             }
