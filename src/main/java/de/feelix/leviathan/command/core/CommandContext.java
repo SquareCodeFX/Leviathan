@@ -6,6 +6,7 @@ import de.feelix.leviathan.command.mapping.OptionMapping;
 import de.feelix.leviathan.command.mapping.OptionType;
 import de.feelix.leviathan.exceptions.ApiMisuseException;
 import de.feelix.leviathan.util.Preconditions;
+import org.bukkit.entity.Player;
 
 import java.util.Map;
 import java.util.Optional;
@@ -202,8 +203,8 @@ public final class CommandContext {
      * @param defaultValue value to return if the argument is missing
      * @return the Player value or the default value
      */
-    public @NotNull org.bukkit.entity.Player getPlayerOrDefault(@NotNull String name, @NotNull org.bukkit.entity.Player defaultValue) {
-        return getOrDefault(name, org.bukkit.entity.Player.class, defaultValue);
+    public @NotNull Player getPlayerOrDefault(@NotNull String name, @NotNull Player defaultValue) {
+        return getOrDefault(name, Player.class, defaultValue);
     }
 
     /**
@@ -256,7 +257,7 @@ public final class CommandContext {
         if (o instanceof String) return OptionType.STRING;
         if (o instanceof UUID) return OptionType.UUID;
         if (o instanceof Boolean) return OptionType.BOOLEAN;
-        if (o instanceof org.bukkit.entity.Player) return OptionType.PLAYER;
+        if (o instanceof Player) return OptionType.PLAYER;
         return (o == null) ? OptionType.UNKNOWN : OptionType.CHOICE;
     }
 }

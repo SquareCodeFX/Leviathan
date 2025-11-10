@@ -4,6 +4,7 @@ import de.feelix.leviathan.annotations.NotNull;
 import de.feelix.leviathan.annotations.Nullable;
 import de.feelix.leviathan.command.argument.ArgContext;
 import de.feelix.leviathan.command.message.MessageProvider;
+import de.feelix.leviathan.util.Preconditions;
 
 /**
  * Utility class for validating parsed argument values against validation rules.
@@ -29,6 +30,8 @@ public final class ValidationHelper {
      */
     private static <T extends Number & Comparable<T>> @Nullable String validateNumericRange(
         @NotNull T value, @Nullable T min, @Nullable T max, @NotNull MessageProvider messages) {
+        Preconditions.checkNotNull(value, "value");
+        Preconditions.checkNotNull(messages, "messages");
         if (min != null && value.compareTo(min) < 0) {
             return messages.numericTooSmall(min.toString(), value.toString());
         }
@@ -52,6 +55,10 @@ public final class ValidationHelper {
     public static @Nullable String validateValue(@Nullable Object value, @NotNull ArgContext ctx,
                                                  @NotNull String argName, @NotNull String typeName,
                                                  @NotNull MessageProvider messages) {
+        Preconditions.checkNotNull(ctx, "ctx");
+        Preconditions.checkNotNull(argName, "argName");
+        Preconditions.checkNotNull(typeName, "typeName");
+        Preconditions.checkNotNull(messages, "messages");
         if (value == null) {
             return null; // null values pass validation (optionality is handled separately)
         }

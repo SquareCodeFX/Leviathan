@@ -60,4 +60,36 @@ public final class Preconditions {
             throw new ApiMisuseException(message == null ? "Illegal state" : message);
         }
     }
+
+    /**
+     * Ensure that the given long value is non-negative (>= 0).
+     *
+     * @param value the value to check
+     * @param paramName the parameter name for error messages
+     * @return the same value, for fluent usage
+     * @throws ApiMisuseException if {@code value} is negative
+     */
+    public static long checkNonNegative(long value, @Nullable String paramName) {
+        if (value < 0) {
+            String name = (paramName == null || paramName.isBlank()) ? "parameter" : paramName;
+            throw new ApiMisuseException("Parameter '" + name + "' must be non-negative, but was: " + value);
+        }
+        return value;
+    }
+
+    /**
+     * Ensure that the given int value is non-negative (>= 0).
+     *
+     * @param value the value to check
+     * @param paramName the parameter name for error messages
+     * @return the same value, for fluent usage
+     * @throws ApiMisuseException if {@code value} is negative
+     */
+    public static int checkNonNegative(int value, @Nullable String paramName) {
+        if (value < 0) {
+            String name = (paramName == null || paramName.isBlank()) ? "parameter" : paramName;
+            throw new ApiMisuseException("Parameter '" + name + "' must be non-negative, but was: " + value);
+        }
+        return value;
+    }
 }

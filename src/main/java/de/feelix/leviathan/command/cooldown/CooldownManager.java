@@ -1,6 +1,7 @@
 package de.feelix.leviathan.command.cooldown;
 
 import de.feelix.leviathan.annotations.NotNull;
+import de.feelix.leviathan.util.Preconditions;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -29,6 +30,7 @@ public final class CooldownManager {
      * @return cooldown check result
      */
     public static @NotNull CooldownResult checkServerCooldown(@NotNull String commandName, long cooldownMillis) {
+        Preconditions.checkNotNull(commandName, "commandName");
         if (cooldownMillis <= 0) {
             return CooldownResult.notOnCooldown();
         }
@@ -57,6 +59,8 @@ public final class CooldownManager {
      * @return cooldown check result
      */
     public static @NotNull CooldownResult checkUserCooldown(@NotNull String commandName, @NotNull String userId, long cooldownMillis) {
+        Preconditions.checkNotNull(commandName, "commandName");
+        Preconditions.checkNotNull(userId, "userId");
         if (cooldownMillis <= 0) {
             return CooldownResult.notOnCooldown();
         }
@@ -87,6 +91,7 @@ public final class CooldownManager {
      * @param commandName command name to update
      */
     public static void updateServerCooldown(@NotNull String commandName) {
+        Preconditions.checkNotNull(commandName, "commandName");
         perServerCooldowns.put(commandName, System.currentTimeMillis());
     }
 
@@ -97,6 +102,8 @@ public final class CooldownManager {
      * @param userId user identifier (typically player name)
      */
     public static void updateUserCooldown(@NotNull String commandName, @NotNull String userId) {
+        Preconditions.checkNotNull(commandName, "commandName");
+        Preconditions.checkNotNull(userId, "userId");
         Map<String, Long> userCooldowns = perUserCooldowns.computeIfAbsent(commandName, k -> new ConcurrentHashMap<>());
         userCooldowns.put(userId, System.currentTimeMillis());
     }
@@ -109,6 +116,7 @@ public final class CooldownManager {
      * @return formatted message
      */
     public static @NotNull String formatCooldownMessage(@NotNull String template, long remainingMillis) {
+        Preconditions.checkNotNull(template, "template");
         double seconds = remainingMillis / 1000.0;
         String timeStr;
         if (seconds < 60) {
@@ -130,6 +138,7 @@ public final class CooldownManager {
      * @param commandName command name to clear cooldowns for
      */
     public static void clearCooldowns(@NotNull String commandName) {
+        Preconditions.checkNotNull(commandName, "commandName");
         perServerCooldowns.remove(commandName);
         perUserCooldowns.remove(commandName);
     }

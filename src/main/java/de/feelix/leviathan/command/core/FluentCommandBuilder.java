@@ -439,6 +439,7 @@ public final class FluentCommandBuilder {
      * @return this builder
      */
     public @NotNull FluentCommandBuilder argIntRange(@NotNull String name, int min, int max) {
+        Preconditions.checkArgument(min <= max, "min must be <= max for range [" + min + ", " + max + "]");
         return arg(new Arg<>(name, ArgParsers.intParser(), 
             ArgContext.builder().intRange(min, max).build()));
     }
@@ -453,6 +454,7 @@ public final class FluentCommandBuilder {
      * @return this builder
      */
     public @NotNull FluentCommandBuilder argLongRange(@NotNull String name, long min, long max) {
+        Preconditions.checkArgument(min <= max, "min must be <= max for range [" + min + ", " + max + "]");
         return arg(new Arg<>(name, ArgParsers.longParser(), 
             ArgContext.builder().longRange(min, max).build()));
     }
@@ -467,6 +469,7 @@ public final class FluentCommandBuilder {
      * @return this builder
      */
     public @NotNull FluentCommandBuilder argDoubleRange(@NotNull String name, double min, double max) {
+        Preconditions.checkArgument(min <= max, "min must be <= max for range [" + min + ", " + max + "]");
         return arg(new Arg<>(name, ArgParsers.doubleParser(), 
             ArgContext.builder().doubleRange(min, max).build()));
     }
@@ -481,6 +484,7 @@ public final class FluentCommandBuilder {
      * @return this builder
      */
     public @NotNull FluentCommandBuilder argFloatRange(@NotNull String name, float min, float max) {
+        Preconditions.checkArgument(min <= max, "min must be <= max for range [" + min + ", " + max + "]");
         return arg(new Arg<>(name, ArgParsers.floatParser(), 
             ArgContext.builder().floatRange(min, max).build()));
     }
@@ -495,6 +499,9 @@ public final class FluentCommandBuilder {
      * @return this builder
      */
     public @NotNull FluentCommandBuilder argStringLength(@NotNull String name, int minLength, int maxLength) {
+        Preconditions.checkNonNegative(minLength, "minLength");
+        Preconditions.checkNonNegative(maxLength, "maxLength");
+        Preconditions.checkArgument(minLength <= maxLength, "minLength must be <= maxLength for range [" + minLength + ", " + maxLength + "]");
         return arg(new Arg<>(name, ArgParsers.stringParser(), 
             ArgContext.builder().stringLengthRange(minLength, maxLength).build()));
     }
@@ -805,7 +812,7 @@ public final class FluentCommandBuilder {
      * @return this builder
      */
     public @NotNull FluentCommandBuilder perUserCooldown(long cooldownMillis) {
-        this.perUserCooldownMillis = cooldownMillis;
+        this.perUserCooldownMillis = Preconditions.checkNonNegative(cooldownMillis, "cooldownMillis");
         return this;
     }
 
@@ -817,7 +824,7 @@ public final class FluentCommandBuilder {
      * @return this builder
      */
     public @NotNull FluentCommandBuilder perServerCooldown(long cooldownMillis) {
-        this.perServerCooldownMillis = cooldownMillis;
+        this.perServerCooldownMillis = Preconditions.checkNonNegative(cooldownMillis, "cooldownMillis");
         return this;
     }
 

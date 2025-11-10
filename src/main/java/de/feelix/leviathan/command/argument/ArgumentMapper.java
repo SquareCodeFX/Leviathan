@@ -4,6 +4,7 @@ import de.feelix.leviathan.annotations.NotNull;
 import de.feelix.leviathan.annotations.Nullable;
 import de.feelix.leviathan.command.core.CommandContext;
 import de.feelix.leviathan.command.mapping.OptionMapping;
+import de.feelix.leviathan.util.Preconditions;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.World;
@@ -25,6 +26,7 @@ public final class ArgumentMapper {
      * @return string value, or null if the underlying value is missing or not a String
      */
     public static @Nullable String asString(@NotNull OptionMapping mapping) {
+        Preconditions.checkNotNull(mapping, "mapping");
         return mapping.asString();
     }
 
@@ -35,6 +37,7 @@ public final class ArgumentMapper {
      * @return integer value, or null if the underlying value is missing or not an Integer
      */
     public static @Nullable Integer asInt(@NotNull OptionMapping mapping) {
+        Preconditions.checkNotNull(mapping, "mapping");
         return mapping.asInt();
     }
 
@@ -45,6 +48,7 @@ public final class ArgumentMapper {
      * @return long value, or null if the underlying value is missing or not a Long
      */
     public static @Nullable Long asLong(@NotNull OptionMapping mapping) {
+        Preconditions.checkNotNull(mapping, "mapping");
         return mapping.asLong();
     }
 
@@ -55,6 +59,7 @@ public final class ArgumentMapper {
      * @return UUID value, or null if the underlying value is missing or not a UUID
      */
     public static @Nullable UUID asUuid(@NotNull OptionMapping mapping) {
+        Preconditions.checkNotNull(mapping, "mapping");
         return mapping.asUuid();
     }
 
@@ -65,6 +70,7 @@ public final class ArgumentMapper {
      * @return double value, or null if the underlying value is missing or not a Double
      */
     public static @Nullable Double asDouble(@NotNull OptionMapping mapping) {
+        Preconditions.checkNotNull(mapping, "mapping");
         return mapping.as(Double.class);
     }
 
@@ -75,6 +81,7 @@ public final class ArgumentMapper {
      * @return float value, or null if the underlying value is missing or not a Float
      */
     public static @Nullable Float asFloat(@NotNull OptionMapping mapping) {
+        Preconditions.checkNotNull(mapping, "mapping");
         return mapping.as(Float.class);
     }
 
@@ -85,6 +92,7 @@ public final class ArgumentMapper {
      * @return boolean value, or null if the underlying value is missing or not a Boolean
      */
     public static @Nullable Boolean asBoolean(@NotNull OptionMapping mapping) {
+        Preconditions.checkNotNull(mapping, "mapping");
         return mapping.as(Boolean.class);
     }
 
@@ -95,6 +103,7 @@ public final class ArgumentMapper {
      * @return player value, or null if the underlying value is missing or not a Player
      */
     public static @Nullable Player asPlayer(@NotNull OptionMapping mapping) {
+        Preconditions.checkNotNull(mapping, "mapping");
         return mapping.as(Player.class);
     }
 
@@ -105,6 +114,7 @@ public final class ArgumentMapper {
      * @return offline player value, or null if the underlying value is missing or not an OfflinePlayer
      */
     public static @Nullable OfflinePlayer asOfflinePlayer(@NotNull OptionMapping mapping) {
+        Preconditions.checkNotNull(mapping, "mapping");
         return mapping.as(OfflinePlayer.class);
     }
 
@@ -115,6 +125,7 @@ public final class ArgumentMapper {
      * @return world value, or null if the underlying value is missing or not a World
      */
     public static @Nullable World asWorld(@NotNull OptionMapping mapping) {
+        Preconditions.checkNotNull(mapping, "mapping");
         return mapping.as(World.class);
     }
 
@@ -125,6 +136,7 @@ public final class ArgumentMapper {
      * @return material value, or null if the underlying value is missing or not a Material
      */
     public static @Nullable Material asMaterial(@NotNull OptionMapping mapping) {
+        Preconditions.checkNotNull(mapping, "mapping");
         return mapping.as(Material.class);
     }
 
@@ -138,6 +150,8 @@ public final class ArgumentMapper {
      * @return enum value, or null if the underlying value is missing or not of the specified enum type
      */
     public static <E extends Enum<E>> @Nullable E asEnum(@NotNull OptionMapping mapping, @NotNull Class<E> enumClass) {
+        Preconditions.checkNotNull(mapping, "mapping");
+        Preconditions.checkNotNull(enumClass, "enumClass");
         return mapping.as(enumClass);
     }
 
@@ -150,6 +164,8 @@ public final class ArgumentMapper {
      * @return value of the requested type, or null if the underlying value is missing or not assignable to {@code type}
      */
     public static <T> @Nullable T as(@NotNull OptionMapping mapping, @NotNull Class<T> type) {
+        Preconditions.checkNotNull(mapping, "mapping");
+        Preconditions.checkNotNull(type, "type");
         return mapping.as(type);
     }
 }

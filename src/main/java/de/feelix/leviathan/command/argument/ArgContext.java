@@ -3,6 +3,7 @@ package de.feelix.leviathan.command.argument;
 import de.feelix.leviathan.annotations.NotNull;
 import de.feelix.leviathan.annotations.Nullable;
 import de.feelix.leviathan.command.completion.DynamicCompletionContext;
+import de.feelix.leviathan.util.Preconditions;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -15,6 +16,7 @@ import java.util.regex.Pattern;
  * tab-completion configuration, and validation rules.
  */
 public final class ArgContext {
+
     /**
      * Functional interface for providing dynamic completions with full runtime context.
      */
@@ -170,6 +172,7 @@ public final class ArgContext {
         public @NotNull Builder greedy(boolean greedy) { this.greedy = greedy; return this; }
         public @NotNull Builder permission(@Nullable String permission) { this.permission = permission; return this; }
         public @NotNull Builder completionsPredefined(@NotNull List<String> completions) {
+            Preconditions.checkNotNull(completions, "completions");
             this.completionsPredefined = new ArrayList<>();
             for (String completion : completions) {
                 if (completion != null) {
@@ -235,6 +238,7 @@ public final class ArgContext {
         
         // Custom validators
         public @NotNull Builder addValidator(@NotNull Validator<?> validator) {
+            Preconditions.checkNotNull(validator, "validator");
             this.customValidators.add(validator);
             return this;
         }

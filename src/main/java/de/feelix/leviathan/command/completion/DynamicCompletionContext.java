@@ -3,6 +3,7 @@ package de.feelix.leviathan.command.completion;
 import de.feelix.leviathan.annotations.NotNull;
 import de.feelix.leviathan.command.argument.Arg;
 import de.feelix.leviathan.command.core.FluentCommand;
+import de.feelix.leviathan.util.Preconditions;
 import org.bukkit.command.CommandSender;
 
 import java.util.Collections;
@@ -25,6 +26,13 @@ public record DynamicCompletionContext(@NotNull CommandSender sender, @NotNull S
                                     @NotNull List<Arg<?>> allArgs,
                                     @NotNull Map<String, Object> parsedArgsSoFar,
                                     @NotNull FluentCommand command) {
+        Preconditions.checkNotNull(sender, "sender");
+        Preconditions.checkNotNull(alias, "alias");
+        Preconditions.checkNotNull(providedArgs, "providedArgs");
+        Preconditions.checkNotNull(prefix, "prefix");
+        Preconditions.checkNotNull(allArgs, "allArgs");
+        Preconditions.checkNotNull(parsedArgsSoFar, "parsedArgsSoFar");
+        Preconditions.checkNotNull(command, "command");
         this.sender = sender;
         this.alias = alias;
         this.providedArgs = providedArgs;

@@ -108,6 +108,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
      * @param parent the parent command
      */
     void setParent(@NotNull FluentCommand parent) {
+        Preconditions.checkNotNull(parent, "parent");
         this.parent = parent;
     }
 
@@ -121,6 +122,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
      */
     @NotNull
     public String fullCommandPath(@NotNull String alias) {
+        Preconditions.checkNotNull(alias, "alias");
         if (parent == null) {
             return alias;
         }
