@@ -25,10 +25,15 @@ import java.util.concurrent.ForkJoinPool;
  */
 public final class PaginationService<T> {
 
+    /** Immutable pagination behavior and styling configuration. */
     private final PaginationConfig config;
+    /** Data provider used to fetch elements and total count. */
     private final PaginationDataSource<T> dataSource;
+    /** Optional cache for page results keyed by {@link CacheKey}. */
     private final PaginationCache<CacheKey, PaginatedResult<T>> cache;
+    /** Executor for async operations (defaults to {@link ForkJoinPool#commonPool()}). */
     private final ExecutorService executor;
+    /** Whether caching is enabled per configuration and a cache instance is present. */
     private final boolean cacheEnabled;
 
     private PaginationService(Builder<T> builder) {
@@ -39,6 +44,12 @@ public final class PaginationService<T> {
         this.cacheEnabled = config.isCacheEnabled() && cache != null;
     }
 
+    /**
+     * Create a new builder for {@link PaginationService}.
+     *
+     * @param <T> element type
+     * @return builder instance
+     */
     public static <T> Builder<T> builder() {
         return new Builder<>();
     }
@@ -73,6 +84,10 @@ public final class PaginationService<T> {
 
     /**
      * Gets a specific page asynchronously.
+     *
+     * @param pageNumber the 1-based page number
+     * @return future completing with the requested page
+     * @throws InvalidPageException if {@code pageNumber < 1}
      */
     public CompletableFuture<PaginatedResult<T>> getPageAsync(int pageNumber) {
         validatePageNumber(pageNumber);
@@ -92,6 +107,8 @@ public final class PaginationService<T> {
 
     /**
      * Gets the first page.
+     *
+     * @return the first page (page 1)
      */
     public PaginatedResult<T> getFirstPage() {
         return getPage(1);
@@ -99,6 +116,8 @@ public final class PaginationService<T> {
 
     /**
      * Gets the first page asynchronously.
+     *
+     * @return future completing with the first page (page 1)
      */
     public CompletableFuture<PaginatedResult<T>> getFirstPageAsync() {
         return getPageAsync(1);
@@ -106,6 +125,8 @@ public final class PaginationService<T> {
 
     /**
      * Gets the last page.
+     *
+     * @return the last available page computed from total elements
      */
     public PaginatedResult<T> getLastPage() {
         int totalPages = calculateTotalPages();
@@ -114,6 +135,8 @@ public final class PaginationService<T> {
 
     /**
      * Gets the last page asynchronously.
+     *
+     * @return future completing with the last available page
      */
     public CompletableFuture<PaginatedResult<T>> getLastPageAsync() {
         return countAsync()
@@ -125,6 +148,9 @@ public final class PaginationService<T> {
 
     /**
      * Gets the next page relative to the given result.
+     *
+     * @param current the current page
+     * @return next page if it exists, otherwise {@link Optional#empty()}
      */
     public Optional<PaginatedResult<T>> getNextPage(PaginatedResult<T> current) {
         Objects.requireNonNull(current, "Current result cannot be null");
@@ -138,6 +164,9 @@ public final class PaginationService<T> {
 
     /**
      * Gets the next page asynchronously.
+     *
+     * @param current the current page
+     * @return future completing with next page if it exists, else empty
      */
     public CompletableFuture<Optional<PaginatedResult<T>>> getNextPageAsync(PaginatedResult<T> current) {
         Objects.requireNonNull(current, "Current result cannot be null");
@@ -152,6 +181,9 @@ public final class PaginationService<T> {
 
     /**
      * Gets the previous page relative to the given result.
+     *
+     * @param current the current page
+     * @return previous page if it exists, otherwise {@link Optional#empty()}
      */
     public Optional<PaginatedResult<T>> getPreviousPage(PaginatedResult<T> current) {
         Objects.requireNonNull(current, "Current result cannot be null");
@@ -165,6 +197,9 @@ public final class PaginationService<T> {
 
     /**
      * Gets the previous page asynchronously.
+     *
+     * @param current the current page
+     * @return future completing with previous page if it exists, else empty
      */
     public CompletableFuture<Optional<PaginatedResult<T>>> getPreviousPageAsync(PaginatedResult<T> current) {
         Objects.requireNonNull(current, "Current result cannot be null");
@@ -179,6 +214,11 @@ public final class PaginationService<T> {
 
     /**
      * Navigates to a specific page from the current position.
+     *
+     * @param current    the current page (not used for bounds; kept for API symmetry)
+     * @param targetPage the target 1-based page number
+     * @return the target page
+     * @throws InvalidPageException if {@code targetPage < 1} or beyond total pages
      */
     public PaginatedResult<T> navigateTo(PaginatedResult<T> current, int targetPage) {
         Objects.requireNonNull(current, "Current result cannot be null");
@@ -187,6 +227,11 @@ public final class PaginationService<T> {
 
     /**
      * Gets multiple pages at once.
+     *
+     * @param startPage inclusive start page (1-based)
+     * @param endPage   inclusive end page (1-based)
+     * @return list of page results in ascending order
+     * @throws IllegalArgumentException if startPage > endPage
      */
     public List<PaginatedResult<T>> getPages(int startPage, int endPage) {
         validatePageNumber(startPage);
@@ -203,6 +248,11 @@ public final class PaginationService<T> {
 
     /**
      * Gets multiple pages asynchronously.
+     *
+     * @param startPage inclusive start page (1-based)
+     * @param endPage   inclusive end page (1-based)
+     * @return future completing with list of page results in ascending order
+     * @throws IllegalArgumentException if startPage > endPage
      */
     public CompletableFuture<List<PaginatedResult<T>>> getPagesAsync(int startPage, int endPage) {
         validatePageNumber(startPage);
@@ -225,6 +275,10 @@ public final class PaginationService<T> {
 
     /**
      * Prefetches pages around the current page for faster navigation.
+     * Only effective when caching is enabled.
+     *
+     * @param currentPage the reference page
+     * @param radius      number of pages to prefetch on each side
      */
     public void prefetch(int currentPage, int radius) {
         if (!cacheEnabled) {
@@ -251,6 +305,8 @@ public final class PaginationService<T> {
 
     /**
      * Returns the total number of pages.
+     *
+     * @return total pages (at least 1)
      */
     public int getTotalPages() {
         return calculateTotalPages();
@@ -258,20 +314,27 @@ public final class PaginationService<T> {
 
     /**
      * Returns the total number of elements.
+     *
+     * @return total element count (non-negative)
      */
     public long count() {
         return dataSource.count();
     }
 
     /**
-     * Returns the total number of elements asynchronously.
-     */
+    * Returns the total number of elements asynchronously.
+    *
+    * @return future completing with total element count
+    */
     public CompletableFuture<Long> countAsync() {
         return dataSource.countAsync();
     }
 
     /**
      * Checks if a page number is valid.
+     *
+     * @param pageNumber 1-based page number
+     * @return true if page exists
      */
     public boolean isValidPage(int pageNumber) {
         if (pageNumber < 1) {
@@ -283,6 +346,7 @@ public final class PaginationService<T> {
 
     /**
      * Invalidates cached data.
+     * No-op when caching is disabled.
      */
     public void invalidateCache() {
         if (cacheEnabled) {
@@ -292,6 +356,9 @@ public final class PaginationService<T> {
 
     /**
      * Invalidates a specific page from cache.
+     * No-op when caching is disabled.
+     *
+     * @param pageNumber 1-based page number to evict
      */
     public void invalidatePage(int pageNumber) {
         if (cacheEnabled) {
@@ -301,6 +368,8 @@ public final class PaginationService<T> {
 
     /**
      * Returns cache statistics.
+     *
+     * @return cache stats if caching is enabled, otherwise empty
      */
     public Optional<CacheStats> getCacheStats() {
         return cacheEnabled ? Optional.of(cache.getStats()) : Optional.empty();
@@ -308,6 +377,8 @@ public final class PaginationService<T> {
 
     /**
      * Returns the current configuration.
+     *
+     * @return pagination config (immutable)
      */
     public PaginationConfig getConfig() {
         return config;
@@ -315,6 +386,9 @@ public final class PaginationService<T> {
 
     // Private methods
 
+    /**
+     * Fetch a page synchronously from the data source and build the result object.
+     */
     private PaginatedResult<T> fetchPage(int pageNumber) {
         long totalElements = dataSource.count();
         PageInfo pageInfo = PageInfo.of(pageNumber, totalElements, config.getPageSize());
@@ -337,6 +411,9 @@ public final class PaginationService<T> {
                 .build();
     }
 
+    /**
+     * Fetch a page asynchronously from the data source and build the result object.
+     */
     private CompletableFuture<PaginatedResult<T>> fetchPageAsync(int pageNumber) {
         return dataSource.countAsync()
                 .thenCompose(totalElements -> {
@@ -361,16 +438,25 @@ public final class PaginationService<T> {
                 });
     }
 
+    /**
+     * Validate a 1-based page number.
+     */
     private void validatePageNumber(int pageNumber) {
         if (pageNumber < 1) {
             throw new InvalidPageException(pageNumber, 1);
         }
     }
 
+    /**
+     * Calculate total pages from the current data source count.
+     */
     private int calculateTotalPages() {
         return calculateTotalPages(dataSource.count());
     }
 
+    /**
+     * Calculate total pages from a provided element count.
+     */
     private int calculateTotalPages(long totalElements) {
         if (totalElements == 0) {
             return 1;
@@ -378,6 +464,9 @@ public final class PaginationService<T> {
         return (int) Math.ceil((double) totalElements / config.getPageSize());
     }
 
+    /**
+     * Build a cache key for the given page number and current configuration.
+     */
     private CacheKey createCacheKey(int pageNumber) {
         return new CacheKey(dataSource.getIdentifier(), pageNumber, config.getPageSize());
     }
@@ -387,19 +476,38 @@ public final class PaginationService<T> {
      */
     private record CacheKey(String dataSourceId, int pageNumber, int pageSize) {}
 
+    /**
+     * Builder for {@link PaginationService}.
+     */
     public static final class Builder<T> {
+        /** Configuration used by the service (defaults applied via {@link PaginationConfig#defaults()}). */
         private PaginationConfig config = PaginationConfig.defaults();
+        /** Data source for items and counts (required). */
         private PaginationDataSource<T> dataSource;
+        /** Optional cache for page results (if unset and caching enabled, use {@link #withDefaultCache()}). */
         private PaginationCache<CacheKey, PaginatedResult<T>> cache;
+        /** Executor for async operations (defaults to common pool). */
         private ExecutorService executor = ForkJoinPool.commonPool();
 
         private Builder() {}
 
+        /**
+         * Set the pagination configuration.
+         *
+         * @param config non-null configuration
+         * @return this builder
+         */
         public Builder<T> config(PaginationConfig config) {
             this.config = Objects.requireNonNull(config, "Config cannot be null");
             return this;
         }
 
+        /**
+         * Set the data source for this service.
+         *
+         * @param dataSource non-null data source
+         * @return this builder
+         */
         public Builder<T> dataSource(PaginationDataSource<T> dataSource) {
             this.dataSource = Objects.requireNonNull(dataSource, "Data source cannot be null");
             return this;
@@ -411,6 +519,12 @@ public final class PaginationService<T> {
             return this;
         }
 
+        /**
+         * Set the executor for asynchronous operations.
+         *
+         * @param executor non-null executor
+         * @return this builder
+         */
         public Builder<T> executor(ExecutorService executor) {
             this.executor = Objects.requireNonNull(executor, "Executor cannot be null");
             return this;
@@ -426,6 +540,12 @@ public final class PaginationService<T> {
             return this;
         }
 
+        /**
+         * Build the service instance.
+         *
+         * @return new PaginationService
+         * @throws NullPointerException if required fields are missing
+         */
         public PaginationService<T> build() {
             Objects.requireNonNull(dataSource, "Data source must be set");
             return new PaginationService<>(this);

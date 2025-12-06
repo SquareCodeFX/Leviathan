@@ -6,7 +6,15 @@ import java.util.Objects;
 
 /**
  * Immutable value object representing pagination metadata.
- * Contains all information about current page state.
+ * <p>
+ * Semantics and invariants:
+ * <ul>
+ *   <li>Page numbers are 1-based (first page is 1).</li>
+ *   <li>{@code totalPages} is at least 1 (empty datasets still report one logical page).</li>
+ *   <li>{@code elementsOnPage} reflects the actual number of elements on the current page (0 if empty).</li>
+ *   <li>Offset calculation: {@link #getOffset()} = {@code (currentPage - 1) * pageSize}.</li>
+ * </ul>
+ * Provides convenience methods for navigation and range calculations used by renderers.
  */
 public final class PageInfo {
 
@@ -29,7 +37,8 @@ public final class PageInfo {
     }
 
     /**
-     * Factory method to create PageInfo from total elements count.
+     * Factory method to create {@link PageInfo} from total elements and page size.
+     * Performs derived calculations for {@code totalPages} and {@code elementsOnPage}.
      */
     public static PageInfo of(int currentPage, long totalElements, int pageSize) {
         int totalPages = calculateTotalPages(totalElements, pageSize);

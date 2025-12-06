@@ -16,9 +16,13 @@ import java.util.function.Consumer;
  */
 public final class InteractivePaginator<T> {
 
+    /** Underlying pagination service used to fetch pages. */
     private final PaginationService<T> service;
+    /** Snapshot of configuration used for helper behaviors like prefetch radius. */
     private final PaginationConfig config;
+    /** Registered listeners notified on navigation and error events. */
     private final List<Consumer<PaginationEvent<T>>> eventListeners;
+    /** Local navigation history supporting back/forward. */
     private final NavigationHistory history;
 
     private PaginatedResult<T> currentResult;
@@ -41,6 +45,10 @@ public final class InteractivePaginator<T> {
 
     /**
      * Navigate to a specific page.
+     *
+     * @param pageNumber the target 1-based page number
+     * @return the resulting page
+     * @throws InvalidPageException if the page number is outside the valid range
      */
     public PaginatedResult<T> navigateTo(int pageNumber) {
         try {
@@ -55,6 +63,9 @@ public final class InteractivePaginator<T> {
 
     /**
      * Navigate to a page asynchronously.
+     *
+     * @param pageNumber the target 1-based page number
+     * @return future completing with the resulting page
      */
     public CompletableFuture<PaginatedResult<T>> navigateToAsync(int pageNumber) {
         return service.getPageAsync(pageNumber)
@@ -70,6 +81,8 @@ public final class InteractivePaginator<T> {
 
     /**
      * Navigate to the next page.
+     *
+     * @return optional next page (empty if already at the last page or not initialized)
      */
     public Optional<PaginatedResult<T>> next() {
         if (currentResult == null || !currentResult.hasNextPage()) {
@@ -85,6 +98,8 @@ public final class InteractivePaginator<T> {
 
     /**
      * Navigate to the next page asynchronously.
+     *
+     * @return future completing with optional next page (empty if none)
      */
     public CompletableFuture<Optional<PaginatedResult<T>>> nextAsync() {
         if (currentResult == null || !currentResult.hasNextPage()) {
@@ -100,6 +115,8 @@ public final class InteractivePaginator<T> {
 
     /**
      * Navigate to the previous page.
+     *
+     * @return optional previous page (empty if already at the first page or not initialized)
      */
     public Optional<PaginatedResult<T>> previous() {
         if (currentResult == null || !currentResult.hasPreviousPage()) {
@@ -115,6 +132,8 @@ public final class InteractivePaginator<T> {
 
     /**
      * Navigate to the previous page asynchronously.
+     *
+     * @return future completing with optional previous page (empty if none)
      */
     public CompletableFuture<Optional<PaginatedResult<T>>> previousAsync() {
         if (currentResult == null || !currentResult.hasPreviousPage()) {
@@ -130,6 +149,8 @@ public final class InteractivePaginator<T> {
 
     /**
      * Navigate to the first page.
+     *
+     * @return the first page
      */
     public PaginatedResult<T> first() {
         PaginatedResult<T> result = service.getFirstPage();
@@ -139,6 +160,8 @@ public final class InteractivePaginator<T> {
 
     /**
      * Navigate to the last page.
+     *
+     * @return the last available page
      */
     public PaginatedResult<T> last() {
         PaginatedResult<T> result = service.getLastPage();
@@ -148,6 +171,8 @@ public final class InteractivePaginator<T> {
 
     /**
      * Go back in navigation history.
+     *
+     * @return the page navigated to, if back navigation is possible
      */
     public Optional<PaginatedResult<T>> back() {
         return history.back()
@@ -161,6 +186,8 @@ public final class InteractivePaginator<T> {
 
     /**
      * Go forward in navigation history.
+     *
+     * @return the page navigated to, if forward navigation is possible
      */
     public Optional<PaginatedResult<T>> forward() {
         return history.forward()
@@ -174,6 +201,9 @@ public final class InteractivePaginator<T> {
 
     /**
      * Jump forward by a number of pages.
+     *
+     * @param pages number of pages to jump (negative values jump backwards)
+     * @return the resulting page if the target is valid, otherwise empty
      */
     public Optional<PaginatedResult<T>> jump(int pages) {
         if (currentResult == null) {
@@ -190,6 +220,8 @@ public final class InteractivePaginator<T> {
 
     /**
      * Refresh the current page.
+     *
+     * @return the refreshed page; if not initialized, loads the first page
      */
     public PaginatedResult<T> refresh() {
         if (currentResult == null) {
@@ -205,6 +237,7 @@ public final class InteractivePaginator<T> {
 
     /**
      * Prefetch surrounding pages for faster navigation.
+     * Uses {@link PaginationConfig#getSidePages()} to determine prefetch radius.
      */
     public void prefetch() {
         if (currentResult != null) {
@@ -214,6 +247,8 @@ public final class InteractivePaginator<T> {
 
     /**
      * Gets the current result.
+     *
+     * @return current page if available
      */
     public Optional<PaginatedResult<T>> getCurrentResult() {
         return Optional.ofNullable(currentResult);
@@ -221,6 +256,8 @@ public final class InteractivePaginator<T> {
 
     /**
      * Gets the current page number.
+     *
+     * @return current 1-based page number, or 0 if not initialized
      */
     public int getCurrentPage() {
         return currentResult != null ? currentResult.getCurrentPage() : 0;
@@ -247,6 +284,8 @@ public final class InteractivePaginator<T> {
 
     /**
      * Adds an event listener.
+     *
+     * @param listener consumer invoked on pagination events
      */
     public void addEventListener(Consumer<PaginationEvent<T>> listener) {
         eventListeners.add(Objects.requireNonNull(listener, "Listener cannot be null"));
@@ -254,6 +293,8 @@ public final class InteractivePaginator<T> {
 
     /**
      * Removes an event listener.
+     *
+     * @param listener previously added listener
      */
     public void removeEventListener(Consumer<PaginationEvent<T>> listener) {
         eventListeners.remove(listener);
@@ -261,6 +302,8 @@ public final class InteractivePaginator<T> {
 
     /**
      * Returns navigation history.
+     *
+     * @return unmodifiable list of visited page numbers in chronological order
      */
     public List<Integer> getHistory() {
         return history.getHistory();
@@ -295,9 +338,13 @@ public final class InteractivePaginator<T> {
      * Pagination event for listeners.
      */
     public static final class PaginationEvent<T> {
+        /** Event type indicating what happened (navigation, refresh, error). */
         private final NavigationType type;
+        /** Resulting page (may be null for error events). */
         private final PaginatedResult<T> result;
+        /** Associated error for {@link NavigationType#ERROR} events. */
         private final Exception error;
+        /** Epoch millis when the event occurred. */
         private final long timestamp;
 
         private PaginationEvent(NavigationType type, PaginatedResult<T> result, Exception error) {
@@ -330,8 +377,11 @@ public final class InteractivePaginator<T> {
      * Navigation history with back/forward support.
      */
     private static final class NavigationHistory {
+        /** Chronological list of visited pages. */
         private final LinkedList<Integer> history;
+        /** Maximum number of entries to retain. */
         private final int maxSize;
+        /** Index of the current position in history (-1 when empty). */
         private int position;
 
         NavigationHistory(int maxSize) {
@@ -386,30 +436,47 @@ public final class InteractivePaginator<T> {
     }
 
     public static final class Builder<T> {
+        /** Required pagination service used by the paginator. */
         private PaginationService<T> service;
+        /** Optional configuration, defaults to {@link PaginationConfig#defaults()}. */
         private PaginationConfig config = PaginationConfig.defaults();
+        /** Initial event listeners to register on build. */
         private final List<Consumer<PaginationEvent<T>>> eventListeners = new ArrayList<>();
+        /** Maximum size of navigation history (default 50). */
         private int historySize = 50;
+        /** Initial page to load on construction (0 to skip initial load). */
         private int initialPage = 1;
 
         private Builder() {}
 
+        /**
+         * Set the pagination service (required).
+         */
         public Builder<T> service(PaginationService<T> service) {
             this.service = Objects.requireNonNull(service, "Service cannot be null");
             this.config = service.getConfig();
             return this;
         }
 
+        /**
+         * Override the configuration used for helper features (e.g., prefetch radius).
+         */
         public Builder<T> config(PaginationConfig config) {
             this.config = Objects.requireNonNull(config, "Config cannot be null");
             return this;
         }
 
+        /**
+         * Add an event listener that will be registered on build.
+         */
         public Builder<T> addEventListener(Consumer<PaginationEvent<T>> listener) {
             this.eventListeners.add(Objects.requireNonNull(listener, "Listener cannot be null"));
             return this;
         }
 
+        /**
+         * Set the maximum size of the navigation history (min 1).
+         */
         public Builder<T> historySize(int historySize) {
             if (historySize < 1) {
                 throw new IllegalArgumentException("History size must be at least 1");
@@ -418,6 +485,9 @@ public final class InteractivePaginator<T> {
             return this;
         }
 
+        /**
+         * Set the initial page to load on construction (use 0 to skip initial load).
+         */
         public Builder<T> initialPage(int initialPage) {
             if (initialPage < 0) {
                 throw new IllegalArgumentException("Initial page cannot be negative");
@@ -426,11 +496,17 @@ public final class InteractivePaginator<T> {
             return this;
         }
 
+        /**
+         * Skip loading an initial page; paginator starts without a current result.
+         */
         public Builder<T> skipInitialLoad() {
             this.initialPage = 0;
             return this;
         }
 
+        /**
+         * Build the {@link InteractivePaginator} instance.
+         */
         public InteractivePaginator<T> build() {
             Objects.requireNonNull(service, "Service must be set");
             return new InteractivePaginator<>(this);

@@ -1,6 +1,8 @@
 package de.feelix.leviathan.command.pagination.domain;
 
 import de.feelix.leviathan.command.pagination.config.PaginationConfig;
+import lombok.Getter;
+import org.jetbrains.annotations.NotNull;
 
 import java.time.Instant;
 import java.util.*;
@@ -13,8 +15,10 @@ import java.util.stream.Collectors;
  * 
  * @param <T> The type of elements in this page
  */
+@Getter
 public final class PaginatedResult<T> implements Iterable<T> {
 
+    // Getters
     private final List<T> items;
     private final PageInfo pageInfo;
     private final NavigationWindow navigationWindow;
@@ -79,6 +83,7 @@ public final class PaginatedResult<T> implements Iterable<T> {
         return items.isEmpty() ? Optional.empty() : Optional.of(items.get(items.size() - 1));
     }
 
+    @NotNull
     @Override
     public Iterator<T> iterator() {
         return items.iterator();
@@ -141,31 +146,6 @@ public final class PaginatedResult<T> implements Iterable<T> {
 
     public long getTotalElements() {
         return pageInfo.getTotalElements();
-    }
-
-    // Getters
-    public List<T> getItems() {
-        return items;
-    }
-
-    public PageInfo getPageInfo() {
-        return pageInfo;
-    }
-
-    public NavigationWindow getNavigationWindow() {
-        return navigationWindow;
-    }
-
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
-
-    public String getQueryId() {
-        return queryId;
-    }
-
-    public Map<String, Object> getMetadata() {
-        return metadata;
     }
 
     public Optional<Object> getMetadata(String key) {

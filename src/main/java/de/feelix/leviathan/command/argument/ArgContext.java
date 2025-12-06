@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.CompletableFuture;
 import java.util.regex.Pattern;
 
 /**
@@ -75,6 +76,124 @@ public final class ArgContext {
     }
 
     /**
+     * Functional interface for providing dynamic completions asynchronously with full runtime context.
+     * <p>
+     * This interface is designed for completion sources that require asynchronous operations,
+     * such as database queries, HTTP requests, or other I/O-bound operations.
+     * <p>
+     * Example usage:
+     * <pre>{@code
+     * ArgContext.builder()
+     *     .completionsDynamicAsync(ctx -> CompletableFuture.supplyAsync(() -> {
+     *         // Fetch completions from database or external API
+     *         return fetchCompletionsFromDatabase(ctx.sender());
+     *     }))
+     *     .build();
+     * }</pre>
+     */
+    @FunctionalInterface
+    public interface AsyncDynamicCompletionProvider {
+        /**
+         * Asynchronously provide completions based on the dynamic context.
+         *
+         * @param ctx the dynamic completion context containing sender, arguments, and other runtime info
+         * @return a CompletableFuture that will complete with the list of completion suggestions
+         */
+        @NotNull CompletableFuture<List<String>> provideAsync(@NotNull DynamicCompletionContext ctx);
+
+        /**
+         * Create an async dynamic completion provider from a synchronous one.
+         * The synchronous provider will be executed on the common ForkJoinPool.
+         *
+         * @param syncProvider the synchronous completion provider
+         * @return an async completion provider wrapping the synchronous one
+         */
+        static @NotNull AsyncDynamicCompletionProvider fromSync(@NotNull DynamicCompletionProvider syncProvider) {
+            Preconditions.checkNotNull(syncProvider, "syncProvider");
+            return ctx -> CompletableFuture.supplyAsync(() -> syncProvider.provide(ctx));
+        }
+
+        /**
+         * Create an async dynamic completion provider that combines multiple async providers.
+         * All completions from all sources are merged (duplicates removed).
+         *
+         * @param providers the async completion providers to combine
+         * @return an async dynamic completion provider that merges all sources
+         */
+        static @NotNull AsyncDynamicCompletionProvider combined(@NotNull AsyncDynamicCompletionProvider... providers) {
+            Preconditions.checkNotNull(providers, "providers");
+            return ctx -> {
+                @SuppressWarnings("unchecked")
+                CompletableFuture<List<String>>[] futures = new CompletableFuture[providers.length];
+                for (int i = 0; i < providers.length; i++) {
+                    futures[i] = providers[i] != null 
+                        ? providers[i].provideAsync(ctx) 
+                        : CompletableFuture.completedFuture(Collections.emptyList());
+                }
+                return CompletableFuture.allOf(futures).thenApply(v -> {
+                    java.util.Set<String> combined = new java.util.LinkedHashSet<>();
+                    for (CompletableFuture<List<String>> future : futures) {
+                        combined.addAll(future.join());
+                    }
+                    return new ArrayList<>(combined);
+                });
+            };
+        }
+    }
+
+    /**
+     * Functional interface for providing predefined completions asynchronously.
+     * <p>
+     * This interface is designed for completion sources that require asynchronous operations
+     * to fetch a static or semi-static list of completions, such as loading from a config file,
+     * database, or external API.
+     * <p>
+     * Example usage:
+     * <pre>{@code
+     * ArgContext.builder()
+     *     .completionsPredefinedAsync(() -> CompletableFuture.supplyAsync(() -> {
+     *         // Fetch available options from database
+     *         return loadOptionsFromDatabase();
+     *     }))
+     *     .build();
+     * }</pre>
+     */
+    @FunctionalInterface
+    public interface AsyncPredefinedCompletionSupplier {
+        /**
+         * Asynchronously supply the list of predefined completions.
+         *
+         * @return a CompletableFuture that will complete with the list of completion suggestions
+         */
+        @NotNull CompletableFuture<List<String>> supplyAsync();
+
+        /**
+         * Create an async predefined completion supplier from a static list.
+         * The list will be returned immediately as a completed future.
+         *
+         * @param completions the static list of completions
+         * @return an async supplier that returns the completions immediately
+         */
+        static @NotNull AsyncPredefinedCompletionSupplier fromList(@NotNull List<String> completions) {
+            Preconditions.checkNotNull(completions, "completions");
+            List<String> copy = new ArrayList<>(completions);
+            return () -> CompletableFuture.completedFuture(copy);
+        }
+
+        /**
+         * Create an async predefined completion supplier from a synchronous supplier.
+         * The synchronous supplier will be executed on the common ForkJoinPool.
+         *
+         * @param supplier the synchronous supplier function
+         * @return an async supplier wrapping the synchronous one
+         */
+        static @NotNull AsyncPredefinedCompletionSupplier fromSync(@NotNull java.util.function.Supplier<List<String>> supplier) {
+            Preconditions.checkNotNull(supplier, "supplier");
+            return () -> CompletableFuture.supplyAsync(supplier);
+        }
+    }
+
+    /**
      * Functional interface for custom validation logic.
      * @param <T> the type of value being validated
      */
@@ -96,6 +215,14 @@ public final class ArgContext {
      * Optional dynamic completion provider. When present, SlashCommand will invoke it on tab-complete.
      */
     private final @Nullable DynamicCompletionProvider completionsDynamic;
+    /**
+     * Optional async dynamic completion provider. When present, SlashCommand will invoke it asynchronously on tab-complete.
+     */
+    private final @Nullable AsyncDynamicCompletionProvider completionsDynamicAsync;
+    /**
+     * Optional async predefined completion supplier. When present, SlashCommand will invoke it asynchronously on tab-complete.
+     */
+    private final @Nullable AsyncPredefinedCompletionSupplier completionsPredefinedAsync;
 
     // Validation fields
     private final @Nullable Integer intMin;
@@ -122,6 +249,8 @@ public final class ArgContext {
                        @Nullable String permission,
                        @Nullable List<String> completionsPredefined,
                        @Nullable DynamicCompletionProvider completionsDynamic,
+                       @Nullable AsyncDynamicCompletionProvider completionsDynamicAsync,
+                       @Nullable AsyncPredefinedCompletionSupplier completionsPredefinedAsync,
                        @Nullable Integer intMin,
                        @Nullable Integer intMax,
                        @Nullable Long longMin,
@@ -142,6 +271,8 @@ public final class ArgContext {
         List<String> list = (completionsPredefined == null) ? List.of() : new ArrayList<>(completionsPredefined);
         this.completionsPredefined = Collections.unmodifiableList(list);
         this.completionsDynamic = completionsDynamic;
+        this.completionsDynamicAsync = completionsDynamicAsync;
+        this.completionsPredefinedAsync = completionsPredefinedAsync;
         
         // Validation fields
         this.intMin = intMin;
@@ -174,6 +305,8 @@ public final class ArgContext {
     public @Nullable String permission() { return permission; }
     public @NotNull List<String> completionsPredefined() { return completionsPredefined; }
     public @Nullable DynamicCompletionProvider completionsDynamic() { return completionsDynamic; }
+    public @Nullable AsyncDynamicCompletionProvider completionsDynamicAsync() { return completionsDynamicAsync; }
+    public @Nullable AsyncPredefinedCompletionSupplier completionsPredefinedAsync() { return completionsPredefinedAsync; }
 
     // Validation getters
     public @Nullable Integer intMin() { return intMin; }
@@ -200,6 +333,8 @@ public final class ArgContext {
         private @Nullable String permission;
         private @NotNull List<String> completionsPredefined = new ArrayList<>();
         private @Nullable DynamicCompletionProvider completionsDynamic;
+        private @Nullable AsyncDynamicCompletionProvider completionsDynamicAsync;
+        private @Nullable AsyncPredefinedCompletionSupplier completionsPredefinedAsync;
         
         // Validation fields
         private @Nullable Integer intMin;
@@ -256,6 +391,46 @@ public final class ArgContext {
          */
         public @NotNull Builder withDynamicCompletions(@Nullable DynamicCompletionProvider provider) { 
             return completionsDynamic(provider); 
+        }
+        
+        /**
+         * Set the async dynamic completion provider for this argument.
+         * The provider will be called asynchronously when tab completions are requested.
+         *
+         * @param provider the async completion provider
+         * @return this builder
+         */
+        public @NotNull Builder completionsDynamicAsync(@Nullable AsyncDynamicCompletionProvider provider) { 
+            this.completionsDynamicAsync = provider; 
+            return this; 
+        }
+        
+        /**
+         * Fluent alias for {@link #completionsDynamicAsync(AsyncDynamicCompletionProvider)}.
+         * Makes the API read more naturally: {@code withAsyncDynamicCompletions(provider)}
+         */
+        public @NotNull Builder withAsyncDynamicCompletions(@Nullable AsyncDynamicCompletionProvider provider) { 
+            return completionsDynamicAsync(provider); 
+        }
+        
+        /**
+         * Set the async predefined completion supplier for this argument.
+         * The supplier will be called asynchronously when tab completions are requested.
+         *
+         * @param supplier the async completion supplier
+         * @return this builder
+         */
+        public @NotNull Builder completionsPredefinedAsync(@Nullable AsyncPredefinedCompletionSupplier supplier) { 
+            this.completionsPredefinedAsync = supplier; 
+            return this; 
+        }
+        
+        /**
+         * Fluent alias for {@link #completionsPredefinedAsync(AsyncPredefinedCompletionSupplier)}.
+         * Makes the API read more naturally: {@code withAsyncCompletions(supplier)}
+         */
+        public @NotNull Builder withAsyncCompletions(@Nullable AsyncPredefinedCompletionSupplier supplier) { 
+            return completionsPredefinedAsync(supplier); 
         }
         
         // Integer range validation
@@ -428,9 +603,10 @@ public final class ArgContext {
         
         public @NotNull ArgContext build() {
             return new ArgContext(optional, greedy, permission, completionsPredefined, completionsDynamic,
+                completionsDynamicAsync, completionsPredefinedAsync,
                 intMin, intMax, longMin, longMax, doubleMin, doubleMax, floatMin, floatMax,
-                                  stringMinLength, stringMaxLength, stringPattern, customValidators, didYouMean,
-                                  defaultValue
+                stringMinLength, stringMaxLength, stringPattern, customValidators, didYouMean,
+                defaultValue
             );
         }
     }

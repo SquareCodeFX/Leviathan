@@ -13,7 +13,6 @@ import de.feelix.leviathan.command.cooldown.CooldownManager;
 import de.feelix.leviathan.command.cooldown.CooldownResult;
 import de.feelix.leviathan.command.pagination.PaginationHelper;
 import de.feelix.leviathan.command.pagination.config.PaginationConfig;
-import de.feelix.leviathan.command.pagination.domain.PaginatedResult;
 import de.feelix.leviathan.command.error.ErrorType;
 import de.feelix.leviathan.command.error.ExceptionHandler;
 import de.feelix.leviathan.command.guard.Guard;
@@ -104,6 +103,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
     private final int helpPageSize;
     private final String cachedUsage;
     private final MessageProvider messages;
+    private final boolean sanitizeInputs;
+    private final boolean fuzzySubcommandMatching;
     JavaPlugin plugin;
     private boolean subOnly = false;
     @Nullable private SlashCommand parent = null;
@@ -227,6 +228,20 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
     }
 
     /**
+     * @return true if input sanitization is enabled for string arguments
+     */
+    public boolean sanitizeInputs() {
+        return sanitizeInputs;
+    }
+
+    /**
+     * @return true if fuzzy matching is enabled for subcommands
+     */
+    public boolean fuzzySubcommandMatching() {
+        return fuzzySubcommandMatching;
+    }
+
+    /**
      * @return an immutable list of argument definitions
      */
     public @NotNull List<Arg<?>> args() {
@@ -262,7 +277,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                  List<Guard> guards, List<CrossArgumentValidator> crossArgumentValidators,
                  @Nullable ExceptionHandler exceptionHandler,
                  long perUserCooldownMillis, long perServerCooldownMillis, boolean enableHelp,
-                 int helpPageSize, @Nullable MessageProvider messages) {
+                 int helpPageSize, @Nullable MessageProvider messages, boolean sanitizeInputs,
+                 boolean fuzzySubcommandMatching) {
         this.name = Preconditions.checkNotNull(name, "name");
         this.aliases = List.copyOf(aliases == null ? List.of() : aliases);
         this.description = (description == null) ? "" : description;
@@ -285,8 +301,72 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         this.enableHelp = enableHelp;
         this.helpPageSize = helpPageSize > 0 ? helpPageSize : 10; // default to 10 items per page
         this.messages = (messages != null) ? messages : new DefaultMessageProvider();
+        this.sanitizeInputs = sanitizeInputs;
+        this.fuzzySubcommandMatching = fuzzySubcommandMatching;
         // Pre-compute usage string for performance
         this.cachedUsage = computeUsageString();
+    }
+
+    /**
+     * Sanitizes a string input by removing or escaping potentially dangerous characters.
+     * This helps prevent injection attacks (SQL, command, XSS) when processing user input.
+     *
+     * @param input the raw input string to sanitize
+     * @return the sanitized string
+     */
+    private @NotNull String sanitizeString(@NotNull String input) {
+        if (input == null || input.isEmpty()) {
+            return input == null ? "" : input;
+        }
+        
+        StringBuilder result = new StringBuilder(input.length());
+        for (int i = 0; i < input.length(); i++) {
+            char c = input.charAt(i);
+            switch (c) {
+                // Remove control characters and null bytes
+                case '\0':
+                case '\u0001': case '\u0002': case '\u0003': case '\u0004':
+                case '\u0005': case '\u0006': case '\u0007': case '\u0008':
+                case '\u000B': case '\u000C': case '\u000E': case '\u000F':
+                case '\u0010': case '\u0011': case '\u0012': case '\u0013':
+                case '\u0014': case '\u0015': case '\u0016': case '\u0017':
+                case '\u0018': case '\u0019': case '\u001A': case '\u001B':
+                case '\u001C': case '\u001D': case '\u001E': case '\u001F':
+                    // Skip control characters
+                    break;
+                // Escape HTML/XML special characters
+                case '<':
+                    result.append("&lt;");
+                    break;
+                case '>':
+                    result.append("&gt;");
+                    break;
+                case '&':
+                    result.append("&amp;");
+                    break;
+                case '"':
+                    result.append("&quot;");
+                    break;
+                case '\'':
+                    result.append("&#39;");
+                    break;
+                // Escape backslash
+                case '\\':
+                    result.append("\\\\");
+                    break;
+                // Allow tabs and newlines but normalize multiple spaces
+                case '\t':
+                case '\n':
+                case '\r':
+                    result.append(' ');
+                    break;
+                default:
+                    result.append(c);
+            }
+        }
+        
+        // Trim and collapse multiple consecutive spaces
+        return result.toString().trim().replaceAll("\\s+", " ");
     }
 
     /**
@@ -435,6 +515,15 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                 }
             }
             
+            // Fuzzy matching: if no exact match found and fuzzy matching is enabled, try to find a similar subcommand
+            if (sub == null && fuzzySubcommandMatching) {
+                List<String> subcommandNames = new ArrayList<>(subcommands.keySet());
+                List<String> similar = StringSimilarity.findSimilar(first, subcommandNames, 1, 0.6);
+                if (!similar.isEmpty()) {
+                    sub = subcommands.get(similar.get(0));
+                }
+            }
+            
             if (sub != null) {
                 String[] remaining = Arrays.copyOfRange(providedArgs, 1, providedArgs.length);
                 try {
@@ -555,6 +644,11 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                 return true;
             }
             Object parsedValue = res.value().orElse(null);
+
+            // Apply input sanitization for string values if enabled
+            if (sanitizeInputs && parsedValue instanceof String) {
+                parsedValue = sanitizeString((String) parsedValue);
+            }
 
             // Apply transformation if transformer is present
             if (arg.transformer() != null && parsedValue != null) {

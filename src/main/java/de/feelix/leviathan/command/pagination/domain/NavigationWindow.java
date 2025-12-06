@@ -7,21 +7,51 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
+/**
+ * Represents a sliding window of page numbers for navigation display.
+ * <p>
+ * Calculates which page numbers should be visible in a pagination navigation bar while:
+ * <ul>
+ *   <li>Centering the current page when possible</li>
+ *   <li>Shifting toward edges when near the start/end</li>
+ *   <li>Maintaining a consistent window size of {@code 2 * sidePages + 1} when possible</li>
+ *   <li>Indicating omitted ranges via configurable ellipses</li>
+ * </ul>
+ * <p>
+ * Example navigation display: {@code <- 1 ... 4 5 [6] 7 8 ... 20 ->}
+ *
+ * <p>Invariants:</p>
+ * <ul>
+ *   <li>{@code 1 <= windowStart <= currentPage <= windowEnd <= totalPages}</li>
+ *   <li>{@code visiblePages} is an ascending, contiguous range {@code [windowStart, windowEnd]}</li>
+ * </ul>
+ *
+ * @see PageInfo
+ * @see PaginationConfig
+ * @since 1.0.0
+ */
 public final class NavigationWindow {
 
-    // Getters
+    /** The current page number (1-based) */
     @Getter
     private final int currentPage;
+    /** Total number of pages available */
     @Getter
     private final int totalPages;
+    /** Number of pages shown on each side of the current page */
     @Getter
     private final int sidePages;
+    /** List of page numbers visible in the navigation window */
     @Getter
     private final List<Integer> visiblePages;
+    /** Whether to show ellipsis before the visible window */
     private final boolean showStartEllipsis;
+    /** Whether to show ellipsis after the visible window */
     private final boolean showEndEllipsis;
+    /** First page number in the visible window */
     @Getter
     private final int windowStart;
+    /** Last page number in the visible window */
     @Getter
     private final int windowEnd;
 
@@ -39,7 +69,12 @@ public final class NavigationWindow {
     }
 
     /**
-     * Creates a NavigationWindow from PageInfo and configuration.
+     * Create a NavigationWindow from PageInfo and configuration.
+     *
+     * @param pageInfo the page information containing current page and total pages
+     * @param config the pagination configuration with side pages setting
+     * @return a new NavigationWindow instance
+     * @throws NullPointerException if pageInfo or config is null
      */
     public static NavigationWindow from(PageInfo pageInfo, PaginationConfig config) {
         Objects.requireNonNull(pageInfo, "PageInfo cannot be null");
@@ -48,7 +83,13 @@ public final class NavigationWindow {
     }
 
     /**
-     * Creates a NavigationWindow with custom side pages count.
+     * Create a NavigationWindow with a custom side pages count.
+     *
+     * @param pageInfo the page information containing current page and total pages
+     * @param sidePages the number of pages to show on each side of current page
+     * @return a new NavigationWindow instance
+     * @throws NullPointerException if pageInfo is null
+     * @throws IllegalArgumentException if sidePages is negative
      */
     public static NavigationWindow of(PageInfo pageInfo, int sidePages) {
         Objects.requireNonNull(pageInfo, "PageInfo cannot be null");
@@ -100,25 +141,37 @@ public final class NavigationWindow {
     }
 
     /**
-     * Checks if a page number is in the visible window.
+     * Check if a page number is within the visible window.
+     *
+     * @param pageNumber the page number to check
+     * @return true if the page is visible in the navigation window
      */
     public boolean isVisible(int pageNumber) {
         return pageNumber >= windowStart && pageNumber <= windowEnd;
     }
 
     /**
-     * Returns the distance from current page to window edge.
+     * Get the distance from current page to the window start.
+     *
+     * @return number of pages between current page and window start
      */
     public int getDistanceToStart() {
         return currentPage - windowStart;
     }
 
+    /**
+     * Get the distance from current page to the window end.
+     *
+     * @return number of pages between current page and window end
+     */
     public int getDistanceToEnd() {
         return windowEnd - currentPage;
     }
 
     /**
-     * Returns pages before current in the window.
+     * Get all visible page numbers before the current page.
+     *
+     * @return an unmodifiable list of page numbers less than current page
      */
     public List<Integer> getPagesBefore() {
         List<Integer> before = new ArrayList<>();
@@ -131,7 +184,9 @@ public final class NavigationWindow {
     }
 
     /**
-     * Returns pages after current in the window.
+     * Get all visible page numbers after the current page.
+     *
+     * @return an unmodifiable list of page numbers greater than current page
      */
     public List<Integer> getPagesAfter() {
         List<Integer> after = new ArrayList<>();
@@ -144,7 +199,10 @@ public final class NavigationWindow {
     }
 
     /**
-     * Calculates window position info for display.
+     * Determine the window position relative to the full page range.
+     * Useful for deciding how to render navigation controls.
+     *
+     * @return the window position enum value
      */
     public WindowPosition getPosition() {
         if (totalPages <= 2 * sidePages + 1) {
@@ -159,10 +217,20 @@ public final class NavigationWindow {
         return WindowPosition.MIDDLE;
     }
 
+    /**
+     * Check if an ellipsis should be shown before the visible window.
+     *
+     * @return true if there are hidden pages before the window start
+     */
     public boolean showStartEllipsis() {
         return showStartEllipsis;
     }
 
+    /**
+     * Check if an ellipsis should be shown after the visible window.
+     *
+     * @return true if there are hidden pages after the window end
+     */
     public boolean showEndEllipsis() {
         return showEndEllipsis;
     }

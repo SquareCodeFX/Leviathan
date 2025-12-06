@@ -13,28 +13,77 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Supplier;
 
 /**
- * Thread-safe LRU cache implementation with TTL support.
- * Uses LinkedHashMap for LRU ordering and ReadWriteLock for concurrency.
+ * Thread-safe LRU (Least Recently Used) cache implementation with TTL (Time-To-Live) support.
+ * <p>
+ * Key characteristics:
+ * <ul>
+ *   <li>LRU eviction policy — least recently accessed entries are removed first when capacity is reached</li>
+ *   <li>TTL-based expiration — entries automatically expire after a configurable duration</li>
+ *   <li>Thread-safety — protects access with a {@link ReadWriteLock} for high read concurrency</li>
+ *   <li>Asynchronous access — non-blocking variants provided via {@link CompletableFuture}</li>
+ *   <li>Background maintenance — periodic cleanup of expired entries via a daemon scheduler</li>
+ *   <li>Comprehensive statistics — hits, misses, evictions, load success/failure, aggregate load time</li>
+ * </ul>
+ * <p>
+ * Notes on statistics and units:
+ * <ul>
+ *   <li>Internal load durations are measured in nanoseconds and converted to milliseconds in
+ *   {@link #getStats()} so {@link CacheStats#getAverageLoadTime()} returns milliseconds.</li>
+ *   <li>The scheduler thread is a daemon; it will not prevent JVM shutdown. Call {@link #shutdown()} to
+ *   stop it early if you create many caches dynamically.</li>
+ * </ul>
+ * <p>
+ * Example usage:
+ * <pre>{@code
+ * LruPaginationCache<String, List<Item>> cache = LruPaginationCache.<String, List<Item>>builder()
+ *     .maxSize(500)
+ *     .defaultTtl(Duration.ofMinutes(10))
+ *     .build();
  *
- * @param <K> Key type
- * @param <V> Value type
+ * // Store and retrieve values
+ * cache.put("key", items);
+ * Optional<List<Item>> cached = cache.get("key");
+ *
+ * // Compute if absent
+ * List<Item> result = cache.getOrCompute("key", () -> loadExpensiveData());
+ * }
+ * </pre>
+ *
+ * @param <K> the type of keys maintained by this cache
+ * @param <V> the type of cached values
+ * @see PaginationCache
+ * @see CacheStats
+ * @since 1.0.0
  */
 public final class LruPaginationCache<K, V> implements PaginationCache<K, V> {
 
+    /** Maximum number of entries the cache can hold */
     private final int maxSize;
+    /** Default time-to-live duration for cache entries */
     private final Duration defaultTtl;
+    /** The underlying LRU map storing cache entries */
     private final Map<K, CacheEntry<V>> cache;
+    /** Lock for thread-safe read/write operations */
     private final ReadWriteLock lock;
+    /** Executor service for async operations */
     private final ExecutorService executor;
+    /** Scheduler for periodic cleanup of expired entries */
     private final ScheduledExecutorService cleanupScheduler;
 
+    /** Counter for cache hits (successful lookups) */
     private final AtomicLong hitCount;
+    /** Counter for cache misses (failed lookups) */
     private final AtomicLong missCount;
+    /** Counter for entries evicted from cache */
     private final AtomicLong evictionCount;
+    /** Counter for successful load operations */
     private final AtomicLong loadSuccessCount;
+    /** Counter for failed load operations */
     private final AtomicLong loadFailureCount;
+    /** Total time spent loading entries in nanoseconds */
     private final AtomicLong totalLoadTimeNanos;
 
+    /** Interval between automatic cleanup runs for expired entries */
     private static final Duration CLEANUP_INTERVAL = Duration.ofMinutes(1);
 
     private LruPaginationCache(Builder<K, V> builder) {
@@ -71,10 +120,26 @@ public final class LruPaginationCache<K, V> implements PaginationCache<K, V> {
         scheduleCleanup();
     }
 
+    /**
+     * Create a new builder for constructing an LruPaginationCache.
+     *
+     * @param <K> the type of keys
+     * @param <V> the type of values
+     * @return a new Builder instance
+     */
     public static <K, V> Builder<K, V> builder() {
         return new Builder<>();
     }
 
+    /**
+     * Create a new LruPaginationCache from a PaginationConfig.
+     * Convenience factory method that extracts cache settings from the config.
+     *
+     * @param config the pagination configuration containing cache settings
+     * @param <K> the type of keys
+     * @param <V> the type of values
+     * @return a new LruPaginationCache configured according to the config
+     */
     public static <K, V> LruPaginationCache<K, V> fromConfig(PaginationConfig config) {
         return LruPaginationCache.<K, V>builder()
                 .maxSize(config.getCacheMaxSize())
@@ -82,6 +147,11 @@ public final class LruPaginationCache<K, V> implements PaginationCache<K, V> {
                 .build();
     }
 
+    /**
+     * Schedule periodic cleanup of expired entries.
+     * Called during cache initialization. Uses a fixed-rate schedule with an interval defined by
+     * {@link #CLEANUP_INTERVAL}. The cleanup removes expired entries and increments eviction count.
+     */
     private void scheduleCleanup() {
         cleanupScheduler.scheduleAtFixedRate(
                 this::removeExpiredEntries,
@@ -279,6 +349,9 @@ public final class LruPaginationCache<K, V> implements PaginationCache<K, V> {
 
     /**
      * Shuts down the cache and releases resources.
+     * <p>
+     * Stops the background cleanup scheduler. Cache content remains in-memory until GC.
+     * Safe to call multiple times.
      */
     public void shutdown() {
         cleanupScheduler.shutdown();
@@ -313,6 +386,13 @@ public final class LruPaginationCache<K, V> implements PaginationCache<K, V> {
         }
     }
 
+    /**
+     * Builder for constructing {@link LruPaginationCache} instances.
+     * Provides a fluent API for configuring cache settings.
+     *
+     * @param <K> the type of keys
+     * @param <V> the type of values
+     */
     public static final class Builder<K, V> {
         private int maxSize = 1000;
         private Duration defaultTtl = Duration.ofMinutes(5);
@@ -320,6 +400,14 @@ public final class LruPaginationCache<K, V> implements PaginationCache<K, V> {
 
         private Builder() {}
 
+        /**
+         * Set the maximum number of entries the cache can hold.
+         * When the limit is reached, least recently used entries are evicted.
+         *
+         * @param maxSize the maximum cache size (must be at least 1)
+         * @return this builder for method chaining
+         * @throws IllegalArgumentException if maxSize is less than 1
+         */
         public Builder<K, V> maxSize(int maxSize) {
             if (maxSize < 1) {
                 throw new IllegalArgumentException("Max size must be at least 1");
@@ -328,16 +416,37 @@ public final class LruPaginationCache<K, V> implements PaginationCache<K, V> {
             return this;
         }
 
+        /**
+         * Set the default time-to-live for cache entries.
+         * Entries will automatically expire and be removed after this duration.
+         *
+         * @param defaultTtl the default TTL duration (must not be null)
+         * @return this builder for method chaining
+         * @throws NullPointerException if defaultTtl is null
+         */
         public Builder<K, V> defaultTtl(Duration defaultTtl) {
             this.defaultTtl = Objects.requireNonNull(defaultTtl, "Default TTL cannot be null");
             return this;
         }
 
+        /**
+         * Set the executor service for async cache operations.
+         * Defaults to the common ForkJoinPool if not specified.
+         *
+         * @param executor the executor service for async operations (must not be null)
+         * @return this builder for method chaining
+         * @throws NullPointerException if executor is null
+         */
         public Builder<K, V> executor(ExecutorService executor) {
             this.executor = Objects.requireNonNull(executor, "Executor cannot be null");
             return this;
         }
 
+        /**
+         * Build and return the configured LruPaginationCache instance.
+         *
+         * @return a new LruPaginationCache with the configured settings
+         */
         public LruPaginationCache<K, V> build() {
             return new LruPaginationCache<>(this);
         }

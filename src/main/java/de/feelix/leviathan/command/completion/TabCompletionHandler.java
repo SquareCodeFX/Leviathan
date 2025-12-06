@@ -10,10 +10,14 @@ import de.feelix.leviathan.command.message.MessageProvider;
 import de.feelix.leviathan.command.validation.ValidationHelper;
 import de.feelix.leviathan.exceptions.ParsingException;
 import de.feelix.leviathan.util.Preconditions;
+import de.feelix.leviathan.util.StringSimilarity;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
 
 /**
  * Handles tab completion logic for SlashCommand.
@@ -130,14 +134,23 @@ public final class TabCompletionHandler {
         if (providedArgs.length == 1) {
             // Suggest subcommand aliases, filtered by permission
             List<String> names = new ArrayList<>();
+            List<String> allSubcommandNames = new ArrayList<>();
             for (Map.Entry<String, SlashCommand> e : command.subcommands().entrySet()) {
                 String perm = e.getValue().permission();
                 if (perm != null && !perm.isEmpty() && !sender.hasPermission(perm)) continue;
                 String key = e.getKey();
+                allSubcommandNames.add(key);
                 if (key.startsWith(firstLow)) {
                     names.add(key);
                 }
             }
+            
+            // If fuzzy matching is enabled and no exact prefix matches, suggest similar subcommands
+            if (names.isEmpty() && command.fuzzySubcommandMatching() && !firstLow.isEmpty()) {
+                List<String> similar = StringSimilarity.findSimilar(firstLow, allSubcommandNames, 3, 0.4);
+                names.addAll(similar);
+            }
+            
             Collections.sort(names);
             return names;
         }
@@ -256,6 +269,11 @@ public final class TabCompletionHandler {
     }
 
     /**
+     * Default timeout for async completion operations in milliseconds.
+     */
+    private static final long ASYNC_COMPLETION_TIMEOUT_MS = 2000;
+
+    /**
      * Generate completion suggestions for the current argument.
      */
     private static @NotNull List<String> generateSuggestions(
@@ -284,6 +302,43 @@ public final class TabCompletionHandler {
             List<String> dyn = provider.provide(dctx);
             if (dyn == null) dyn = Collections.emptyList();
             return filterAndSort(dyn, prefix);
+        }
+        
+        // Check for async predefined completion supplier
+        if (current.context().completionsPredefinedAsync() != null) {
+            ArgContext.AsyncPredefinedCompletionSupplier supplier = current.context().completionsPredefinedAsync();
+            try {
+                CompletableFuture<List<String>> future = supplier.supplyAsync();
+                List<String> asyncCompletions = future.get(ASYNC_COMPLETION_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+                if (asyncCompletions == null) asyncCompletions = Collections.emptyList();
+                return filterAndSort(asyncCompletions, prefix);
+            } catch (Exception e) {
+                // Log the error and fall through to other completion sources
+                if (command.plugin() != null) {
+                    command.plugin().getLogger().log(Level.WARNING, 
+                        "Async predefined completion failed for argument '" + current.name() + "'", e);
+                }
+            }
+        }
+        
+        // Check for async dynamic completion provider
+        if (current.context().completionsDynamicAsync() != null) {
+            ArgContext.AsyncDynamicCompletionProvider provider = current.context().completionsDynamicAsync();
+            DynamicCompletionContext dctx = new DynamicCompletionContext(
+                sender, alias, providedArgs, currentArgIndex, prefix, 
+                command.args(), parsedSoFar, command);
+            try {
+                CompletableFuture<List<String>> future = provider.provideAsync(dctx);
+                List<String> asyncDyn = future.get(ASYNC_COMPLETION_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+                if (asyncDyn == null) asyncDyn = Collections.emptyList();
+                return filterAndSort(asyncDyn, prefix);
+            } catch (Exception e) {
+                // Log the error and fall through to parser completions
+                if (command.plugin() != null) {
+                    command.plugin().getLogger().log(Level.WARNING, 
+                        "Async dynamic completion failed for argument '" + current.name() + "'", e);
+                }
+            }
         }
         
         // Fall back to parser completions

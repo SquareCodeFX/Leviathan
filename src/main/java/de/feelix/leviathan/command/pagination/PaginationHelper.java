@@ -19,7 +19,17 @@ import java.util.function.Function;
 
 /**
  * Helper class that bridges the SlashCommand system with the pagination system.
- * Provides convenient methods for creating and displaying paginated command output.
+ * Provides convenient, high-level methods for creating and displaying paginated command output.
+ * <p>
+ * Design notes:
+ * <ul>
+ *   <li>Stateless utility — all methods are static and thread-safe.</li>
+ *   <li>Friendly defaults — page size defaults to 10 and page numbers are 1-based.</li>
+ *   <li>Separation of concerns — pagination (data slicing) is handled by services, while this class
+ *       focuses on formatting and delivery to a {@code CommandSender}.</li>
+ *   <li>Empty handling — when no items are present, the builder emits an optional header and a configurable
+ *       empty message (default: "§7No items found.").</li>
+ * </ul>
  * <p>
  * <b>Example usage:</b>
  * <pre>{@code
@@ -72,11 +82,14 @@ public final class PaginationHelper {
     }
 
     /**
-     * Quick pagination with default settings - returns paginated items for manual handling.
+     * Quick pagination with explicit page size — returns a {@link PaginatedResult} for manual handling.
+     * <p>
+     * The {@code pageNumber} is 1-based. If it is out of range, underlying services clamp the value to the
+     * nearest valid page.
      *
-     * @param items      the items to paginate
+     * @param items      the items to paginate (must not be null)
      * @param pageNumber the page number (1-based)
-     * @param pageSize   items per page
+     * @param pageSize   items per page (minimum 1)
      * @param <T>        the type of items
      * @return the paginated result
      */
@@ -91,6 +104,7 @@ public final class PaginationHelper {
 
     /**
      * Quick pagination with default page size of 10.
+     * Use when you want a simple paginated slice without configuring a builder.
      *
      * @param items      the items to paginate
      * @param pageNumber the page number (1-based)
@@ -103,11 +117,12 @@ public final class PaginationHelper {
 
     /**
      * Format a paginated result as a list of strings ready for sending.
+     * The resulting list includes item lines and a trailing footer with page info.
      *
      * @param result    the paginated result
      * @param formatter function to format each item as a string
      * @param <T>       the type of items
-     * @return list of formatted lines including header and footer
+     * @return list of formatted lines including footer
      */
     public static <T> @NotNull List<String> format(@NotNull PaginatedResult<T> result,
                                                     @NotNull Function<T, String> formatter) {
@@ -116,6 +131,8 @@ public final class PaginationHelper {
 
     /**
      * Format a paginated result with custom header and footer.
+     * Page info is always appended at the end; if a non-empty {@code footer} is supplied, it will precede page info
+     * on the same line.
      *
      * @param result    the paginated result
      * @param formatter function to format each item as a string
@@ -155,10 +172,11 @@ public final class PaginationHelper {
     }
 
     /**
-     * Format page info as a string.
+     * Format page info as a string using Minecraft legacy color codes.
+     * Example output: {@code §7Page §f1§7/§f5 §7(§f10 §7items)}
      *
      * @param pageInfo the page info
-     * @return formatted string like "Page 1/5 (10 items)"
+     * @return formatted page info string
      */
     public static @NotNull String formatPageInfo(@NotNull PageInfo pageInfo) {
         Preconditions.checkNotNull(pageInfo, "pageInfo");
@@ -169,7 +187,8 @@ public final class PaginationHelper {
     }
 
     /**
-     * Format page info with navigation hints.
+     * Format page info with navigation hints (e.g., clickable commands in chat plugins).
+     * The hints include previous/next commands when applicable.
      *
      * @param pageInfo    the page info
      * @param commandBase the base command for navigation hints (e.g., "/list")
@@ -439,6 +458,10 @@ public final class PaginationHelper {
 
         /**
          * Set the page number to display (1-based).
+         * Values less than 1 will be clamped to 1.
+         *
+         * @param pageNumber the page number to display (1-based index)
+         * @return this builder for method chaining
          */
         public @NotNull PaginatedOutputBuilder<T> page(int pageNumber) {
             this.pageNumber = Math.max(1, pageNumber);
@@ -447,6 +470,10 @@ public final class PaginationHelper {
 
         /**
          * Set the number of items per page.
+         * Values less than 1 will be clamped to 1.
+         *
+         * @param pageSize the maximum number of items to display per page
+         * @return this builder for method chaining
          */
         public @NotNull PaginatedOutputBuilder<T> pageSize(int pageSize) {
             this.pageSize = Math.max(1, pageSize);
@@ -455,6 +482,10 @@ public final class PaginationHelper {
 
         /**
          * Set the header line displayed before items.
+         * Supports Minecraft color codes (e.g., §6 for gold).
+         *
+         * @param header the header text, or null for no header
+         * @return this builder for method chaining
          */
         public @NotNull PaginatedOutputBuilder<T> header(@Nullable String header) {
             this.header = header;
@@ -463,6 +494,10 @@ public final class PaginationHelper {
 
         /**
          * Set the footer line displayed after items (before page info).
+         * Supports Minecraft color codes (e.g., §7 for gray).
+         *
+         * @param footer the footer text, or null for no footer
+         * @return this builder for method chaining
          */
         public @NotNull PaginatedOutputBuilder<T> footer(@Nullable String footer) {
             this.footer = footer;
@@ -470,7 +505,11 @@ public final class PaginationHelper {
         }
 
         /**
-         * Set the message displayed when there are no items.
+         * Set the message displayed when the item collection is empty.
+         * Defaults to "§7No items found." if not specified.
+         *
+         * @param emptyMessage the message to show when there are no items, or null to show nothing
+         * @return this builder for method chaining
          */
         public @NotNull PaginatedOutputBuilder<T> emptyMessage(@Nullable String emptyMessage) {
             this.emptyMessage = emptyMessage;
@@ -478,7 +517,11 @@ public final class PaginationHelper {
         }
 
         /**
-         * Set the formatter function for each item.
+         * Set the formatter function that converts each item to a display string.
+         * This function is applied to each item on the current page.
+         *
+         * @param formatter function that converts an item of type T to a String for display
+         * @return this builder for method chaining
          */
         public @NotNull PaginatedOutputBuilder<T> formatter(@NotNull Function<T, String> formatter) {
             Preconditions.checkNotNull(formatter, "formatter");
@@ -488,6 +531,10 @@ public final class PaginationHelper {
 
         /**
          * Enable or disable the navigation bar in footer.
+         * When enabled, displays navigation arrows and page numbers.
+         *
+         * @param showNavigation true to show navigation controls, false to hide them
+         * @return this builder for method chaining
          */
         public @NotNull PaginatedOutputBuilder<T> showNavigation(boolean showNavigation) {
             this.showNavigation = showNavigation;
@@ -510,6 +557,10 @@ public final class PaginationHelper {
 
         /**
          * Set the base command for navigation hints.
+         * When set, navigation hints will show commands like "/list 2" for next page.
+         *
+         * @param commandBase the base command string (e.g., "/list"), or null to disable command hints
+         * @return this builder for method chaining
          */
         public @NotNull PaginatedOutputBuilder<T> commandBase(@Nullable String commandBase) {
             this.commandBase = commandBase;
@@ -517,7 +568,12 @@ public final class PaginationHelper {
         }
 
         /**
-         * Set custom pagination configuration.
+         * Set custom pagination configuration for styling and behavior.
+         * If not set, default configuration will be used.
+         *
+         * @param config the pagination configuration, or null to use defaults
+         * @return this builder for method chaining
+         * @see PaginationConfig#defaults()
          */
         public @NotNull PaginatedOutputBuilder<T> config(@Nullable PaginationConfig config) {
             this.config = config;
@@ -525,7 +581,10 @@ public final class PaginationHelper {
         }
 
         /**
-         * Build and get the paginated result.
+         * Build and return the paginated result containing items for the current page.
+         * The page number is automatically clamped to valid range.
+         *
+         * @return the paginated result with items, page info, and navigation window
          */
         public @NotNull PaginatedResult<T> build() {
             PaginationConfig paginationConfig = config != null ? config :
@@ -544,7 +603,11 @@ public final class PaginationHelper {
         }
 
         /**
-         * Build and format the paginated output as lines.
+         * Build and format the paginated output as a list of formatted strings.
+         * Includes header, formatted items, footer, page info, and optional navigation.
+         * If the item collection is empty, returns the header (if set) and empty message.
+         *
+         * @return list of formatted lines ready to be sent to a player
          */
         public @NotNull List<String> buildLines() {
             if (items.isEmpty()) {
@@ -606,7 +669,10 @@ public final class PaginationHelper {
         }
 
         /**
-         * Build and send the paginated output to a command sender.
+         * Build and send the paginated output directly to a command sender.
+         * This is a convenience method that combines {@link #buildLines()} and message sending.
+         *
+         * @param sender the command sender (player or console) to receive the paginated output
          */
         public void send(@NotNull CommandSender sender) {
             Preconditions.checkNotNull(sender, "sender");
@@ -616,7 +682,10 @@ public final class PaginationHelper {
         }
 
         /**
-         * Build and return the paginated output as a single string (lines joined by newlines).
+         * Build and return the paginated output as a single string with lines joined by newlines.
+         * Useful for logging or storing the paginated output as text.
+         *
+         * @return the complete paginated output as a single newline-separated string
          */
         public @NotNull String buildString() {
             return String.join("\n", buildLines());

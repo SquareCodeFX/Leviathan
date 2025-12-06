@@ -53,6 +53,10 @@ public final class SlashCommandBuilder {
     private int helpPageSize = 10;
     // Message provider
     private @Nullable MessageProvider messages = null;
+    // Input sanitization
+    private boolean sanitizeInputs = false;
+    // Fuzzy subcommand matching
+    private boolean fuzzySubcommandMatching = false;
 
     SlashCommandBuilder(String name) {
         this.name = Preconditions.checkNotNull(name, "name");
@@ -681,6 +685,53 @@ public final class SlashCommandBuilder {
     }
 
     /**
+     * Enable or disable input sanitization for string arguments.
+     * When enabled, string argument values will be sanitized to remove potentially dangerous
+     * characters and patterns that could be used for injection attacks (e.g., SQL injection,
+     * command injection, XSS).
+     * <p>
+     * The sanitization process:
+     * <ul>
+     *   <li>Removes or escapes HTML/XML special characters (&lt;, &gt;, &amp;, etc.)</li>
+     *   <li>Removes control characters and null bytes</li>
+     *   <li>Escapes backslashes and quotes</li>
+     *   <li>Trims excessive whitespace</li>
+     * </ul>
+     * <p>
+     * This is disabled by default to preserve backward compatibility and to allow
+     * commands that legitimately need special characters in their input.
+     *
+     * @param sanitize true to enable input sanitization for string arguments
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder sanitizeInputs(boolean sanitize) {
+        this.sanitizeInputs = sanitize;
+        return this;
+    }
+
+    /**
+     * Enable or disable fuzzy matching for subcommands.
+     * When enabled, if a user enters an unrecognized subcommand name, the system will attempt
+     * to find a similar subcommand using fuzzy string matching (Levenshtein distance).
+     * If a sufficiently similar match is found, it will be executed automatically.
+     * <p>
+     * This feature helps users who make typos when entering subcommand names, improving
+     * the user experience by automatically correcting minor spelling mistakes.
+     * <p>
+     * Example: If subcommands "reload", "help", and "status" exist, typing "relaod" would
+     * automatically match to "reload" when fuzzy matching is enabled.
+     * <p>
+     * This is disabled by default to preserve exact matching behavior.
+     *
+     * @param fuzzy true to enable fuzzy subcommand matching
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder fuzzySubcommandMatching(boolean fuzzy) {
+        this.fuzzySubcommandMatching = fuzzy;
+        return this;
+    }
+
+    /**
      * Add a required choice argument from a fixed set of aliases mapping to values.
      *
      * @param name        argument name
@@ -1100,7 +1151,8 @@ public final class SlashCommandBuilder {
             name, aliases, description, permission, playerOnly, sendErrors, args, action, async, validateOnTab, subs,
             asyncAction, (asyncTimeoutMillis == null ? 0L : asyncTimeoutMillis),
             guards, crossArgumentValidators, exceptionHandler,
-            perUserCooldownMillis, perServerCooldownMillis, enableHelp, helpPageSize, messages
+            perUserCooldownMillis, perServerCooldownMillis, enableHelp, helpPageSize, messages, sanitizeInputs,
+            fuzzySubcommandMatching
         );
         
         // Set parent reference for all subcommands
