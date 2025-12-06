@@ -88,3 +88,11 @@ publishing {
 test {
     useJUnitPlatform()
 }
+
+// Ensure publishing tasks depend on jar task to avoid implicit dependency issues
+tasks.withType(PublishToMavenLocal) {
+    dependsOn tasks.jar
+}
+tasks.withType(PublishToMavenRepository) {
+    dependsOn tasks.jar
+}
