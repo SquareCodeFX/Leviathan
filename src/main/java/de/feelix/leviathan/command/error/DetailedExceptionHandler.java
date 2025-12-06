@@ -7,15 +7,9 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.lang.management.ManagementFactory;
-import java.lang.management.MemoryMXBean;
-import java.lang.management.MemoryUsage;
-import java.lang.management.RuntimeMXBean;
-import java.lang.management.ThreadInfo;
-import java.lang.management.ThreadMXBean;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.Map;
+import java.util.List;
 import java.util.logging.Logger;
 
 /**
@@ -31,6 +25,14 @@ import java.util.logging.Logger;
  *   <li>Timestamp and error categorization</li>
  * </ul>
  * <p>
+ * The handler delegates to specialized collectors for modularity and performance:
+ * <ul>
+ *   <li>{@link JvmInfoCollector} - JVM and memory information with caching</li>
+ *   <li>{@link ThreadDumpCollector} - Thread analysis and deadlock detection</li>
+ *   <li>{@link ExceptionSuggestionRegistry} - Exception-specific diagnostic suggestions</li>
+ *   <li>{@link ErrorType} - Error categorization with embedded suggestions</li>
+ * </ul>
+ * <p>
  * Usage example:
  * <pre>{@code
  * SlashCommand command = SlashCommandBuilder.create("mycommand")
@@ -38,6 +40,11 @@ import java.util.logging.Logger;
  *     .executes(ctx -> { ... })
  *     .build();
  * }</pre>
+ *
+ * @see ExceptionHandler
+ * @see JvmInfoCollector
+ * @see ThreadDumpCollector
+ * @see ExceptionSuggestionRegistry
  */
 public class DetailedExceptionHandler implements ExceptionHandler {
 
@@ -165,7 +172,7 @@ public class DetailedExceptionHandler implements ExceptionHandler {
         report.append("  Type    : ").append(errorType.name()).append("\n");
         report.append("  Message : ").append(message != null ? message : "No message provided").append("\n");
         report.append("  Sender  : ").append(sender.getName()).append("\n");
-        report.append("  Category: ").append(categorizeError(errorType)).append("\n");
+        report.append("  Category: ").append(errorType.getCategoryDescription()).append("\n");
     }
 
     private void appendExceptionDetails(@NotNull StringBuilder report, @NotNull Throwable exception) {
@@ -221,296 +228,42 @@ public class DetailedExceptionHandler implements ExceptionHandler {
         report.append("  POSSIBLE CAUSES & SUGGESTIONS\n");
         report.append(THIN_SEPARATOR).append("\n");
 
-        // Error type specific suggestions
-        switch (errorType) {
-            case PERMISSION:
-                report.append("  • The player lacks the required permission node\n");
-                report.append("  • Check if the permission is registered correctly\n");
-                report.append("  • Verify permission plugin configuration\n");
-                break;
-            case PLAYER_ONLY:
-                report.append("  • This command can only be executed by players\n");
-                report.append("  • Console or command blocks cannot use this command\n");
-                report.append("  • Consider adding a non-player alternative if needed\n");
-                break;
-            case GUARD_FAILED:
-                report.append("  • A guard condition was not met\n");
-                report.append("  • Check if player meets all requirements (level, items, etc.)\n");
-                report.append("  • Review guard logic for edge cases\n");
-                break;
-            case PARSING:
-                report.append("  • Invalid argument format provided\n");
-                report.append("  • Check if the argument type matches expected format\n");
-                report.append("  • Ensure argument parser handles edge cases\n");
-                break;
-            case VALIDATION:
-                report.append("  • Argument value failed validation\n");
-                report.append("  • Value may be out of allowed range\n");
-                report.append("  • Check validation rules and constraints\n");
-                break;
-            case CROSS_VALIDATION:
-                report.append("  • Multiple arguments have conflicting values\n");
-                report.append("  • Check cross-argument validation logic\n");
-                report.append("  • Ensure argument combinations are valid\n");
-                break;
-            case EXECUTION:
-                report.append("  • Error occurred during command execution logic\n");
-                report.append("  • Check for null pointer dereferences\n");
-                report.append("  • Verify external API calls and database connections\n");
-                break;
-            case TIMEOUT:
-                report.append("  • Async command execution exceeded time limit\n");
-                report.append("  • Consider increasing timeout duration\n");
-                report.append("  • Optimize long-running operations\n");
-                break;
-            case USAGE:
-                report.append("  • Incorrect number of arguments provided\n");
-                report.append("  • Check command syntax and required arguments\n");
-                report.append("  • Review optional vs required argument configuration\n");
-                break;
-            case INTERNAL_ERROR:
-                report.append("  • Unexpected internal error occurred\n");
-                report.append("  • This may indicate a bug in the command framework\n");
-                report.append("  • Check for recent code changes that might cause issues\n");
-                break;
-            default:
-                report.append("  • Unknown error type\n");
-                break;
-        }
+        // Error type specific suggestions (from enhanced enum)
+        appendSuggestionList(report, errorType.getSuggestions());
 
-        // Exception-specific suggestions
-        appendExceptionSpecificSuggestions(report, exception);
-    }
-
-    private void appendExceptionSpecificSuggestions(@NotNull StringBuilder report, @NotNull Throwable exception) {
+        // Exception-specific suggestions (from registry)
         String exceptionName = exception.getClass().getSimpleName();
-        String message = exception.getMessage();
-
         report.append("\n  Based on exception type (").append(exceptionName).append("):\n");
 
-        if (exception instanceof NullPointerException) {
-            report.append("  • A null value was accessed where an object was expected\n");
-            report.append("  • Check if all required dependencies are initialized\n");
-            report.append("  • Verify method return values before using them\n");
-            report.append("  • Consider using Optional or null checks\n");
-        } else if (exception instanceof IllegalArgumentException) {
-            report.append("  • An invalid argument was passed to a method\n");
-            report.append("  • Check argument validation before method calls\n");
-            report.append("  • Review the expected parameter constraints\n");
-        } else if (exception instanceof IllegalStateException) {
-            report.append("  • Object is in an invalid state for the operation\n");
-            report.append("  • Check initialization order of components\n");
-            report.append("  • Verify that prerequisites are met before operation\n");
-        } else if (exception instanceof ClassCastException) {
-            report.append("  • Type casting failed - incompatible types\n");
-            report.append("  • Check generic type parameters\n");
-            report.append("  • Verify object types before casting\n");
-        } else if (exception instanceof IndexOutOfBoundsException) {
-            report.append("  • Array or list index is out of valid range\n");
-            report.append("  • Check array/list bounds before accessing\n");
-            report.append("  • Verify loop conditions and index calculations\n");
-        } else if (exception instanceof NumberFormatException) {
-            report.append("  • String could not be parsed as a number\n");
-            report.append("  • Validate input format before parsing\n");
-            report.append("  • Check for empty strings or non-numeric characters\n");
-        } else if (exception instanceof UnsupportedOperationException) {
-            report.append("  • Operation is not supported by this implementation\n");
-            report.append("  • Check if using an immutable collection\n");
-            report.append("  • Verify API compatibility\n");
-        } else if (exception instanceof SecurityException) {
-            report.append("  • Security manager denied the operation\n");
-            report.append("  • Check security policy configuration\n");
-            report.append("  • Verify required permissions are granted\n");
-        } else if (exceptionName.contains("SQL") || exceptionName.contains("Database")) {
-            report.append("  • Database operation failed\n");
-            report.append("  • Check database connection and credentials\n");
-            report.append("  • Verify SQL syntax and table existence\n");
-        } else if (exceptionName.contains("IO") || exceptionName.contains("File")) {
-            report.append("  • I/O operation failed\n");
-            report.append("  • Check file permissions and path validity\n");
-            report.append("  • Verify disk space and file existence\n");
-        } else if (exceptionName.contains("Timeout") || exceptionName.contains("Connection")) {
-            report.append("  • Network or connection timeout occurred\n");
-            report.append("  • Check network connectivity\n");
-            report.append("  • Verify remote service availability\n");
-        } else {
-            report.append("  • Review the exception message for specific details\n");
-            report.append("  • Check the stack trace for the error origin\n");
-            report.append("  • Consult documentation for this exception type\n");
-        }
+        List<String> exceptionSuggestions = ExceptionSuggestionRegistry.getSuggestionsForException(exception);
+        appendSuggestionList(report, exceptionSuggestions);
 
-        // Message-based suggestions
-        if (message != null) {
-            if (message.toLowerCase().contains("null")) {
-                report.append("  • Exception message mentions 'null' - check for uninitialized variables\n");
-            }
-            if (message.toLowerCase().contains("not found") || message.toLowerCase().contains("missing")) {
-                report.append("  • Something is missing - check configuration and dependencies\n");
-            }
-            if (message.toLowerCase().contains("denied") || message.toLowerCase().contains("permission")) {
-                report.append("  • Access was denied - check permissions and access rights\n");
-            }
+        // Message-based suggestions (from registry)
+        String message = exception.getMessage();
+        if (message != null && !message.isEmpty()) {
+            List<String> messageSuggestions = ExceptionSuggestionRegistry.getMessageBasedSuggestions(message);
+            appendSuggestionList(report, messageSuggestions);
+        }
+    }
+
+    private void appendSuggestionList(@NotNull StringBuilder report, @NotNull List<String> suggestions) {
+        for (String suggestion : suggestions) {
+            report.append("  • ").append(suggestion).append("\n");
         }
     }
 
     private void appendJvmDetails(@NotNull StringBuilder report) {
-        report.append("\n").append(THIN_SEPARATOR).append("\n");
-        report.append("  JVM DETAILS\n");
-        report.append(THIN_SEPARATOR).append("\n");
-
-        try {
-            RuntimeMXBean runtime = ManagementFactory.getRuntimeMXBean();
-            MemoryMXBean memory = ManagementFactory.getMemoryMXBean();
-            MemoryUsage heapUsage = memory.getHeapMemoryUsage();
-            MemoryUsage nonHeapUsage = memory.getNonHeapMemoryUsage();
-
-            // JVM Info
-            report.append("  Java Version : ").append(System.getProperty("java.version")).append("\n");
-            report.append("  Java Vendor  : ").append(System.getProperty("java.vendor")).append("\n");
-            report.append("  JVM Name     : ").append(runtime.getVmName()).append("\n");
-            report.append("  JVM Version  : ").append(runtime.getVmVersion()).append("\n");
-            report.append("  OS           : ").append(System.getProperty("os.name"))
-                    .append(" ").append(System.getProperty("os.version"))
-                    .append(" (").append(System.getProperty("os.arch")).append(")\n");
-
-            // Memory Info
-            report.append("\n  Memory Usage:\n");
-            report.append("    Heap Memory:\n");
-            report.append("      Used     : ").append(formatBytes(heapUsage.getUsed())).append("\n");
-            report.append("      Committed: ").append(formatBytes(heapUsage.getCommitted())).append("\n");
-            report.append("      Max      : ").append(formatBytes(heapUsage.getMax())).append("\n");
-            report.append("      Usage    : ").append(String.format("%.1f%%", (double) heapUsage.getUsed() / heapUsage.getMax() * 100)).append("\n");
-
-            report.append("    Non-Heap Memory:\n");
-            report.append("      Used     : ").append(formatBytes(nonHeapUsage.getUsed())).append("\n");
-            report.append("      Committed: ").append(formatBytes(nonHeapUsage.getCommitted())).append("\n");
-
-            // Runtime Info
-            report.append("\n  Runtime Info:\n");
-            report.append("    Uptime     : ").append(formatDuration(runtime.getUptime())).append("\n");
-            report.append("    Start Time : ").append(DATE_FORMAT.format(new Date(runtime.getStartTime()))).append("\n");
-            report.append("    Processors : ").append(Runtime.getRuntime().availableProcessors()).append("\n");
-
-        } catch (Exception e) {
-            report.append("  Unable to retrieve JVM details: ").append(e.getMessage()).append("\n");
-        }
+        JvmInfoCollector.appendJvmDetails(report, THIN_SEPARATOR, DATE_FORMAT);
     }
 
     private void appendThreadDump(@NotNull StringBuilder report) {
-        report.append("\n").append(THIN_SEPARATOR).append("\n");
-        report.append("  THREAD DUMP (Current Thread + Active Threads)\n");
-        report.append(THIN_SEPARATOR).append("\n");
-
-        try {
-            ThreadMXBean threadMXBean = ManagementFactory.getThreadMXBean();
-
-            // Current thread info
-            Thread currentThread = Thread.currentThread();
-            report.append("\n  Current Thread:\n");
-            report.append("    Name  : ").append(currentThread.getName()).append("\n");
-            report.append("    ID    : ").append(currentThread.getId()).append("\n");
-            report.append("    State : ").append(currentThread.getState()).append("\n");
-            report.append("    Priority: ").append(currentThread.getPriority()).append("\n");
-
-            // Thread summary
-            int threadCount = threadMXBean.getThreadCount();
-            int peakCount = threadMXBean.getPeakThreadCount();
-            long totalStarted = threadMXBean.getTotalStartedThreadCount();
-
-            report.append("\n  Thread Summary:\n");
-            report.append("    Active Threads : ").append(threadCount).append("\n");
-            report.append("    Peak Threads   : ").append(peakCount).append("\n");
-            report.append("    Total Started  : ").append(totalStarted).append("\n");
-
-            // Deadlock detection
-            long[] deadlockedThreads = threadMXBean.findDeadlockedThreads();
-            if (deadlockedThreads != null && deadlockedThreads.length > 0) {
-                report.append("\n  DEADLOCK DETECTED!\n");
-                report.append("    Deadlocked thread IDs: ");
-                for (long id : deadlockedThreads) {
-                    report.append(id).append(" ");
-                }
-                report.append("\n");
-            }
-
-            // Top threads by state
-            Map<Thread.State, Integer> stateCounts = new java.util.EnumMap<>(Thread.State.class);
-            for (ThreadInfo info : threadMXBean.getThreadInfo(threadMXBean.getAllThreadIds())) {
-                if (info != null) {
-                    stateCounts.merge(info.getThreadState(), 1, Integer::sum);
-                }
-            }
-
-            report.append("\n  Threads by State:\n");
-            for (Map.Entry<Thread.State, Integer> entry : stateCounts.entrySet()) {
-                report.append("    ").append(String.format("%-15s: %d", entry.getKey(), entry.getValue())).append("\n");
-            }
-
-            // List blocked threads (potential issues)
-            report.append("\n  Blocked/Waiting Threads (max 5):\n");
-            int count = 0;
-            for (ThreadInfo info : threadMXBean.getThreadInfo(threadMXBean.getAllThreadIds(), 3)) {
-                if (info != null && (info.getThreadState() == Thread.State.BLOCKED ||
-                        info.getThreadState() == Thread.State.WAITING)) {
-                    report.append("    - ").append(info.getThreadName())
-                            .append(" (").append(info.getThreadState()).append(")\n");
-                    if (info.getLockName() != null) {
-                        report.append("      Waiting on: ").append(info.getLockName()).append("\n");
-                    }
-                    if (info.getLockOwnerName() != null) {
-                        report.append("      Lock owner: ").append(info.getLockOwnerName()).append("\n");
-                    }
-                    count++;
-                    if (count >= 5) break;
-                }
-            }
-            if (count == 0) {
-                report.append("    (none)\n");
-            }
-
-        } catch (Exception e) {
-            report.append("  Unable to retrieve thread dump: ").append(e.getMessage()).append("\n");
-        }
+        ThreadDumpCollector.appendThreadDump(report, THIN_SEPARATOR);
     }
 
     private void appendFooter(@NotNull StringBuilder report) {
         report.append("\n").append(SEPARATOR).append("\n");
         report.append("  END OF EXCEPTION REPORT\n");
         report.append(SEPARATOR).append("\n");
-    }
-
-    private String categorizeError(@NotNull ErrorType errorType) {
-        return switch (errorType) {
-            case PERMISSION, PLAYER_ONLY, GUARD_FAILED, ARGUMENT_PERMISSION -> "Access/Authorization Issue";
-            case PARSING, VALIDATION, CROSS_VALIDATION, USAGE -> "Input/Argument Issue";
-            case EXECUTION, INTERNAL_ERROR -> "Runtime/Execution Issue";
-            case TIMEOUT -> "Performance Issue";
-            default -> "Unknown Category";
-        };
-    }
-
-    private String formatBytes(long bytes) {
-        if (bytes < 1024) return bytes + " B";
-        int exp = (int) (Math.log(bytes) / Math.log(1024));
-        char unit = "KMGTPE".charAt(exp - 1);
-        return String.format("%.1f %sB", bytes / Math.pow(1024, exp), unit);
-    }
-
-    private String formatDuration(long millis) {
-        long seconds = millis / 1000;
-        long minutes = seconds / 60;
-        long hours = minutes / 60;
-        long days = hours / 24;
-
-        if (days > 0) {
-            return String.format("%dd %dh %dm %ds", days, hours % 24, minutes % 60, seconds % 60);
-        } else if (hours > 0) {
-            return String.format("%dh %dm %ds", hours, minutes % 60, seconds % 60);
-        } else if (minutes > 0) {
-            return String.format("%dm %ds", minutes, seconds % 60);
-        } else {
-            return String.format("%ds", seconds);
-        }
     }
 
     /**
