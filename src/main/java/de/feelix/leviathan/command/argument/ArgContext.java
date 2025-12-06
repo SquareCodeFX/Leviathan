@@ -8,6 +8,7 @@ import de.feelix.leviathan.util.Preconditions;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.regex.Pattern;
 
 /**
@@ -23,6 +24,54 @@ public final class ArgContext {
     @FunctionalInterface
     public interface DynamicCompletionProvider {
         @NotNull List<String> provide(@NotNull DynamicCompletionContext ctx);
+        
+        /**
+         * Create a dynamic completion provider that filters completions based on sender permissions.
+         * Only completions where the sender has the specified permission will be shown.
+         *
+         * @param completions the base list of completions
+         * @param permissionPrefix permission prefix to check (e.g., "myplugin.item.")
+         * @return a dynamic completion provider that filters by permission
+         */
+        static @NotNull DynamicCompletionProvider permissionFiltered(@NotNull List<String> completions, @NotNull String permissionPrefix) {
+            Preconditions.checkNotNull(completions, "completions");
+            Preconditions.checkNotNull(permissionPrefix, "permissionPrefix");
+            return ctx -> completions.stream()
+                .filter(c -> ctx.sender().hasPermission(permissionPrefix + c))
+                .collect(java.util.stream.Collectors.toList());
+        }
+        
+        /**
+         * Create a dynamic completion provider that returns completions based on previously parsed arguments.
+         * Useful for context-dependent completions.
+         *
+         * @param provider function that takes the dynamic context and returns completions
+         * @return a dynamic completion provider
+         */
+        static @NotNull DynamicCompletionProvider contextBased(@NotNull java.util.function.Function<DynamicCompletionContext, List<String>> provider) {
+            Preconditions.checkNotNull(provider, "provider");
+            return provider::apply;
+        }
+        
+        /**
+         * Create a dynamic completion provider that combines multiple completion sources.
+         * All completions from all sources are merged (duplicates removed).
+         *
+         * @param providers the completion providers to combine
+         * @return a dynamic completion provider that merges all sources
+         */
+        static @NotNull DynamicCompletionProvider combined(@NotNull DynamicCompletionProvider... providers) {
+            Preconditions.checkNotNull(providers, "providers");
+            return ctx -> {
+                java.util.Set<String> combined = new java.util.LinkedHashSet<>();
+                for (DynamicCompletionProvider provider : providers) {
+                    if (provider != null) {
+                        combined.addAll(provider.provide(ctx));
+                    }
+                }
+                return new ArrayList<>(combined);
+            };
+        }
     }
 
     /**
@@ -278,6 +327,102 @@ public final class ArgContext {
         // Default value
         public @NotNull Builder defaultValue(@Nullable Object defaultValue) {
             this.defaultValue = defaultValue;
+            return this;
+        }
+        
+        // Convenience methods for common completion patterns
+        
+        /**
+         * Add a single completion suggestion to the predefined list.
+         * Convenience method for adding completions one at a time.
+         *
+         * @param completion the completion suggestion to add
+         * @return this builder
+         */
+        public @NotNull Builder addCompletion(@NotNull String completion) {
+            Preconditions.checkNotNull(completion, "completion");
+            this.completionsPredefined.add(completion);
+            return this;
+        }
+        
+        /**
+         * Add multiple completion suggestions to the predefined list.
+         * Convenience method for adding several completions at once.
+         *
+         * @param completions the completion suggestions to add
+         * @return this builder
+         */
+        public @NotNull Builder addCompletions(@NotNull String... completions) {
+            Preconditions.checkNotNull(completions, "completions");
+            for (String completion : completions) {
+                if (completion != null) {
+                    this.completionsPredefined.add(completion);
+                }
+            }
+            return this;
+        }
+        
+        /**
+         * Set completions from an enum class, providing all enum constant names as lowercase suggestions.
+         * Convenience method for enum-based completions.
+         *
+         * @param enumClass the enum class to extract completions from
+         * @return this builder
+         */
+        public @NotNull Builder completionsFromEnum(@NotNull Class<? extends Enum<?>> enumClass) {
+            Preconditions.checkNotNull(enumClass, "enumClass");
+            Enum<?>[] constants = enumClass.getEnumConstants();
+            if (constants != null) {
+                this.completionsPredefined = new ArrayList<>();
+                for (Enum<?> constant : constants) {
+                    this.completionsPredefined.add(constant.name().toLowerCase(Locale.ROOT));
+                }
+            }
+            return this;
+        }
+        
+        /**
+         * Provide range hint completions for numeric arguments.
+         * When the user is typing a number, this shows a hint like "[1-100]" to indicate the valid range.
+         * Note: This is a hint only and doesn't restrict input during completion.
+         *
+         * @param min minimum value (inclusive)
+         * @param max maximum value (inclusive)
+         * @return this builder
+         */
+        public @NotNull Builder rangeHint(int min, int max) {
+            this.completionsPredefined = new ArrayList<>();
+            this.completionsPredefined.add("[" + min + "-" + max + "]");
+            return this;
+        }
+        
+        /**
+         * Provide range hint completions for numeric arguments (long version).
+         * When the user is typing a number, this shows a hint like "[1-1000000]" to indicate the valid range.
+         * Note: This is a hint only and doesn't restrict input during completion.
+         *
+         * @param min minimum value (inclusive)
+         * @param max maximum value (inclusive)
+         * @return this builder
+         */
+        public @NotNull Builder rangeHint(long min, long max) {
+            this.completionsPredefined = new ArrayList<>();
+            this.completionsPredefined.add("[" + min + "-" + max + "]");
+            return this;
+        }
+        
+        /**
+         * Provide range hint completions for numeric arguments (double version).
+         * When the user is typing a number, this shows a hint like "[0.0-1.0]" to indicate the valid range.
+         * Note: This is a hint only and doesn't restrict input during completion.
+         *
+         * @param min minimum value (inclusive)
+         * @param max maximum value (inclusive)
+         * @return this builder
+         */
+        public @NotNull Builder rangeHint(double min, double max) {
+            this.completionsPredefined = new ArrayList<>();
+            this.completionsPredefined.add("[" + min + "-" + max + "]");
             return this;
         }
         

@@ -485,7 +485,7 @@ public final class SlashCommandBuilder {
     public @NotNull SlashCommandBuilder argIntRange(@NotNull String name, int min, int max) {
         Preconditions.checkArgument(min <= max, "min must be <= max for range [" + min + ", " + max + "]");
         return arg(new Arg<>(name, ArgParsers.intParser(), 
-            ArgContext.builder().intRange(min, max).build()));
+            ArgContext.builder().intRange(min, max).rangeHint(min, max).build()));
     }
 
     /**
@@ -500,7 +500,7 @@ public final class SlashCommandBuilder {
     public @NotNull SlashCommandBuilder argLongRange(@NotNull String name, long min, long max) {
         Preconditions.checkArgument(min <= max, "min must be <= max for range [" + min + ", " + max + "]");
         return arg(new Arg<>(name, ArgParsers.longParser(), 
-            ArgContext.builder().longRange(min, max).build()));
+            ArgContext.builder().longRange(min, max).rangeHint(min, max).build()));
     }
 
     /**
@@ -515,7 +515,7 @@ public final class SlashCommandBuilder {
     public @NotNull SlashCommandBuilder argDoubleRange(@NotNull String name, double min, double max) {
         Preconditions.checkArgument(min <= max, "min must be <= max for range [" + min + ", " + max + "]");
         return arg(new Arg<>(name, ArgParsers.doubleParser(), 
-            ArgContext.builder().doubleRange(min, max).build()));
+            ArgContext.builder().doubleRange(min, max).rangeHint(min, max).build()));
     }
 
     /**
@@ -530,7 +530,7 @@ public final class SlashCommandBuilder {
     public @NotNull SlashCommandBuilder argFloatRange(@NotNull String name, float min, float max) {
         Preconditions.checkArgument(min <= max, "min must be <= max for range [" + min + ", " + max + "]");
         return arg(new Arg<>(name, ArgParsers.floatParser(), 
-            ArgContext.builder().floatRange(min, max).build()));
+            ArgContext.builder().floatRange(min, max).rangeHint((double) min, (double) max).build()));
     }
 
     /**
@@ -548,6 +548,33 @@ public final class SlashCommandBuilder {
         Preconditions.checkArgument(minLength <= maxLength, "minLength must be <= maxLength for range [" + minLength + ", " + maxLength + "]");
         return arg(new Arg<>(name, ArgParsers.stringParser(), 
             ArgContext.builder().stringLengthRange(minLength, maxLength).build()));
+    }
+    
+    /**
+     * Add a string argument with predefined completion suggestions.
+     * Convenience method for common pattern of string args with fixed completion options.
+     *
+     * @param name        argument name (no whitespace)
+     * @param completions list of completion suggestions
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder argStringWithCompletions(@NotNull String name, @NotNull List<String> completions) {
+        Preconditions.checkNotNull(completions, "completions");
+        return arg(new Arg<>(name, ArgParsers.stringParser(),
+            ArgContext.builder().withCompletions(completions).build()));
+    }
+    
+    /**
+     * Add a string argument with predefined completion suggestions (varargs version).
+     * Convenience method for common pattern of string args with fixed completion options.
+     *
+     * @param name        argument name (no whitespace)
+     * @param completions completion suggestions
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder argStringWithCompletions(@NotNull String name, @NotNull String... completions) {
+        Preconditions.checkNotNull(completions, "completions");
+        return argStringWithCompletions(name, List.of(completions));
     }
 
 

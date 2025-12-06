@@ -299,17 +299,55 @@ public final class TabCompletionHandler {
 
     /**
      * Filter completions by prefix and sort them.
+     * Enhanced to support smart filtering: exact matches first, then prefix matches, then substring matches.
      */
     private static @NotNull List<String> filterAndSort(@NotNull List<String> completions, @NotNull String prefix) {
+        if (prefix == null || prefix.isEmpty()) {
+            // No prefix - return all completions sorted
+            List<String> result = new ArrayList<>();
+            for (String s : completions) {
+                if (s != null) {
+                    result.add(s);
+                }
+            }
+            Collections.sort(result);
+            return result;
+        }
+        
         String pfxLow = prefix.toLowerCase(Locale.ROOT);
-        List<String> filtered = new ArrayList<>();
+        List<String> exactMatches = new ArrayList<>();
+        List<String> prefixMatches = new ArrayList<>();
+        List<String> substringMatches = new ArrayList<>();
+        
         for (String s : completions) {
             if (s == null) continue;
-            if (pfxLow.isEmpty() || s.toLowerCase(Locale.ROOT).startsWith(pfxLow)) {
-                filtered.add(s);
+            String sLow = s.toLowerCase(Locale.ROOT);
+            
+            // Exact match (case-insensitive)
+            if (sLow.equals(pfxLow)) {
+                exactMatches.add(s);
+            }
+            // Prefix match
+            else if (sLow.startsWith(pfxLow)) {
+                prefixMatches.add(s);
+            }
+            // Substring match (for better discoverability)
+            else if (sLow.contains(pfxLow)) {
+                substringMatches.add(s);
             }
         }
-        Collections.sort(filtered);
-        return filtered;
+        
+        // Sort each category
+        Collections.sort(exactMatches);
+        Collections.sort(prefixMatches);
+        Collections.sort(substringMatches);
+        
+        // Combine: exact first, then prefix, then substring
+        List<String> result = new ArrayList<>();
+        result.addAll(exactMatches);
+        result.addAll(prefixMatches);
+        result.addAll(substringMatches);
+        
+        return result;
     }
 }
