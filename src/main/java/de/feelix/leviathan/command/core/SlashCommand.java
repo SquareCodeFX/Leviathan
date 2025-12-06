@@ -401,7 +401,17 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         Preconditions.checkNotNull(command, "command");
         Preconditions.checkNotNull(label, "label");
         Preconditions.checkNotNull(providedArgs, "providedArgs");
-        return execute(sender, label, providedArgs);
+        try {
+            return execute(sender, label, providedArgs);
+        } catch (Throwable t) {
+            // Top-level catch to ensure no exception escapes from command execution
+            sendErrorMessage(sender, ErrorType.INTERNAL_ERROR, messages.internalError(), t);
+            if (plugin != null) {
+                plugin.getLogger().severe("Unhandled exception in command '" + name + "': " + t.getMessage());
+                t.printStackTrace();
+            }
+            return true;
+        }
     }
 
     /**
@@ -845,8 +855,11 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                         if (sendErrors && !suppressDefault) {
                             sender.sendMessage(errorMsg);
                         }
-                        throw new CommandExecutionException(
-                            "Error executing command '" + name + "' asynchronously", cause);
+                        // Log the exception but don't re-throw to prevent unhandled exception in async thread
+                        if (plugin != null) {
+                            plugin.getLogger().severe("Error executing command '" + name + "' asynchronously: " + cause.getMessage());
+                            cause.printStackTrace();
+                        }
                     }
                 });
             }
@@ -983,6 +996,15 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
     @Override
     public @NotNull List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command,
                                                @NotNull String alias, @NotNull String[] providedArgs) {
-        return TabCompletionHandler.generateCompletions(sender, alias, providedArgs, this, messages);
+        try {
+            return TabCompletionHandler.generateCompletions(sender, alias, providedArgs, this, messages);
+        } catch (Throwable t) {
+            // Top-level catch to ensure no exception escapes from tab completion
+            if (plugin != null) {
+                plugin.getLogger().severe("Unhandled exception in tab completion for command '" + name + "': " + t.getMessage());
+                t.printStackTrace();
+            }
+            return Collections.emptyList();
+        }
     }
 }

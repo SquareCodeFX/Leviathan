@@ -262,6 +262,15 @@ public interface MessageProvider {
     String executionError();
 
     /**
+     * Message when an unhandled internal error occurs during command processing.
+     * This is used for unexpected exceptions that escape all other error handling.
+     *
+     * @return the internal error message
+     */
+    @NotNull
+    String internalError();
+
+    /**
      * Message when exception handler itself throws an exception.
      *
      * @param exceptionMessage the exception message

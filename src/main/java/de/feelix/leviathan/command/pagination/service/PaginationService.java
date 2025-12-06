@@ -9,6 +9,7 @@ import de.feelix.leviathan.command.pagination.domain.NavigationWindow;
 import de.feelix.leviathan.command.pagination.domain.PageInfo;
 import de.feelix.leviathan.command.pagination.domain.PaginatedResult;
 import de.feelix.leviathan.command.pagination.exception.InvalidPageException;
+import lombok.Getter;
 
 import java.util.List;
 import java.util.Objects;
@@ -25,6 +26,13 @@ import java.util.concurrent.ForkJoinPool;
  */
 public final class PaginationService<T> {
 
+    /**
+     * -- GETTER --
+     *  Returns the pagination configuration used by this service.
+     *
+     * @return the pagination config
+     */
+    @Getter
     private final PaginationConfig config;
     /** Data provider used to fetch elements and total count. */
     private final PaginationDataSource<T> dataSource;

@@ -4,6 +4,7 @@ import de.feelix.leviathan.annotations.NotNull;
 import de.feelix.leviathan.annotations.Nullable;
 import de.feelix.leviathan.command.argument.Arg;
 import de.feelix.leviathan.command.argument.ArgContext;
+import de.feelix.leviathan.command.error.DetailedExceptionHandler;
 import de.feelix.leviathan.command.error.ExceptionHandler;
 import de.feelix.leviathan.command.guard.Guard;
 import de.feelix.leviathan.command.message.MessageProvider;
@@ -988,6 +989,40 @@ public final class SlashCommandBuilder {
      * @return this builder
      */
     public @NotNull SlashCommandBuilder exceptionHandler(@Nullable ExceptionHandler handler) {
+        this.exceptionHandler = handler;
+        return this;
+    }
+
+    /**
+     * Enable the detailed exception handler that prints comprehensive diagnostic information
+     * to the console when errors occur. This includes:
+     * <ul>
+     *   <li>Full stack traces with cause chain analysis</li>
+     *   <li>JVM details (version, vendor, memory usage)</li>
+     *   <li>Thread dump for debugging deadlocks and threading issues</li>
+     *   <li>Contextual suggestions for why the error might have occurred</li>
+     * </ul>
+     *
+     * @param plugin the plugin instance for logging
+     * @return this builder
+     * @see DetailedExceptionHandler
+     */
+    public @NotNull SlashCommandBuilder detailedExceptionHandler(@NotNull JavaPlugin plugin) {
+        Preconditions.checkNotNull(plugin, "plugin");
+        this.exceptionHandler = new DetailedExceptionHandler(plugin);
+        return this;
+    }
+
+    /**
+     * Enable the detailed exception handler with a custom builder configuration.
+     * This allows fine-tuning which diagnostic sections are included in the output.
+     *
+     * @param handler the configured DetailedExceptionHandler instance
+     * @return this builder
+     * @see DetailedExceptionHandler.Builder
+     */
+    public @NotNull SlashCommandBuilder detailedExceptionHandler(@NotNull DetailedExceptionHandler handler) {
+        Preconditions.checkNotNull(handler, "handler");
         this.exceptionHandler = handler;
         return this;
     }

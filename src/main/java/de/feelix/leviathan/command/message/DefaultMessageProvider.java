@@ -152,6 +152,11 @@ public class DefaultMessageProvider implements MessageProvider {
     }
 
     @Override
+    public @NotNull String internalError() {
+        return "§cAn unexpected internal error occurred. Please contact an administrator.";
+    }
+
+    @Override
     public @NotNull String exceptionHandlerError(@NotNull String exceptionMessage) {
         return "§cError in exception handler: " + exceptionMessage;
     }
