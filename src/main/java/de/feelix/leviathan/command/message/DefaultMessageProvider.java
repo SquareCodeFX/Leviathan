@@ -233,4 +233,85 @@ public class DefaultMessageProvider implements MessageProvider {
     public @NotNull String guardFlying() {
         return "§cYou must be flying to use this command.";
     }
+
+    // Pagination Messages
+
+    @Override
+    public @NotNull String paginationPageInfo(int currentPage, int totalPages, long totalItems) {
+        return "§7Page §f" + currentPage + "§7/§f" + totalPages + " §7(§f" + totalItems + " §7items)";
+    }
+
+    @Override
+    public @NotNull String paginationInvalidPage(int requestedPage, int totalPages) {
+        return "§cInvalid page: " + requestedPage + ". Please enter a page between 1 and " + totalPages + ".";
+    }
+
+    @Override
+    public @NotNull String paginationEmpty() {
+        return "§7No items found.";
+    }
+
+    @Override
+    public @NotNull String paginationPreviousHint(@NotNull String command) {
+        return "§8[§e" + command + "§8 <- Previous]";
+    }
+
+    @Override
+    public @NotNull String paginationNextHint(@NotNull String command) {
+        return "§8[Next -> §e" + command + "§8]";
+    }
+
+    @Override
+    public @NotNull String paginationHeader(@NotNull String title) {
+        return "§6=== " + title + " ===";
+    }
+
+    @Override
+    public @NotNull String paginationFooter(int currentPage, int totalPages) {
+        return "§7Page §f" + currentPage + "§7/§f" + totalPages;
+    }
+
+    @Override
+    public @NotNull String paginationPageWindow(
+        @NotNull java.util.List<Integer> visiblePages,
+        int currentPage,
+        int totalPages,
+        boolean showStartEllipsis,
+        boolean showEndEllipsis,
+        @NotNull String ellipsis,
+        @NotNull String pageSeparator,
+        @NotNull String currentPagePrefix,
+        @NotNull String currentPageSuffix
+    ) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("(");
+
+        boolean first = true;
+
+        if (showStartEllipsis) {
+            sb.append("1 ").append(ellipsis).append(" ");
+        }
+
+        for (int page : visiblePages) {
+            if (!first) {
+                sb.append(pageSeparator);
+            }
+            first = false;
+
+            if (page == currentPage) {
+                sb.append(currentPagePrefix)
+                    .append(page)
+                    .append(currentPageSuffix);
+            } else {
+                sb.append(page);
+            }
+        }
+
+        if (showEndEllipsis) {
+            sb.append(" ").append(ellipsis).append(" ").append(totalPages);
+        }
+
+        sb.append(")");
+        return sb.toString();
+    }
 }

@@ -11,6 +11,9 @@ import de.feelix.leviathan.command.async.Progress;
 import de.feelix.leviathan.command.completion.TabCompletionHandler;
 import de.feelix.leviathan.command.cooldown.CooldownManager;
 import de.feelix.leviathan.command.cooldown.CooldownResult;
+import de.feelix.leviathan.command.pagination.PaginationHelper;
+import de.feelix.leviathan.command.pagination.config.PaginationConfig;
+import de.feelix.leviathan.command.pagination.domain.PaginatedResult;
 import de.feelix.leviathan.command.error.ErrorType;
 import de.feelix.leviathan.command.error.ExceptionHandler;
 import de.feelix.leviathan.command.guard.Guard;
@@ -98,6 +101,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
     private final long perUserCooldownMillis;
     private final long perServerCooldownMillis;
     private final boolean enableHelp;
+    private final int helpPageSize;
     private final String cachedUsage;
     private final MessageProvider messages;
     JavaPlugin plugin;
@@ -258,7 +262,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                  List<Guard> guards, List<CrossArgumentValidator> crossArgumentValidators,
                  @Nullable ExceptionHandler exceptionHandler,
                  long perUserCooldownMillis, long perServerCooldownMillis, boolean enableHelp,
-                 @Nullable MessageProvider messages) {
+                 int helpPageSize, @Nullable MessageProvider messages) {
         this.name = Preconditions.checkNotNull(name, "name");
         this.aliases = List.copyOf(aliases == null ? List.of() : aliases);
         this.description = (description == null) ? "" : description;
@@ -279,6 +283,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         this.perUserCooldownMillis = perUserCooldownMillis;
         this.perServerCooldownMillis = perServerCooldownMillis;
         this.enableHelp = enableHelp;
+        this.helpPageSize = helpPageSize > 0 ? helpPageSize : 10; // default to 10 items per page
         this.messages = (messages != null) ? messages : new DefaultMessageProvider();
         // Pre-compute usage string for performance
         this.cachedUsage = computeUsageString();
@@ -407,7 +412,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
             // Show help if command has subcommands or required arguments
             int required = (int) args.stream().filter(a -> !a.optional()).count();
             if (!subcommands.isEmpty() || required > 0) {
-                sender.sendMessage(generateHelpMessage(label));
+                generateHelpMessage(label, 1, sender);
                 return true;
             }
         }
@@ -416,6 +421,20 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         if (!subcommands.isEmpty() && providedArgs.length >= 1) {
             String first = providedArgs[0].toLowerCase(Locale.ROOT);
             SlashCommand sub = subcommands.get(first);
+            
+            // Check if first argument is a page number for help pagination
+            if (sub == null && enableHelp) {
+                try {
+                    int pageNum = Integer.parseInt(first);
+                    if (pageNum >= 1) {
+                        generateHelpMessage(label, pageNum, sender);
+                        return true;
+                    }
+                } catch (NumberFormatException ignored) {
+                    // Not a number, continue with normal processing
+                }
+            }
+            
             if (sub != null) {
                 String[] remaining = Arrays.copyOfRange(providedArgs, 1, providedArgs.length);
                 try {
@@ -433,7 +452,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
             }
             // Invalid subcommand provided: show help if enabled
             if (enableHelp) {
-                sender.sendMessage(generateHelpMessage(label));
+                generateHelpMessage(label, 1, sender);
                 return true;
             }
         }
@@ -803,24 +822,21 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
 
     /**
      * Generates a dynamic help message for this command.
-     * If the command has subcommands, displays a list of available subcommands with their usage.
+     * If the command has subcommands, displays a paginated list of available subcommands with their usage.
      * If the command has no subcommands, displays the usage format for this command.
      *
      * @param label the command label used to invoke this command
-     * @return the formatted help message
+     * @param pageNumber the page number to display (1-based)
+     * @param sender the command sender to send messages to
      */
-    @NotNull
-    private String generateHelpMessage(@NotNull String label) {
+    private void generateHelpMessage(@NotNull String label, int pageNumber, @NotNull CommandSender sender) {
         String commandPath = fullCommandPath(label);
         
         if (!subcommands.isEmpty()) {
-            StringBuilder sb = new StringBuilder();
             // Format command name: first letter uppercase, rest lowercase
             String formattedName = name.isEmpty() ? "" : 
                 Character.toUpperCase(name.charAt(0)) + name.substring(1).toLowerCase(Locale.ROOT);
 
-            sb.append(messages.helpSubCommandsHeader(formattedName, commandPath));
-            
             // Get unique subcommands (since aliases point to the same command)
             Set<SlashCommand> uniqueSubcommands = new LinkedHashSet<>(subcommands.values());
             
@@ -832,23 +848,35 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
             List<SlashCommand> sortedSubcommands = new ArrayList<>(uniqueSubcommands);
             sortedSubcommands.sort(Comparator.comparingInt(this::categorizeByArguments));
             
-            for (SlashCommand sub : sortedSubcommands) {
-
-                sb.append(messages.helpSubCommandPrefix(sub.name()));
-                String subUsage = sub.usage();
-                if (!subUsage.isEmpty() && !subUsage.equals("<subcommand>")) {
-                    sb.append(messages.helpUsageSeparator()).append(subUsage);
-                }
-                if (!sub.description().isEmpty()) {
-                    sb.append(messages.helpDescriptionSeparator()).append(sub.description());
-                }
-                sb.append("\n");
-            }
+            // Use pagination for subcommand listing
+            PaginationConfig config = PaginationConfig.builder()
+                .pageSize(helpPageSize)
+                .build();
             
-            return sb.toString().trim();
+            PaginationHelper.paginate(sortedSubcommands)
+                .page(pageNumber)
+                .pageSize(helpPageSize)
+                .config(config)
+                .header(messages.helpSubCommandsHeader(formattedName, commandPath).trim())
+                .formatter(sub -> {
+                    StringBuilder line = new StringBuilder();
+                    line.append(messages.helpSubCommandPrefix(sub.name()));
+                    String subUsage = sub.usage();
+                    if (!subUsage.isEmpty() && !subUsage.equals("<subcommand>")) {
+                        line.append(messages.helpUsageSeparator()).append(subUsage);
+                    }
+                    if (!sub.description().isEmpty()) {
+                        line.append(messages.helpDescriptionSeparator()).append(sub.description());
+                    }
+                    return line.toString();
+                })
+                .showNavigation(true)
+                .showPageOverview(true)
+                .commandBase("/" + commandPath)
+                .send(sender);
         } else {
             String usageStr = usage();
-            return messages.helpUsage(commandPath, usageStr);
+            sender.sendMessage(messages.helpUsage(commandPath, usageStr));
         }
     }
 

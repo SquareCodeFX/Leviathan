@@ -50,6 +50,7 @@ public final class SlashCommandBuilder {
     private long perServerCooldownMillis = 0L;
     // Auto help
     private boolean enableHelp = false;
+    private int helpPageSize = 10;
     // Message provider
     private @Nullable MessageProvider messages = null;
 
@@ -184,6 +185,19 @@ public final class SlashCommandBuilder {
      */
     public @NotNull SlashCommandBuilder enableHelp(boolean enable) {
         this.enableHelp = enable;
+        return this;
+    }
+
+    /**
+     * Set the number of items to display per page in help messages.
+     * When there are many subcommands, the help output will be paginated.
+     * Users can navigate pages by providing a page number argument.
+     *
+     * @param pageSize number of subcommands to display per page (default: 10, minimum: 1)
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder helpPageSize(int pageSize) {
+        this.helpPageSize = Math.max(1, pageSize);
         return this;
     }
 
@@ -577,6 +591,81 @@ public final class SlashCommandBuilder {
         return argStringWithCompletions(name, List.of(completions));
     }
 
+    /**
+     * Add an optional page number argument for paginated commands.
+     * The argument defaults to page 1 and validates that the value is at least 1.
+     * <p>
+     * This is a convenience method equivalent to:
+     * <pre>{@code
+     * .argInt("page", ArgContext.builder()
+     *     .optional(true)
+     *     .defaultValue(1)
+     *     .intMin(1)
+     *     .build())
+     * }</pre>
+     * <p>
+     * <b>Example usage with PaginationHelper:</b>
+     * <pre>{@code
+     * SlashCommand.builder("list")
+     *     .argPage()
+     *     .executes((sender, ctx) -> {
+     *         int page = ctx.getIntOrDefault("page", 1);
+     *         PaginationHelper.paginate(items)
+     *             .page(page)
+     *             .pageSize(10)
+     *             .header("§6=== Items ===")
+     *             .formatter(item -> "§7- " + item)
+     *             .send(sender);
+     *     })
+     *     .register(plugin);
+     * }</pre>
+     *
+     * @return this builder
+     * @see de.feelix.leviathan.command.pagination.PaginationHelper
+     */
+    public @NotNull SlashCommandBuilder argPage() {
+        return argPage("page");
+    }
+
+    /**
+     * Add an optional page number argument with a custom name for paginated commands.
+     * The argument defaults to page 1 and validates that the value is at least 1.
+     *
+     * @param name the argument name (no whitespace)
+     * @return this builder
+     * @see #argPage()
+     * @see de.feelix.leviathan.command.pagination.PaginationHelper
+     */
+    public @NotNull SlashCommandBuilder argPage(@NotNull String name) {
+        Preconditions.checkNotNull(name, "name");
+        return arg(new Arg<>(name, ArgParsers.intParser(), 
+            ArgContext.builder()
+                .optional(true)
+                .defaultValue(1)
+                .intMin(1)
+                .build()));
+    }
+
+    /**
+     * Add an optional page number argument with custom default value.
+     * Validates that the value is at least 1.
+     *
+     * @param name         the argument name (no whitespace)
+     * @param defaultPage  the default page number (must be >= 1)
+     * @return this builder
+     * @see #argPage()
+     * @see de.feelix.leviathan.command.pagination.PaginationHelper
+     */
+    public @NotNull SlashCommandBuilder argPage(@NotNull String name, int defaultPage) {
+        Preconditions.checkNotNull(name, "name");
+        Preconditions.checkArgument(defaultPage >= 1, "defaultPage must be >= 1");
+        return arg(new Arg<>(name, ArgParsers.intParser(), 
+            ArgContext.builder()
+                .optional(true)
+                .defaultValue(defaultPage)
+                .intMin(1)
+                .build()));
+    }
 
     /**
      * Enable or disable validation of previously entered arguments during tab completion.
@@ -1011,7 +1100,7 @@ public final class SlashCommandBuilder {
             name, aliases, description, permission, playerOnly, sendErrors, args, action, async, validateOnTab, subs,
             asyncAction, (asyncTimeoutMillis == null ? 0L : asyncTimeoutMillis),
             guards, crossArgumentValidators, exceptionHandler,
-            perUserCooldownMillis, perServerCooldownMillis, enableHelp, messages
+            perUserCooldownMillis, perServerCooldownMillis, enableHelp, helpPageSize, messages
         );
         
         // Set parent reference for all subcommands

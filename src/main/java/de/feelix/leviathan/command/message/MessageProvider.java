@@ -398,4 +398,101 @@ public interface MessageProvider {
      */
     @NotNull
     String guardFlying();
+
+    // Pagination Messages
+
+    /**
+     * Page info display format.
+     *
+     * @param currentPage the current page number
+     * @param totalPages the total number of pages
+     * @param totalItems the total number of items
+     * @return the formatted page info string
+     */
+    @NotNull
+    String paginationPageInfo(int currentPage, int totalPages, long totalItems);
+
+    /**
+     * Message when requested page is out of range.
+     *
+     * @param requestedPage the page that was requested
+     * @param totalPages the total number of pages available
+     * @return the error message
+     */
+    @NotNull
+    String paginationInvalidPage(int requestedPage, int totalPages);
+
+    /**
+     * Message when there are no items to display.
+     *
+     * @return the empty message
+     */
+    @NotNull
+    String paginationEmpty();
+
+    /**
+     * Navigation hint for previous page.
+     *
+     * @param command the command to go to previous page
+     * @return the navigation hint
+     */
+    @NotNull
+    String paginationPreviousHint(@NotNull String command);
+
+    /**
+     * Navigation hint for next page.
+     *
+     * @param command the command to go to next page
+     * @return the navigation hint
+     */
+    @NotNull
+    String paginationNextHint(@NotNull String command);
+
+    /**
+     * Header for paginated list output.
+     *
+     * @param title the list title
+     * @return the formatted header
+     */
+    @NotNull
+    String paginationHeader(@NotNull String title);
+
+    /**
+     * Footer for paginated list output.
+     *
+     * @param currentPage the current page number
+     * @param totalPages the total number of pages
+     * @return the formatted footer
+     */
+    @NotNull
+    String paginationFooter(int currentPage, int totalPages);
+
+    /**
+     * Renders a compact page window overview showing visible pages with the current page highlighted.
+     * <p>
+     * Example output: {@code (1 ... 4 | _5_ | 6 ... 10)} where 5 is the current page.
+     *
+     * @param visiblePages list of page numbers currently visible in the navigation window
+     * @param currentPage the current page number
+     * @param totalPages the total number of pages
+     * @param showStartEllipsis whether to show ellipsis at the start (indicating pages before visible range)
+     * @param showEndEllipsis whether to show ellipsis at the end (indicating pages after visible range)
+     * @param ellipsis the ellipsis string to use (e.g., "...")
+     * @param pageSeparator the separator between page numbers (e.g., " | ")
+     * @param currentPagePrefix prefix for the current page (e.g., "_")
+     * @param currentPageSuffix suffix for the current page (e.g., "_")
+     * @return the formatted page window string
+     */
+    @NotNull
+    String paginationPageWindow(
+        @NotNull java.util.List<Integer> visiblePages,
+        int currentPage,
+        int totalPages,
+        boolean showStartEllipsis,
+        boolean showEndEllipsis,
+        @NotNull String ellipsis,
+        @NotNull String pageSeparator,
+        @NotNull String currentPagePrefix,
+        @NotNull String currentPageSuffix
+    );
 }
