@@ -25,7 +25,6 @@ import java.util.concurrent.ForkJoinPool;
  */
 public final class PaginationService<T> {
 
-    /** Immutable pagination behavior and styling configuration. */
     private final PaginationConfig config;
     /** Data provider used to fetch elements and total count. */
     private final PaginationDataSource<T> dataSource;
@@ -374,17 +373,6 @@ public final class PaginationService<T> {
     public Optional<CacheStats> getCacheStats() {
         return cacheEnabled ? Optional.of(cache.getStats()) : Optional.empty();
     }
-
-    /**
-     * Returns the current configuration.
-     *
-     * @return pagination config (immutable)
-     */
-    public PaginationConfig getConfig() {
-        return config;
-    }
-
-    // Private methods
 
     /**
      * Fetch a page synchronously from the data source and build the result object.

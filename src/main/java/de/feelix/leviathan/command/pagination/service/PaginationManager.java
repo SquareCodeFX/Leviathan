@@ -6,6 +6,7 @@ import de.feelix.leviathan.command.pagination.config.PaginationConfig;
 import de.feelix.leviathan.command.pagination.datasource.ListDataSource;
 import de.feelix.leviathan.command.pagination.datasource.PaginationDataSource;
 import de.feelix.leviathan.command.pagination.domain.PaginatedResult;
+import lombok.Getter;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -17,7 +18,13 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class PaginationManager {
 
-    /** Default configuration applied to newly created services. */
+    /** Default configuration applied to newly created services.
+     * -- GETTER --
+     *  Returns the default configuration.
+     *
+     * @return default pagination config
+     */
+    @Getter
     private final PaginationConfig defaultConfig;
     /** Registry of named services managed by this manager. */
     private final Map<String, PaginationService<?>> services;
@@ -147,17 +154,13 @@ public final class PaginationManager {
      * @param <T>         element type
      * @return future completing with an optional page result
      */
-    @SuppressWarnings("unchecked")
     public <T> CompletableFuture<Optional<PaginatedResult<T>>> getPageAsync(String serviceName, int pageNumber) {
         Optional<PaginationService<T>> serviceOpt = getService(serviceName);
 
-        if (serviceOpt.isEmpty()) {
-            return CompletableFuture.completedFuture(Optional.empty());
-        }
+        return serviceOpt.map(tPaginationService -> tPaginationService
+            .getPageAsync(pageNumber)
+            .thenApply(Optional::of)).orElseGet(() -> CompletableFuture.completedFuture(Optional.empty()));
 
-        return serviceOpt.get()
-                .getPageAsync(pageNumber)
-                .thenApply(Optional::of);
     }
 
     /**
@@ -193,15 +196,6 @@ public final class PaginationManager {
         }
 
         return Collections.unmodifiableMap(stats);
-    }
-
-    /**
-     * Returns the default configuration.
-     *
-     * @return default pagination config
-     */
-    public PaginationConfig getDefaultConfig() {
-        return defaultConfig;
     }
 
     /**
