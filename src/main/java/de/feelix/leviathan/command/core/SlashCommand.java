@@ -33,11 +33,14 @@ import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
+import java.util.logging.Level;
 import java.util.stream.Collectors;
 
 /**
@@ -431,7 +434,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
             sendErrorMessage(sender, ErrorType.INTERNAL_ERROR, messages.internalError(), t);
             if (plugin != null) {
                 plugin.getLogger().severe("Unhandled exception in command '" + name + "': " + t.getMessage());
-                t.printStackTrace();
+                logException(t);
             }
             return true;
         }
@@ -460,12 +463,31 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                     plugin.getLogger()
                         .severe("Exception handler threw an exception while handling " + errorType + ": "
                                 + handlerException.getMessage());
-                    handlerException.printStackTrace();
+                    logException(handlerException);
                 }
             }
         }
         if (sendErrors && !suppressDefault) {
             sender.sendMessage(message);
+        }
+    }
+
+    /**
+     * Logs an exception with its full stack trace using the plugin's logger.
+     * This method provides robust logging by converting the stack trace to a string
+     * and logging it through the plugin's logging system instead of printing to stderr.
+     *
+     * @param throwable the exception to log
+     */
+    private void logException(@NotNull Throwable throwable) {
+        if (plugin == null) {
+            return;
+        }
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
+        throwable.printStackTrace(pw);
+        for (String line : sw.toString().split("\\R")) {
+            plugin.getLogger().log(Level.SEVERE, line);
         }
     }
 
@@ -570,7 +592,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                     if (plugin != null) {
                         plugin.getLogger()
                             .severe("Subcommand '" + first + "' threw unexpected exception: " + t.getMessage());
-                        t.printStackTrace();
+                        logException(t);
                     }
                     return true;
                 }
@@ -613,7 +635,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                     if (plugin != null) {
                         plugin.getLogger()
                             .severe("Condition evaluation failed for argument '" + arg.name() + "': " + t.getMessage());
-                        t.printStackTrace();
+                        logException(t);
                     }
                     return true;
                 }
@@ -655,7 +677,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                     plugin.getLogger()
                         .severe("Parser " + parser.getClass().getName() + " threw unexpected exception for argument '"
                                 + arg.name() + "': " + t.getMessage());
-                    t.printStackTrace();
+                    logException(t);
                 }
                 return true;
             }
@@ -705,7 +727,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                     if (plugin != null) {
                         plugin.getLogger()
                             .severe("Transformation failed for argument '" + arg.name() + "': " + t.getMessage());
-                        t.printStackTrace();
+                        logException(t);
                     }
                     return true;
                 }
@@ -725,7 +747,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                     plugin.getLogger()
                         .severe("Validation failed with unexpected exception for argument '" + arg.name() + "': "
                                 + t.getMessage());
-                    t.printStackTrace();
+                    logException(t);
                 }
                 return true;
             }
@@ -769,7 +791,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                         plugin.getLogger()
                             .severe("Cross-argument validator " + validator.getClass().getName()
                                     + " threw unexpected exception: " + t.getMessage());
-                        t.printStackTrace();
+                        logException(t);
                     }
                     return true;
                 }
@@ -864,7 +886,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                                 plugin.getLogger()
                                     .severe("Exception handler threw an exception while handling " + errorType + ": "
                                             + handlerException.getMessage());
-                                handlerException.printStackTrace();
+                                logException(handlerException);
                             } else {
                                 sender.sendMessage(handlerMsg);
                             }
@@ -897,7 +919,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                                     plugin.getLogger()
                                         .severe("Exception handler threw an exception while handling EXECUTION: "
                                                 + handlerException.getMessage());
-                                    handlerException.printStackTrace();
+                                    logException(handlerException);
                                 }
                             }
                         }
@@ -908,7 +930,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                         if (plugin != null) {
                             plugin.getLogger()
                                 .severe("Error executing command '" + name + "' asynchronously: " + cause.getMessage());
-                            cause.printStackTrace();
+                            logException(cause);
                         }
                     }
                 });
@@ -1053,7 +1075,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
             if (plugin != null) {
                 plugin.getLogger()
                     .severe("Unhandled exception in tab completion for command '" + name + "': " + t.getMessage());
-                t.printStackTrace();
+                logException(t);
             }
             return Collections.emptyList();
         }
