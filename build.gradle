@@ -27,12 +27,6 @@ dependencies {
     annotationProcessor 'org.projectlombok:lombok:1.18.30'
 
     compileOnly 'org.spigotmc:spigot-api:1.21.10-R0.1-SNAPSHOT'
-    implementation 'fr.mrmicky:fastboard:2.1.5' // Using mrmicky's FastBoard API, cause its just the best
-
-    // Config format parsers
-    implementation 'org.yaml:snakeyaml:2.5'
-    implementation 'com.google.code.gson:gson:2.10.1'
-    implementation 'com.moandjiezana.toml:toml4j:0.7.2'
 
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.13.4'
     testImplementation 'org.junit.jupiter:junit-jupiter-params:5.13.4'
