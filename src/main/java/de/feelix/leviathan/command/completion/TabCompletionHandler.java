@@ -4,7 +4,7 @@ import de.feelix.leviathan.annotations.NotNull;
 import de.feelix.leviathan.command.argument.Arg;
 import de.feelix.leviathan.command.argument.ArgContext;
 import de.feelix.leviathan.command.argument.ParseResult;
-import de.feelix.leviathan.command.core.FluentCommand;
+import de.feelix.leviathan.command.core.SlashCommand;
 import de.feelix.leviathan.command.guard.Guard;
 import de.feelix.leviathan.command.message.MessageProvider;
 import de.feelix.leviathan.command.validation.ValidationHelper;
@@ -16,7 +16,7 @@ import org.bukkit.entity.Player;
 import java.util.*;
 
 /**
- * Handles tab completion logic for FluentCommand.
+ * Handles tab completion logic for SlashCommand.
  * Encapsulates the complex logic for generating context-aware completions
  * including permission checks, validation, and dynamic completion providers.
  */
@@ -32,7 +32,7 @@ public final class TabCompletionHandler {
      * @param sender the command sender requesting completions
      * @param alias the command alias used
      * @param providedArgs the arguments typed so far
-     * @param command the FluentCommand instance
+     * @param command the SlashCommand instance
      * @param messages the message provider for error messages
      * @return list of completion suggestions
      */
@@ -40,7 +40,7 @@ public final class TabCompletionHandler {
             @NotNull CommandSender sender,
             @NotNull String alias,
             @NotNull String[] providedArgs,
-            @NotNull FluentCommand command,
+            @NotNull SlashCommand command,
             @NotNull MessageProvider messages) {
         
         Preconditions.checkNotNull(sender, "sender");
@@ -117,7 +117,7 @@ public final class TabCompletionHandler {
             @NotNull CommandSender sender,
             @NotNull String alias,
             @NotNull String[] providedArgs,
-            @NotNull FluentCommand command) {
+            @NotNull SlashCommand command) {
         
         if (providedArgs.length == 0) {
             return Collections.emptyList();
@@ -125,12 +125,12 @@ public final class TabCompletionHandler {
 
         String first = providedArgs[0];
         String firstLow = first.toLowerCase(Locale.ROOT);
-        FluentCommand sub = command.subcommands().get(firstLow);
+        SlashCommand sub = command.subcommands().get(firstLow);
 
         if (providedArgs.length == 1) {
             // Suggest subcommand aliases, filtered by permission
             List<String> names = new ArrayList<>();
-            for (Map.Entry<String, FluentCommand> e : command.subcommands().entrySet()) {
+            for (Map.Entry<String, SlashCommand> e : command.subcommands().entrySet()) {
                 String perm = e.getValue().permission();
                 if (perm != null && !perm.isEmpty() && !sender.hasPermission(perm)) continue;
                 String key = e.getKey();
@@ -159,7 +159,7 @@ public final class TabCompletionHandler {
             int index,
             int argCount,
             boolean lastIsGreedy,
-            @NotNull FluentCommand command,
+            @NotNull SlashCommand command,
             @NotNull String alias,
             @NotNull CommandSender sender,
             @NotNull String[] providedArgs,
@@ -187,7 +187,7 @@ public final class TabCompletionHandler {
             int currentArgIndex,
             @NotNull String[] providedArgs,
             @NotNull CommandSender sender,
-            @NotNull FluentCommand command,
+            @NotNull SlashCommand command,
             @NotNull Map<String, Object> parsedSoFar,
             @NotNull MessageProvider messages) {
         
@@ -265,7 +265,7 @@ public final class TabCompletionHandler {
             @NotNull String alias,
             @NotNull String[] providedArgs,
             int currentArgIndex,
-            @NotNull FluentCommand command,
+            @NotNull SlashCommand command,
             @NotNull Map<String, Object> parsedSoFar) {
         
         List<String> completions = current.context().completionsPredefined();

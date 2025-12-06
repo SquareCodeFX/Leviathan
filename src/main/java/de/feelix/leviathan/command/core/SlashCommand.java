@@ -50,20 +50,33 @@ import java.util.stream.Collectors;
  *   <li>Configurable asynchronous execution via {@link CompletableFuture}</li>
  * </ul>
  * This class implements both {@link CommandExecutor} and {@link TabCompleter} and is typically
- * created and configured via its {@link FluentCommandBuilder}, then registered against a command declared in plugin
+ * created and configured via its {@link SlashCommandBuilder}, then registered against a command declared in plugin
  * .yml.
  */
-public final class FluentCommand implements CommandExecutor, TabCompleter {
+public final class SlashCommand implements CommandExecutor, TabCompleter {
 
 
     /**
      * Create a new builder for a command with the given name.
      *
      * @param name Primary command name as declared in plugin.yml.
-     * @return a new FluentCommandBuilder instance
+     * @return a new SlashCommandBuilder instance
      */
-    public static @NotNull FluentCommandBuilder builder(@NotNull String name) {
-        return new FluentCommandBuilder(name);
+    public static @NotNull SlashCommandBuilder builder(@NotNull String name) {
+        return new SlashCommandBuilder(name);
+    }
+
+    /**
+     * Fluent alias for {@link #builder(String)}.
+     * Create a new command builder with the given name.
+     * <p>
+     * This provides a more concise entry point: {@code SlashCommand.create("mycommand")}
+     *
+     * @param name Primary command name as declared in plugin.yml.
+     * @return a new SlashCommandBuilder instance
+     */
+    public static @NotNull SlashCommandBuilder create(@NotNull String name) {
+        return builder(name);
     }
 
     private final String name;
@@ -75,7 +88,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
     private final boolean async;
     final boolean validateOnTab;
     final List<Arg<?>> args;
-    final Map<String, FluentCommand> subcommands;
+    final Map<String, SlashCommand> subcommands;
     private final CommandAction action;
     private final AsyncCommandAction asyncActionAdv;
     private final long asyncTimeoutMillis;
@@ -89,7 +102,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
     private final MessageProvider messages;
     JavaPlugin plugin;
     private boolean subOnly = false;
-    @Nullable private FluentCommand parent = null;
+    @Nullable private SlashCommand parent = null;
 
 
     /**
@@ -107,7 +120,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
      *
      * @param parent the parent command
      */
-    void setParent(@NotNull FluentCommand parent) {
+    void setParent(@NotNull SlashCommand parent) {
         Preconditions.checkNotNull(parent, "parent");
         this.parent = parent;
     }
@@ -219,7 +232,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
     /**
      * @return an immutable map of subcommand aliases to subcommand instances
      */
-    public @NotNull Map<String, FluentCommand> subcommands() {
+    public @NotNull Map<String, SlashCommand> subcommands() {
         return Map.copyOf(subcommands);
     }
 
@@ -237,15 +250,15 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
         return plugin;
     }
 
-    FluentCommand(String name, List<String> aliases, String description, String permission, boolean playerOnly,
-                  boolean sendErrors,
-                  List<Arg<?>> args, CommandAction action, boolean async, boolean validateOnTab,
-                  Map<String, FluentCommand> subcommands,
-                  @Nullable AsyncCommandAction asyncActionAdv, long asyncTimeoutMillis,
-                  List<Guard> guards, List<CrossArgumentValidator> crossArgumentValidators,
-                  @Nullable ExceptionHandler exceptionHandler,
-                  long perUserCooldownMillis, long perServerCooldownMillis, boolean enableHelp,
-                  @Nullable MessageProvider messages) {
+    SlashCommand(String name, List<String> aliases, String description, String permission, boolean playerOnly,
+                 boolean sendErrors,
+                 List<Arg<?>> args, CommandAction action, boolean async, boolean validateOnTab,
+                 Map<String, SlashCommand> subcommands,
+                 @Nullable AsyncCommandAction asyncActionAdv, long asyncTimeoutMillis,
+                 List<Guard> guards, List<CrossArgumentValidator> crossArgumentValidators,
+                 @Nullable ExceptionHandler exceptionHandler,
+                 long perUserCooldownMillis, long perServerCooldownMillis, boolean enableHelp,
+                 @Nullable MessageProvider messages) {
         this.name = Preconditions.checkNotNull(name, "name");
         this.aliases = List.copyOf(aliases == null ? List.of() : aliases);
         this.description = (description == null) ? "" : description;
@@ -339,7 +352,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
     /**
      * Programmatically execute this command with the given label and arguments.
      * Useful for dispatching to a selected sub-command obtained via a choice argument
-     * (e.g., using {@link FluentCommandBuilder#argCommandChoices(String, Map)}).
+     * (e.g., using {@link SlashCommandBuilder#argCommandChoices(String, Map)}).
      *
      * @param sender       the command sender
      * @param label        the label used to execute the command
@@ -402,7 +415,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
         // Automatic subcommand routing: if the first token matches a registered subcommand, delegate to it
         if (!subcommands.isEmpty() && providedArgs.length >= 1) {
             String first = providedArgs[0].toLowerCase(Locale.ROOT);
-            FluentCommand sub = subcommands.get(first);
+            SlashCommand sub = subcommands.get(first);
             if (sub != null) {
                 String[] remaining = Arrays.copyOfRange(providedArgs, 1, providedArgs.length);
                 try {
@@ -761,7 +774,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
      * @param command the command to categorize
      * @return the category key for sorting
      */
-    private int categorizeByArguments(@NotNull FluentCommand command) {
+    private int categorizeByArguments(@NotNull SlashCommand command) {
         List<Arg<?>> args = command.args();
         
         if (args.isEmpty()) {
@@ -809,17 +822,17 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
             sb.append(messages.helpSubCommandsHeader(formattedName, commandPath));
             
             // Get unique subcommands (since aliases point to the same command)
-            Set<FluentCommand> uniqueSubcommands = new LinkedHashSet<>(subcommands.values());
+            Set<SlashCommand> uniqueSubcommands = new LinkedHashSet<>(subcommands.values());
             
             // Sort subcommands by argument requirements:
             // 1. No arguments first
             // 2. Optional arguments only
             // 3. Both optional and required
             // 4. Required arguments only last
-            List<FluentCommand> sortedSubcommands = new ArrayList<>(uniqueSubcommands);
+            List<SlashCommand> sortedSubcommands = new ArrayList<>(uniqueSubcommands);
             sortedSubcommands.sort(Comparator.comparingInt(this::categorizeByArguments));
             
-            for (FluentCommand sub : sortedSubcommands) {
+            for (SlashCommand sub : sortedSubcommands) {
 
                 sb.append(messages.helpSubCommandPrefix(sub.name()));
                 String subUsage = sub.usage();
@@ -842,7 +855,7 @@ public final class FluentCommand implements CommandExecutor, TabCompleter {
     /**
      * Provide tab-completion options for the current argument token.
      * Respects command-level and per-argument permissions, and can optionally
-     * validate previously typed tokens when {@link FluentCommandBuilder#validateOnTab(boolean)} is enabled.
+     * validate previously typed tokens when {@link SlashCommandBuilder#validateOnTab(boolean)} is enabled.
      */
     @SuppressWarnings("NullableProblems")
     @Override

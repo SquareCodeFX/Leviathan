@@ -6,7 +6,7 @@ import de.feelix.leviathan.annotations.NotNull;
  * Default English implementation of {@link MessageProvider}.
  * <p>
  * Provides the standard English messages that were previously hardcoded
- * throughout the FluentCommand API.
+ * throughout the SlashCommand API.
  */
 public class DefaultMessageProvider implements MessageProvider {
 

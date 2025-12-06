@@ -21,10 +21,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 
 /**
- * Builder for {@link FluentCommand}. Provides a fluent API to define arguments,
+ * Builder for {@link SlashCommand}. Provides a fluent API to define arguments,
  * permissions, behavior, and registration.
  */
-public final class FluentCommandBuilder {
+public final class SlashCommandBuilder {
     private final String name;
     private final List<String> aliases = new ArrayList<>();
     private String description = "";
@@ -34,7 +34,7 @@ public final class FluentCommandBuilder {
     private boolean async = false;
     private boolean validateOnTab = false;
     private final List<Arg<?>> args = new ArrayList<>();
-    private final Map<String, FluentCommand> subcommands = new LinkedHashMap<>();
+    private final Map<String, SlashCommand> subcommands = new LinkedHashMap<>();
     private CommandAction action = (s, c) -> {};
     // Async advanced
     private AsyncCommandAction asyncAction = null;
@@ -53,7 +53,7 @@ public final class FluentCommandBuilder {
     // Message provider
     private @Nullable MessageProvider messages = null;
 
-    FluentCommandBuilder(String name) {
+    SlashCommandBuilder(String name) {
         this.name = Preconditions.checkNotNull(name, "name");
     }
 
@@ -63,9 +63,20 @@ public final class FluentCommandBuilder {
      * @param description Description text used for help/usage pages.
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder description(@Nullable String description) {
+    public @NotNull SlashCommandBuilder description(@Nullable String description) {
         this.description = description;
         return this;
+    }
+
+    /**
+     * Fluent alias for {@link #description(String)}.
+     * Makes the API read more naturally: {@code withDescription("Teleport to spawn")}
+     *
+     * @param description Description text used for help/usage pages.
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder withDescription(@Nullable String description) {
+        return description(description);
     }
 
     /**
@@ -75,9 +86,20 @@ public final class FluentCommandBuilder {
      * @param permission Bukkit permission node
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder permission(@Nullable String permission) {
+    public @NotNull SlashCommandBuilder permission(@Nullable String permission) {
         this.permission = permission;
         return this;
+    }
+
+    /**
+     * Fluent alias for {@link #permission(String)}.
+     * Makes the API read more naturally: {@code withPermission("admin.use")}
+     *
+     * @param permission Bukkit permission node
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder withPermission(@Nullable String permission) {
+        return permission(permission);
     }
 
     /**
@@ -90,7 +112,7 @@ public final class FluentCommandBuilder {
      * @param aliases additional command names/aliases for subcommand routing
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder aliases(@NotNull String... aliases) {
+    public @NotNull SlashCommandBuilder aliases(@NotNull String... aliases) {
         if (aliases != null) {
             for (String alias : aliases) {
                 if (alias != null && !alias.trim().isEmpty()) {
@@ -111,11 +133,22 @@ public final class FluentCommandBuilder {
      * @param alias additional command name/alias for subcommand routing
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder alias(@NotNull String alias) {
+    public @NotNull SlashCommandBuilder alias(@NotNull String alias) {
         if (alias != null && !alias.trim().isEmpty()) {
             this.aliases.add(alias.trim());
         }
         return this;
+    }
+
+    /**
+     * Fluent alias for {@link #aliases(String...)}.
+     * Makes the API read more naturally: {@code withAliases("alt1", "alt2")}
+     *
+     * @param aliases additional command names/aliases for subcommand routing
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder withAliases(@NotNull String... aliases) {
+        return aliases(aliases);
     }
 
     /**
@@ -124,7 +157,7 @@ public final class FluentCommandBuilder {
      * @param playerOnly true to allow only players to execute
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder playerOnly(boolean playerOnly) {
+    public @NotNull SlashCommandBuilder playerOnly(boolean playerOnly) {
         this.playerOnly = playerOnly;
         return this;
     }
@@ -136,7 +169,7 @@ public final class FluentCommandBuilder {
      * @param send true to send error messages to the sender
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder sendErrors(boolean send) {
+    public @NotNull SlashCommandBuilder sendErrors(boolean send) {
         this.sendErrors = send;
         return this;
     }
@@ -149,7 +182,7 @@ public final class FluentCommandBuilder {
      * @param enable true to enable automatic help, false to disable (default: false)
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder enableHelp(boolean enable) {
+    public @NotNull SlashCommandBuilder enableHelp(boolean enable) {
         this.enableHelp = enable;
         return this;
     }
@@ -162,9 +195,20 @@ public final class FluentCommandBuilder {
      * @param provider the message provider to use (can be null to use default)
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder messages(@Nullable MessageProvider provider) {
+    public @NotNull SlashCommandBuilder messages(@Nullable MessageProvider provider) {
         this.messages = provider;
         return this;
+    }
+
+    /**
+     * Fluent alias for {@link #messages(MessageProvider)}.
+     * Makes the API read more naturally: {@code withMessages(customProvider)}
+     *
+     * @param provider the message provider to use (can be null to use default)
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder withMessages(@Nullable MessageProvider provider) {
+        return messages(provider);
     }
 
     /**
@@ -173,7 +217,7 @@ public final class FluentCommandBuilder {
      * @param name argument name (no whitespace)
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder argInt(@NotNull String name) {
+    public @NotNull SlashCommandBuilder argInt(@NotNull String name) {
         return arg(new Arg<>(name, false, ArgParsers.intParser()));
     }
 
@@ -184,7 +228,7 @@ public final class FluentCommandBuilder {
      * @param argContext per-argument configuration
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder argInt(@NotNull String name, @NotNull ArgContext argContext) {
+    public @NotNull SlashCommandBuilder argInt(@NotNull String name, @NotNull ArgContext argContext) {
         return arg(new Arg<>(name, ArgParsers.intParser(), Preconditions.checkNotNull(argContext, "argContext")));
     }
 
@@ -194,7 +238,7 @@ public final class FluentCommandBuilder {
      * @param name argument name (no whitespace)
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder argLong(@NotNull String name) {
+    public @NotNull SlashCommandBuilder argLong(@NotNull String name) {
         return arg(new Arg<>(name, false, ArgParsers.longParser()));
     }
 
@@ -205,7 +249,7 @@ public final class FluentCommandBuilder {
      * @param argContext per-argument configuration
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder argLong(@NotNull String name, @NotNull ArgContext argContext) {
+    public @NotNull SlashCommandBuilder argLong(@NotNull String name, @NotNull ArgContext argContext) {
         return arg(new Arg<>(name, ArgParsers.longParser(), Preconditions.checkNotNull(argContext, "argContext")));
     }
 
@@ -215,7 +259,7 @@ public final class FluentCommandBuilder {
      * @param name argument name (no whitespace)
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder argString(@NotNull String name) {
+    public @NotNull SlashCommandBuilder argString(@NotNull String name) {
         return arg(new Arg<>(name, false, ArgParsers.stringParser()));
     }
 
@@ -226,7 +270,7 @@ public final class FluentCommandBuilder {
      * @param argContext per-argument configuration
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder argString(@NotNull String name, @NotNull ArgContext argContext) {
+    public @NotNull SlashCommandBuilder argString(@NotNull String name, @NotNull ArgContext argContext) {
         return arg(new Arg<>(
             name, ArgParsers.stringParser(), Preconditions.checkNotNull(
             argContext,
@@ -241,7 +285,7 @@ public final class FluentCommandBuilder {
      * @param name argument name (no whitespace)
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder argUUID(@NotNull String name) {
+    public @NotNull SlashCommandBuilder argUUID(@NotNull String name) {
         return arg(new Arg<>(name, false, ArgParsers.uuidParser()));
     }
 
@@ -252,7 +296,7 @@ public final class FluentCommandBuilder {
      * @param argContext per-argument configuration
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder argUUID(@NotNull String name, @NotNull ArgContext argContext) {
+    public @NotNull SlashCommandBuilder argUUID(@NotNull String name, @NotNull ArgContext argContext) {
         return arg(new Arg<>(name, ArgParsers.uuidParser(), Preconditions.checkNotNull(argContext, "argContext")));
     }
 
@@ -262,7 +306,7 @@ public final class FluentCommandBuilder {
      * @param name argument name (no whitespace)
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder argDouble(@NotNull String name) {
+    public @NotNull SlashCommandBuilder argDouble(@NotNull String name) {
         return arg(new Arg<>(name, false, ArgParsers.doubleParser()));
     }
 
@@ -273,7 +317,7 @@ public final class FluentCommandBuilder {
      * @param argContext per-argument configuration
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder argDouble(@NotNull String name, @NotNull ArgContext argContext) {
+    public @NotNull SlashCommandBuilder argDouble(@NotNull String name, @NotNull ArgContext argContext) {
         return arg(new Arg<>(name, ArgParsers.doubleParser(), Preconditions.checkNotNull(argContext, "argContext")));
     }
 
@@ -283,7 +327,7 @@ public final class FluentCommandBuilder {
      * @param name argument name (no whitespace)
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder argFloat(@NotNull String name) {
+    public @NotNull SlashCommandBuilder argFloat(@NotNull String name) {
         return arg(new Arg<>(name, false, ArgParsers.floatParser()));
     }
 
@@ -294,7 +338,7 @@ public final class FluentCommandBuilder {
      * @param argContext per-argument configuration
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder argFloat(@NotNull String name, @NotNull ArgContext argContext) {
+    public @NotNull SlashCommandBuilder argFloat(@NotNull String name, @NotNull ArgContext argContext) {
         return arg(new Arg<>(name, ArgParsers.floatParser(), Preconditions.checkNotNull(argContext, "argContext")));
     }
 
@@ -305,7 +349,7 @@ public final class FluentCommandBuilder {
      * @param name argument name (no whitespace)
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder argBoolean(@NotNull String name) {
+    public @NotNull SlashCommandBuilder argBoolean(@NotNull String name) {
         return arg(new Arg<>(name, false, ArgParsers.booleanParser()));
     }
 
@@ -316,7 +360,7 @@ public final class FluentCommandBuilder {
      * @param argContext per-argument configuration
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder argBoolean(@NotNull String name, @NotNull ArgContext argContext) {
+    public @NotNull SlashCommandBuilder argBoolean(@NotNull String name, @NotNull ArgContext argContext) {
         return arg(new Arg<>(name, ArgParsers.booleanParser(), Preconditions.checkNotNull(argContext, "argContext")));
     }
 
@@ -326,7 +370,7 @@ public final class FluentCommandBuilder {
      * @param name argument name (no whitespace)
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder argPlayer(@NotNull String name) {
+    public @NotNull SlashCommandBuilder argPlayer(@NotNull String name) {
         return arg(new Arg<>(name, false, ArgParsers.playerParser()));
     }
 
@@ -337,7 +381,7 @@ public final class FluentCommandBuilder {
      * @param argContext per-argument configuration
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder argPlayer(@NotNull String name, @NotNull ArgContext argContext) {
+    public @NotNull SlashCommandBuilder argPlayer(@NotNull String name, @NotNull ArgContext argContext) {
         return arg(new Arg<>(name, ArgParsers.playerParser(), Preconditions.checkNotNull(argContext, "argContext")));
     }
 
@@ -347,7 +391,7 @@ public final class FluentCommandBuilder {
      * @param name argument name (no whitespace)
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder argOfflinePlayer(@NotNull String name) {
+    public @NotNull SlashCommandBuilder argOfflinePlayer(@NotNull String name) {
         return arg(new Arg<>(name, false, ArgParsers.offlinePlayerParser()));
     }
 
@@ -358,7 +402,7 @@ public final class FluentCommandBuilder {
      * @param argContext per-argument configuration
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder argOfflinePlayer(@NotNull String name, @NotNull ArgContext argContext) {
+    public @NotNull SlashCommandBuilder argOfflinePlayer(@NotNull String name, @NotNull ArgContext argContext) {
         return arg(new Arg<>(name, ArgParsers.offlinePlayerParser(), Preconditions.checkNotNull(argContext, "argContext")));
     }
 
@@ -368,7 +412,7 @@ public final class FluentCommandBuilder {
      * @param name argument name (no whitespace)
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder argWorld(@NotNull String name) {
+    public @NotNull SlashCommandBuilder argWorld(@NotNull String name) {
         return arg(new Arg<>(name, false, ArgParsers.worldParser()));
     }
 
@@ -379,7 +423,7 @@ public final class FluentCommandBuilder {
      * @param argContext per-argument configuration
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder argWorld(@NotNull String name, @NotNull ArgContext argContext) {
+    public @NotNull SlashCommandBuilder argWorld(@NotNull String name, @NotNull ArgContext argContext) {
         return arg(new Arg<>(name, ArgParsers.worldParser(), Preconditions.checkNotNull(argContext, "argContext")));
     }
 
@@ -389,7 +433,7 @@ public final class FluentCommandBuilder {
      * @param name argument name (no whitespace)
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder argMaterial(@NotNull String name) {
+    public @NotNull SlashCommandBuilder argMaterial(@NotNull String name) {
         return arg(new Arg<>(name, false, ArgParsers.materialParser()));
     }
 
@@ -400,7 +444,7 @@ public final class FluentCommandBuilder {
      * @param argContext per-argument configuration
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder argMaterial(@NotNull String name, @NotNull ArgContext argContext) {
+    public @NotNull SlashCommandBuilder argMaterial(@NotNull String name, @NotNull ArgContext argContext) {
         return arg(new Arg<>(name, ArgParsers.materialParser(), Preconditions.checkNotNull(argContext, "argContext")));
     }
 
@@ -412,7 +456,7 @@ public final class FluentCommandBuilder {
      * @param <E>       enum type
      * @return this builder
      */
-    public <E extends Enum<E>> @NotNull FluentCommandBuilder argEnum(@NotNull String name, @NotNull Class<E> enumClass) {
+    public <E extends Enum<E>> @NotNull SlashCommandBuilder argEnum(@NotNull String name, @NotNull Class<E> enumClass) {
         return arg(new Arg<>(name, false, ArgParsers.enumParser(enumClass)));
     }
 
@@ -425,7 +469,7 @@ public final class FluentCommandBuilder {
      * @param <E>        enum type
      * @return this builder
      */
-    public <E extends Enum<E>> @NotNull FluentCommandBuilder argEnum(@NotNull String name, @NotNull Class<E> enumClass, @NotNull ArgContext argContext) {
+    public <E extends Enum<E>> @NotNull SlashCommandBuilder argEnum(@NotNull String name, @NotNull Class<E> enumClass, @NotNull ArgContext argContext) {
         return arg(new Arg<>(name, ArgParsers.enumParser(enumClass), Preconditions.checkNotNull(argContext, "argContext")));
     }
 
@@ -438,7 +482,7 @@ public final class FluentCommandBuilder {
      * @param max  maximum value (inclusive)
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder argIntRange(@NotNull String name, int min, int max) {
+    public @NotNull SlashCommandBuilder argIntRange(@NotNull String name, int min, int max) {
         Preconditions.checkArgument(min <= max, "min must be <= max for range [" + min + ", " + max + "]");
         return arg(new Arg<>(name, ArgParsers.intParser(), 
             ArgContext.builder().intRange(min, max).build()));
@@ -453,7 +497,7 @@ public final class FluentCommandBuilder {
      * @param max  maximum value (inclusive)
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder argLongRange(@NotNull String name, long min, long max) {
+    public @NotNull SlashCommandBuilder argLongRange(@NotNull String name, long min, long max) {
         Preconditions.checkArgument(min <= max, "min must be <= max for range [" + min + ", " + max + "]");
         return arg(new Arg<>(name, ArgParsers.longParser(), 
             ArgContext.builder().longRange(min, max).build()));
@@ -468,7 +512,7 @@ public final class FluentCommandBuilder {
      * @param max  maximum value (inclusive)
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder argDoubleRange(@NotNull String name, double min, double max) {
+    public @NotNull SlashCommandBuilder argDoubleRange(@NotNull String name, double min, double max) {
         Preconditions.checkArgument(min <= max, "min must be <= max for range [" + min + ", " + max + "]");
         return arg(new Arg<>(name, ArgParsers.doubleParser(), 
             ArgContext.builder().doubleRange(min, max).build()));
@@ -483,7 +527,7 @@ public final class FluentCommandBuilder {
      * @param max  maximum value (inclusive)
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder argFloatRange(@NotNull String name, float min, float max) {
+    public @NotNull SlashCommandBuilder argFloatRange(@NotNull String name, float min, float max) {
         Preconditions.checkArgument(min <= max, "min must be <= max for range [" + min + ", " + max + "]");
         return arg(new Arg<>(name, ArgParsers.floatParser(), 
             ArgContext.builder().floatRange(min, max).build()));
@@ -498,7 +542,7 @@ public final class FluentCommandBuilder {
      * @param maxLength maximum length (inclusive)
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder argStringLength(@NotNull String name, int minLength, int maxLength) {
+    public @NotNull SlashCommandBuilder argStringLength(@NotNull String name, int minLength, int maxLength) {
         Preconditions.checkNonNegative(minLength, "minLength");
         Preconditions.checkNonNegative(maxLength, "maxLength");
         Preconditions.checkArgument(minLength <= maxLength, "minLength must be <= maxLength for range [" + minLength + ", " + maxLength + "]");
@@ -515,7 +559,7 @@ public final class FluentCommandBuilder {
      * @param validate true to validate tokens typed before the current one
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder validateOnTab(boolean validate) {
+    public @NotNull SlashCommandBuilder validateOnTab(boolean validate) {
         this.validateOnTab = validate;
         return this;
     }
@@ -528,8 +572,8 @@ public final class FluentCommandBuilder {
      * @param displayType type name shown in error messages (e.g., "gamemode")
      * @return this builder
      */
-    public <T> @NotNull FluentCommandBuilder argChoices(@NotNull String name, @NotNull Map<String, T> choices,
-                                                        @NotNull String displayType) {
+    public <T> @NotNull SlashCommandBuilder argChoices(@NotNull String name, @NotNull Map<String, T> choices,
+                                                       @NotNull String displayType) {
         return arg(new Arg<>(name, false, ArgParsers.choices(choices, displayType)));
     }
 
@@ -542,8 +586,8 @@ public final class FluentCommandBuilder {
      * @param argContext  per-argument configuration
      * @return this builder
      */
-    public <T> @NotNull FluentCommandBuilder argChoices(@NotNull String name, @NotNull Map<String, T> choices,
-                                                        @NotNull String displayType, @NotNull ArgContext argContext) {
+    public <T> @NotNull SlashCommandBuilder argChoices(@NotNull String name, @NotNull Map<String, T> choices,
+                                                       @NotNull String displayType, @NotNull ArgContext argContext) {
         return arg(new Arg<>(
             name, ArgParsers.choices(choices, displayType),
             Preconditions.checkNotNull(argContext, "argContext")
@@ -556,17 +600,17 @@ public final class FluentCommandBuilder {
      * <pre>{@code
      * .argCommandChoices("action", Map.of("list", listCommand, "add", addCommand), "action")
      * .executes((s, ctx) -> {
-     *     FluentCommand sub = ctx.get("action", FluentCommand.class);
+     *     SlashCommand sub = ctx.get("action", SlashCommand.class);
      *     sub.execute(s, sub.name(), new String[0]);
      * });
      * }</pre>
      *
      * @param name    argument name
-     * @param choices mapping from alias (case-insensitive) to FluentCommand subcommand
+     * @param choices mapping from alias (case-insensitive) to SlashCommand subcommand
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder argCommandChoices(@NotNull String name,
-                                                           @NotNull Map<String, FluentCommand> choices) {
+    public @NotNull SlashCommandBuilder argCommandChoices(@NotNull String name,
+                                                          @NotNull Map<String, SlashCommand> choices) {
         return arg(new Arg<>(name, false, ArgParsers.choices(choices, "command")));
     }
 
@@ -574,13 +618,13 @@ public final class FluentCommandBuilder {
      * Add a command-choice argument with explicit {@link ArgContext}.
      *
      * @param name       argument name
-     * @param choices    mapping from alias (case-insensitive) to FluentCommand subcommand
+     * @param choices    mapping from alias (case-insensitive) to SlashCommand subcommand
      * @param argContext per-argument configuration
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder argCommandChoices(@NotNull String name,
-                                                           @NotNull Map<String, FluentCommand> choices,
-                                                           @NotNull ArgContext argContext) {
+    public @NotNull SlashCommandBuilder argCommandChoices(@NotNull String name,
+                                                          @NotNull Map<String, SlashCommand> choices,
+                                                          @NotNull ArgContext argContext) {
         return arg(new Arg<>(
             name, ArgParsers.choices(choices, "command"),
             Preconditions.checkNotNull(argContext, "argContext")
@@ -593,7 +637,7 @@ public final class FluentCommandBuilder {
      * @param arg the argument definition
      * @return this builder
      */
-    public <T> @NotNull FluentCommandBuilder arg(@NotNull Arg<T> arg) {
+    public <T> @NotNull SlashCommandBuilder arg(@NotNull Arg<T> arg) {
         Preconditions.checkNotNull(arg, "arg");
         this.args.add(arg);
         return this;
@@ -606,7 +650,7 @@ public final class FluentCommandBuilder {
      * @param parser custom parser for the argument
      * @return this builder
      */
-    public <T> @NotNull FluentCommandBuilder arg(@NotNull String name, @NotNull ArgumentParser<T> parser) {
+    public <T> @NotNull SlashCommandBuilder arg(@NotNull String name, @NotNull ArgumentParser<T> parser) {
         return arg(new Arg<>(name, false, parser));
     }
 
@@ -618,8 +662,8 @@ public final class FluentCommandBuilder {
      * @param argContext per-argument configuration
      * @return this builder
      */
-    public <T> @NotNull FluentCommandBuilder arg(@NotNull String name, @NotNull ArgumentParser<T> parser,
-                                                 @NotNull ArgContext argContext) {
+    public <T> @NotNull SlashCommandBuilder arg(@NotNull String name, @NotNull ArgumentParser<T> parser,
+                                                @NotNull ArgContext argContext) {
         return arg(new Arg<>(name, parser, Preconditions.checkNotNull(argContext, "argContext")));
     }
 
@@ -632,8 +676,8 @@ public final class FluentCommandBuilder {
      * @param condition predicate that determines if this argument should be parsed
      * @return this builder
      */
-    public <T> @NotNull FluentCommandBuilder argIf(@NotNull String name, @NotNull ArgumentParser<T> parser,
-                                                    @NotNull Predicate<CommandContext> condition) {
+    public <T> @NotNull SlashCommandBuilder argIf(@NotNull String name, @NotNull ArgumentParser<T> parser,
+                                                  @NotNull Predicate<CommandContext> condition) {
         Preconditions.checkNotNull(name, "name");
         Preconditions.checkNotNull(parser, "parser");
         Preconditions.checkNotNull(condition, "condition");
@@ -649,9 +693,9 @@ public final class FluentCommandBuilder {
      * @param argContext per-argument configuration
      * @return this builder
      */
-    public <T> @NotNull FluentCommandBuilder argIf(@NotNull String name, @NotNull ArgumentParser<T> parser,
-                                                    @NotNull Predicate<CommandContext> condition,
-                                                    @NotNull ArgContext argContext) {
+    public <T> @NotNull SlashCommandBuilder argIf(@NotNull String name, @NotNull ArgumentParser<T> parser,
+                                                  @NotNull Predicate<CommandContext> condition,
+                                                  @NotNull ArgContext argContext) {
         Preconditions.checkNotNull(name, "name");
         Preconditions.checkNotNull(parser, "parser");
         Preconditions.checkNotNull(condition, "condition");
@@ -665,23 +709,23 @@ public final class FluentCommandBuilder {
      * @param action callback invoked with the sender and parsed context
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder executes(@NotNull CommandAction action) {
+    public @NotNull SlashCommandBuilder executes(@NotNull CommandAction action) {
         this.action = Preconditions.checkNotNull(action, "action");
         this.asyncAction = null;
         return this;
     }
 
     /**
-     * Register one or more subcommands using each subcommand's own {@link FluentCommand#name()} as the alias.
+     * Register one or more subcommands using each subcommand's own {@link SlashCommand#name()} as the alias.
      * Aliases are matched case-insensitively.
      *
      * @param subs Subcommands to register (must not contain nulls).
      * @return this builder
      * @throws CommandConfigurationException if any sub is null or duplicate aliases are detected
      */
-    public @NotNull FluentCommandBuilder sub(@Nullable FluentCommand... subs) {
+    public @NotNull SlashCommandBuilder sub(@Nullable SlashCommand... subs) {
         if (subs == null) return this;
-        for (FluentCommand sc : subs) {
+        for (SlashCommand sc : subs) {
             if (sc == null) {
                 throw new CommandConfigurationException("Subcommand must not be null");
             }
@@ -700,9 +744,31 @@ public final class FluentCommandBuilder {
     }
 
     /**
+     * Fluent alias for {@link #sub(SlashCommand...)}.
+     * Makes the API read more naturally: {@code withSubcommands(cmd1, cmd2, cmd3)}
+     *
+     * @param subs Subcommands to register (must not contain nulls).
+     * @return this builder
+     * @throws CommandConfigurationException if any sub is null or duplicate aliases are detected
+     */
+    public @NotNull SlashCommandBuilder withSubcommands(@Nullable SlashCommand... subs) {
+        return sub(subs);
+    }
+
+    /**
+     * Convenience method to mark the command as player-only in one call.
+     * Equivalent to {@code playerOnly(true)}.
+     *
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder playersOnly() {
+        return playerOnly(true);
+    }
+
+    /**
      * Require a specific sender type (e.g., Player.class).
      */
-    public @NotNull FluentCommandBuilder require(@NotNull Class<? extends CommandSender> type) {
+    public @NotNull SlashCommandBuilder require(@NotNull Class<? extends CommandSender> type) {
         Preconditions.checkNotNull(type, "type");
         final MessageProvider msgProvider = this.messages;
         this.guards.add(new Guard() {
@@ -725,7 +791,7 @@ public final class FluentCommandBuilder {
     /**
      * Add one or more custom guard predicates.
      */
-    public @NotNull FluentCommandBuilder require(@NotNull Guard... guards) {
+    public @NotNull SlashCommandBuilder require(@NotNull Guard... guards) {
         Preconditions.checkNotNull(guards, "guards");
         for (Guard g : guards) {
             if (g != null) this.guards.add(g);
@@ -741,7 +807,7 @@ public final class FluentCommandBuilder {
      * @param validator the cross-argument validator to add
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder addCrossArgumentValidator(@NotNull CrossArgumentValidator validator) {
+    public @NotNull SlashCommandBuilder addCrossArgumentValidator(@NotNull CrossArgumentValidator validator) {
         Preconditions.checkNotNull(validator, "validator");
         this.crossArgumentValidators.add(validator);
         return this;
@@ -754,7 +820,7 @@ public final class FluentCommandBuilder {
      * @param handler the exception handler
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder exceptionHandler(@Nullable ExceptionHandler handler) {
+    public @NotNull SlashCommandBuilder exceptionHandler(@Nullable ExceptionHandler handler) {
         this.exceptionHandler = handler;
         return this;
     }
@@ -765,7 +831,7 @@ public final class FluentCommandBuilder {
      * @param async true to execute off the main thread
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder async(boolean async) {
+    public @NotNull SlashCommandBuilder async(boolean async) {
         this.async = async;
         return this;
     }
@@ -776,7 +842,7 @@ public final class FluentCommandBuilder {
      * @param action callback invoked with the sender and parsed context
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder executesAsync(@NotNull CommandAction action) {
+    public @NotNull SlashCommandBuilder executesAsync(@NotNull CommandAction action) {
         this.action = Preconditions.checkNotNull(action, "action");
         this.asyncAction = null;
         this.async = true;
@@ -790,7 +856,7 @@ public final class FluentCommandBuilder {
      * @param action        async action implementation
      * @param timeoutMillis timeout in milliseconds ({@code <= 0} for no timeout)
      */
-    public @NotNull FluentCommandBuilder executesAsync(@NotNull AsyncCommandAction action, long timeoutMillis) {
+    public @NotNull SlashCommandBuilder executesAsync(@NotNull AsyncCommandAction action, long timeoutMillis) {
         this.async = true;
         this.asyncAction = Preconditions.checkNotNull(action, "action");
         this.asyncTimeoutMillis = timeoutMillis;
@@ -800,7 +866,7 @@ public final class FluentCommandBuilder {
     /**
      * Define an asynchronous command action without timeout.
      */
-    public @NotNull FluentCommandBuilder executesAsync(@NotNull AsyncCommandAction action) {
+    public @NotNull SlashCommandBuilder executesAsync(@NotNull AsyncCommandAction action) {
         return executesAsync(action, 0L);
     }
 
@@ -811,7 +877,7 @@ public final class FluentCommandBuilder {
      * @param cooldownMillis cooldown duration in milliseconds (0 = no cooldown)
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder perUserCooldown(long cooldownMillis) {
+    public @NotNull SlashCommandBuilder perUserCooldown(long cooldownMillis) {
         this.perUserCooldownMillis = Preconditions.checkNonNegative(cooldownMillis, "cooldownMillis");
         return this;
     }
@@ -823,20 +889,20 @@ public final class FluentCommandBuilder {
      * @param cooldownMillis cooldown duration in milliseconds (0 = no cooldown)
      * @return this builder
      */
-    public @NotNull FluentCommandBuilder perServerCooldown(long cooldownMillis) {
+    public @NotNull SlashCommandBuilder perServerCooldown(long cooldownMillis) {
         this.perServerCooldownMillis = Preconditions.checkNonNegative(cooldownMillis, "cooldownMillis");
         return this;
     }
 
     /**
-     * Validate the configuration and build the immutable {@link FluentCommand}.
+     * Validate the configuration and build the immutable {@link SlashCommand}.
      *
      * @return the configured command instance
      * @throws CommandConfigurationException if configuration is invalid (e.g., duplicate arg names,
      *                                       required-after-optional, bad greedy placement)
      * @throws ParsingException              if a parser violates its contract (e.g., blank type name)
      */
-    public @NotNull FluentCommand build() {
+    public @NotNull SlashCommand build() {
         if (name.trim().isEmpty()) {
             throw new CommandConfigurationException("Command name must not be blank");
         }
@@ -883,13 +949,13 @@ public final class FluentCommandBuilder {
             }
         }
         // Validate subcommands and register both primary names and aliases in the routing map
-        Map<String, FluentCommand> subs = new LinkedHashMap<>();
-        for (Map.Entry<String, FluentCommand> e : subcommands.entrySet()) {
+        Map<String, SlashCommand> subs = new LinkedHashMap<>();
+        for (Map.Entry<String, SlashCommand> e : subcommands.entrySet()) {
             String k = e.getKey();
             if (k == null || k.trim().isEmpty() || e.getValue() == null) {
                 throw new CommandConfigurationException("Invalid subcommand entry");
             }
-            FluentCommand subCmd = e.getValue();
+            SlashCommand subCmd = e.getValue();
             
             // Forward parent's exceptionHandler to subcommand if subcommand doesn't have its own
             if (subCmd.exceptionHandler == null && this.exceptionHandler != null) {
@@ -914,7 +980,7 @@ public final class FluentCommandBuilder {
                 subs.put(aliasLow, subCmd);
             }
         }
-        FluentCommand cmd = new FluentCommand(
+        SlashCommand cmd = new SlashCommand(
             name, aliases, description, permission, playerOnly, sendErrors, args, action, async, validateOnTab, subs,
             asyncAction, (asyncTimeoutMillis == null ? 0L : asyncTimeoutMillis),
             guards, crossArgumentValidators, exceptionHandler,
@@ -922,7 +988,7 @@ public final class FluentCommandBuilder {
         );
         
         // Set parent reference for all subcommands
-        for (FluentCommand subCmd : new java.util.HashSet<>(subs.values())) {
+        for (SlashCommand subCmd : new java.util.HashSet<>(subs.values())) {
             subCmd.setParent(cmd);
         }
         
@@ -939,7 +1005,7 @@ public final class FluentCommandBuilder {
      */
     public void register(@NotNull JavaPlugin plugin) {
         Preconditions.checkNotNull(plugin, "plugin");
-        FluentCommand cmd = build();
+        SlashCommand cmd = build();
         cmd.plugin = plugin;
 
         // Register primary command

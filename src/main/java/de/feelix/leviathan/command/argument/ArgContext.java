@@ -44,7 +44,7 @@ public final class ArgContext {
     private final @Nullable String permission;
     private final @NotNull List<String> completionsPredefined;
     /**
-     * Optional dynamic completion provider. When present, FluentCommand will invoke it on tab-complete.
+     * Optional dynamic completion provider. When present, SlashCommand will invoke it on tab-complete.
      */
     private final @Nullable DynamicCompletionProvider completionsDynamic;
 
@@ -171,6 +171,15 @@ public final class ArgContext {
         public @NotNull Builder optional(boolean optional) { this.optional = optional; return this; }
         public @NotNull Builder greedy(boolean greedy) { this.greedy = greedy; return this; }
         public @NotNull Builder permission(@Nullable String permission) { this.permission = permission; return this; }
+        
+        /**
+         * Fluent alias for {@link #permission(String)}.
+         * Makes the API read more naturally: {@code withPermission("admin.use")}
+         */
+        public @NotNull Builder withPermission(@Nullable String permission) { 
+            return permission(permission); 
+        }
+        
         public @NotNull Builder completionsPredefined(@NotNull List<String> completions) {
             Preconditions.checkNotNull(completions, "completions");
             this.completionsPredefined = new ArrayList<>();
@@ -181,7 +190,24 @@ public final class ArgContext {
             }
             return this;
         }
+        
+        /**
+         * Fluent alias for {@link #completionsPredefined(List)}.
+         * Makes the API read more naturally: {@code withCompletions(List.of("option1", "option2"))}
+         */
+        public @NotNull Builder withCompletions(@NotNull List<String> completions) { 
+            return completionsPredefined(completions); 
+        }
+        
         public @NotNull Builder completionsDynamic(@Nullable DynamicCompletionProvider provider) { this.completionsDynamic = provider; return this; }
+        
+        /**
+         * Fluent alias for {@link #completionsDynamic(DynamicCompletionProvider)}.
+         * Makes the API read more naturally: {@code withDynamicCompletions(provider)}
+         */
+        public @NotNull Builder withDynamicCompletions(@Nullable DynamicCompletionProvider provider) { 
+            return completionsDynamic(provider); 
+        }
         
         // Integer range validation
         public @NotNull Builder intMin(@Nullable Integer min) { this.intMin = min; return this; }

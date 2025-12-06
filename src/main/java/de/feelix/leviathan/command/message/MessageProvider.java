@@ -3,7 +3,7 @@ package de.feelix.leviathan.command.message;
 import de.feelix.leviathan.annotations.NotNull;
 
 /**
- * Provides customizable messages for the FluentCommand API.
+ * Provides customizable messages for the SlashCommand API.
  * <p>
  * All methods return formatted strings that will be sent to command senders
  * when various events occur during command processing.
