@@ -202,7 +202,7 @@ public final class PaginationHelper {
      *
      * @param currentPage the current page number
      * @param totalPages  the total number of pages
-     * @return navigation bar like "<< [1] 2 3 ... 10 >>"
+     * @return navigation bar like {@literal "<< [1] 2 3 ... 10 >>"}
      */
     public static @NotNull String createNavigationBar(int currentPage, int totalPages) {
         return createNavigationBar(currentPage, totalPages, PaginationConfig.defaults());
