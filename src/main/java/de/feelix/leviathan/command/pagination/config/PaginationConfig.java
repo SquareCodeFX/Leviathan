@@ -1,6 +1,7 @@
 package de.feelix.leviathan.command.pagination.config;
 
 import de.feelix.leviathan.command.pagination.exception.ConfigurationException;
+import lombok.Getter;
 
 import java.time.Duration;
 import java.util.Objects;
@@ -38,6 +39,7 @@ import java.util.Objects;
  * @see PaginationConfig.Builder
  * @since 1.0.0
  */
+@Getter
 public final class PaginationConfig {
 
     /**
@@ -63,54 +65,68 @@ public final class PaginationConfig {
 
     /**
      * Number of items to display per page
+     * Get the number of items displayed per page.
      */
     private final int pageSize;
     /**
      * Number of page numbers visible in navigation bar
+     *  Get the number of page numbers visible in navigation.
      */
     private final int visiblePages;
     /**
      * Number of pages shown on each side of the current page
+     * Get the number of pages shown on each side of the current page.
      */
     private final int sidePages;
     /**
      * Time-to-live duration for cached pagination results
+     * Get the time-to-live duration for cached pagination results.
      */
     private final Duration cacheTtl;
     /**
      * Maximum number of entries allowed in the cache
+     * Get the maximum number of entries allowed in the cache.
+     *
      */
     private final int cacheMaxSize;
     /**
      * Whether caching of pagination results is enabled
+     * Check if caching of pagination results is enabled.
      */
     private final boolean cacheEnabled;
     /**
      * Whether asynchronous pagination operations are enabled
+     * Check if asynchronous pagination operations are enabled.
      */
     private final boolean asyncEnabled;
     /**
      * Symbol used to indicate omitted pages (e.g., "...")
+     * Get the symbol used to indicate omitted pages in navigation.
      */
     private final String ellipsis;
     /**
      * Separator between page numbers in navigation (e.g., " | ")
+     * Get the separator between page numbers in navigation display.
      */
     private final String pageSeparator;
     /**
      * Prefix displayed before the current page number (e.g., "_")
+     * Get the prefix displayed before the current page number.
      */
     private final String currentPagePrefix;
     /**
      * Suffix displayed after the current page number (e.g., "_")
+     * Get the suffix displayed after the current page number.
      */
     private final String currentPageSuffix;
     /**
      * Symbol for navigating to the previous page (e.g., "<-")
+     * Get the symbol for navigating to the previous page.
      */
     private final String previousSymbol;
     /**
      * Symbol for navigating to the next page (e.g., "->")
+     * Get the symbol for navigating to the next page.
      */
     private final String nextSymbol;
 
@@ -146,123 +162,6 @@ public final class PaginationConfig {
      */
     public static PaginationConfig defaults() {
         return builder().build();
-    }
-
-    /**
-     * Get the number of items displayed per page.
-     *
-     * @return the page size (minimum 1)
-     */
-    public int getPageSize() {
-        return pageSize;
-    }
-
-    /**
-     * Get the number of page numbers visible in navigation.
-     *
-     * @return the number of visible page numbers
-     */
-    public int getVisiblePages() {
-        return visiblePages;
-    }
-
-    /**
-     * Get the number of pages shown on each side of the current page.
-     *
-     * @return the number of side pages
-     */
-    public int getSidePages() {
-        return sidePages;
-    }
-
-    /**
-     * Get the time-to-live duration for cached pagination results.
-     *
-     * @return the cache TTL duration
-     */
-    public Duration getCacheTtl() {
-        return cacheTtl;
-    }
-
-    /**
-     * Get the maximum number of entries allowed in the cache.
-     *
-     * @return the maximum cache size
-     */
-    public int getCacheMaxSize() {
-        return cacheMaxSize;
-    }
-
-    /**
-     * Check if caching of pagination results is enabled.
-     *
-     * @return true if caching is enabled, false otherwise
-     */
-    public boolean isCacheEnabled() {
-        return cacheEnabled;
-    }
-
-    /**
-     * Check if asynchronous pagination operations are enabled.
-     *
-     * @return true if async operations are enabled, false otherwise
-     */
-    public boolean isAsyncEnabled() {
-        return asyncEnabled;
-    }
-
-    /**
-     * Get the symbol used to indicate omitted pages in navigation.
-     *
-     * @return the ellipsis string (e.g., "...")
-     */
-    public String getEllipsis() {
-        return ellipsis;
-    }
-
-    /**
-     * Get the separator between page numbers in navigation display.
-     *
-     * @return the page separator string (e.g., " | ")
-     */
-    public String getPageSeparator() {
-        return pageSeparator;
-    }
-
-    /**
-     * Get the prefix displayed before the current page number.
-     *
-     * @return the current page prefix (e.g., "_")
-     */
-    public String getCurrentPagePrefix() {
-        return currentPagePrefix;
-    }
-
-    /**
-     * Get the suffix displayed after the current page number.
-     *
-     * @return the current page suffix (e.g., "_")
-     */
-    public String getCurrentPageSuffix() {
-        return currentPageSuffix;
-    }
-
-    /**
-     * Get the symbol for navigating to the previous page.
-     *
-     * @return the previous page symbol (e.g., "<-")
-     */
-    public String getPreviousSymbol() {
-        return previousSymbol;
-    }
-
-    /**
-     * Get the symbol for navigating to the next page.
-     *
-     * @return the next page symbol (e.g., "->")
-     */
-    public String getNextSymbol() {
-        return nextSymbol;
     }
 
     /**

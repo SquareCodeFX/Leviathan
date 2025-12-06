@@ -1,6 +1,7 @@
 package de.feelix.leviathan.command.pagination.domain;
 
 import de.feelix.leviathan.command.pagination.exception.InvalidPageException;
+import lombok.Getter;
 
 import java.util.Objects;
 
@@ -16,8 +17,10 @@ import java.util.Objects;
  * </ul>
  * Provides convenience methods for navigation and range calculations used by renderers.
  */
+@Getter
 public final class PageInfo {
 
+    // Getters
     private final int currentPage;
     private final int totalPages;
     private final int pageSize;
@@ -122,27 +125,6 @@ public final class PageInfo {
     public int getEndIndex() {
         if (isEmpty()) return 0;
         return getStartIndex() + elementsOnPage - 1;
-    }
-
-    // Getters
-    public int getCurrentPage() {
-        return currentPage;
-    }
-
-    public int getTotalPages() {
-        return totalPages;
-    }
-
-    public int getPageSize() {
-        return pageSize;
-    }
-
-    public long getTotalElements() {
-        return totalElements;
-    }
-
-    public int getElementsOnPage() {
-        return elementsOnPage;
     }
 
     /**
