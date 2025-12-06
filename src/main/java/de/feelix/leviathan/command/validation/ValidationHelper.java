@@ -21,11 +21,11 @@ public final class ValidationHelper {
     /**
      * Validates a numeric value against min/max constraints.
      *
-     * @param value the numeric value to validate
-     * @param min   the minimum allowed value (null means no minimum)
-     * @param max   the maximum allowed value (null means no maximum)
+     * @param value    the numeric value to validate
+     * @param min      the minimum allowed value (null means no minimum)
+     * @param max      the maximum allowed value (null means no maximum)
      * @param messages the message provider for validation messages
-     * @param <T>   the numeric type (Integer, Long, Double, Float)
+     * @param <T>      the numeric type (Integer, Long, Double, Float)
      * @return null if valid, or an error message string if invalid
      */
     private static <T extends Number & Comparable<T>> @Nullable String validateNumericRange(

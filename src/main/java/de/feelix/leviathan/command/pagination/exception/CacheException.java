@@ -11,7 +11,9 @@ package de.feelix.leviathan.command.pagination.exception;
  */
 public final class CacheException extends PaginationException {
 
-    /** Error code for cache failures. */
+    /**
+     * Error code for cache failures.
+     */
     private static final String ERROR_CODE = "PAG-004";
 
     /**

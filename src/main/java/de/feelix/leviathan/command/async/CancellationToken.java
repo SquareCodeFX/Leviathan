@@ -8,20 +8,20 @@ package de.feelix.leviathan.command.async;
  */
 public final class CancellationToken {
     private volatile boolean cancelled;
-    
+
     /**
      * Marks this token as cancelled.
      */
-    public void cancel() { 
-        this.cancelled = true; 
+    public void cancel() {
+        this.cancelled = true;
     }
-    
+
     /**
      * Checks if this token has been cancelled.
      *
      * @return true if cancelled, false otherwise
      */
     public boolean cancelled() {
-        return cancelled; 
+        return cancelled;
     }
 }

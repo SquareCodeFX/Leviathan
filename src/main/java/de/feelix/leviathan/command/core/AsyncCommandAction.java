@@ -21,9 +21,9 @@ public interface AsyncCommandAction {
     /**
      * Execute the async command action.
      *
-     * @param sender the command sender
-     * @param ctx parsed argument context
-     * @param token cancellation token to check for cancellation requests
+     * @param sender   the command sender
+     * @param ctx      parsed argument context
+     * @param token    cancellation token to check for cancellation requests
      * @param progress progress reporter for sending status updates
      */
     void execute(@NotNull CommandSender sender,

@@ -22,7 +22,8 @@ public interface PaginationDataSource<T> {
     /**
      * Fetches a page of data.
      *
-     * @param offset The starting index (0-based). If {@code offset >= count()}, implementations should return an empty list.
+     * @param offset The starting index (0-based). If {@code offset >= count()}, implementations should return an
+     *               empty list.
      * @param limit  The maximum number of items to return (must be at least 1)
      * @return List of items for the requested page (never null)
      */
@@ -39,7 +40,8 @@ public interface PaginationDataSource<T> {
 
     /**
      * Returns the total count of elements.
-     * Implementations should make a best effort to keep this count consistent with pages returned by {@link #fetch(long, int)}.
+     * Implementations should make a best effort to keep this count consistent with pages returned by
+     * {@link #fetch(long, int)}.
      *
      * @return Total number of elements (non-negative)
      */

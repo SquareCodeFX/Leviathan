@@ -25,7 +25,7 @@ import java.util.logging.Level;
  * including permission checks, validation, and dynamic completion providers.
  */
 public final class TabCompletionHandler {
-    
+
     private TabCompletionHandler() {
         // Utility class - prevent instantiation
     }
@@ -33,28 +33,28 @@ public final class TabCompletionHandler {
     /**
      * Generate tab completions for the given command context.
      *
-     * @param sender the command sender requesting completions
-     * @param alias the command alias used
+     * @param sender       the command sender requesting completions
+     * @param alias        the command alias used
      * @param providedArgs the arguments typed so far
-     * @param command the SlashCommand instance
-     * @param messages the message provider for error messages
+     * @param command      the SlashCommand instance
+     * @param messages     the message provider for error messages
      * @return list of completion suggestions
      */
     public static @NotNull List<String> generateCompletions(
-            @NotNull CommandSender sender,
-            @NotNull String alias,
-            @NotNull String[] providedArgs,
-            @NotNull SlashCommand command,
-            @NotNull MessageProvider messages) {
-        
+        @NotNull CommandSender sender,
+        @NotNull String alias,
+        @NotNull String[] providedArgs,
+        @NotNull SlashCommand command,
+        @NotNull MessageProvider messages) {
+
         Preconditions.checkNotNull(sender, "sender");
         Preconditions.checkNotNull(alias, "alias");
         Preconditions.checkNotNull(providedArgs, "providedArgs");
         Preconditions.checkNotNull(command, "command");
 
         // Gate completions by command-level permission
-        if (command.permission() != null && !command.permission().isEmpty() 
-                && !sender.hasPermission(command.permission())) {
+        if (command.permission() != null && !command.permission().isEmpty()
+            && !sender.hasPermission(command.permission())) {
             return Collections.emptyList();
         }
 
@@ -87,7 +87,8 @@ public final class TabCompletionHandler {
         int argCount = command.args().size();
 
         // Determine current argument index
-        int currentArgIndex = determineCurrentArgIndex(index, argCount, lastIsGreedy, command, alias, sender, providedArgs, messages);
+        int currentArgIndex = determineCurrentArgIndex(
+            index, argCount, lastIsGreedy, command, alias, sender, providedArgs, messages);
         if (currentArgIndex < 0) return Collections.emptyList();
 
         // Validate previously entered arguments if enabled
@@ -99,10 +100,10 @@ public final class TabCompletionHandler {
         }
 
         Arg<?> current = command.args().get(currentArgIndex);
-        
+
         // Check per-argument permission
-        if (current.permission() != null && !current.permission().isEmpty() 
-                && !sender.hasPermission(current.permission())) {
+        if (current.permission() != null && !current.permission().isEmpty()
+            && !sender.hasPermission(current.permission())) {
             return Collections.emptyList();
         }
 
@@ -110,19 +111,21 @@ public final class TabCompletionHandler {
         String prefix = determinePrefix(providedArgs, index, currentArgIndex, argCount, lastIsGreedy);
 
         // Generate suggestions
-        return generateSuggestions(current, prefix, sender, alias, providedArgs, 
-                currentArgIndex, command, parsedSoFar);
+        return generateSuggestions(
+            current, prefix, sender, alias, providedArgs,
+            currentArgIndex, command, parsedSoFar
+        );
     }
 
     /**
      * Handle tab completions for subcommands.
      */
     private static @NotNull List<String> handleSubcommandCompletions(
-            @NotNull CommandSender sender,
-            @NotNull String alias,
-            @NotNull String[] providedArgs,
-            @NotNull SlashCommand command) {
-        
+        @NotNull CommandSender sender,
+        @NotNull String alias,
+        @NotNull String[] providedArgs,
+        @NotNull SlashCommand command) {
+
         if (providedArgs.length == 0) {
             return Collections.emptyList();
         }
@@ -144,13 +147,13 @@ public final class TabCompletionHandler {
                     names.add(key);
                 }
             }
-            
+
             // If fuzzy matching is enabled and no exact prefix matches, suggest similar subcommands
             if (names.isEmpty() && command.fuzzySubcommandMatching() && !firstLow.isEmpty()) {
                 List<String> similar = StringSimilarity.findSimilar(firstLow, allSubcommandNames, 3, 0.4);
                 names.addAll(similar);
             }
-            
+
             Collections.sort(names);
             return names;
         }
@@ -169,15 +172,15 @@ public final class TabCompletionHandler {
      * Determine the current argument index accounting for greedy arguments.
      */
     private static int determineCurrentArgIndex(
-            int index,
-            int argCount,
-            boolean lastIsGreedy,
-            @NotNull SlashCommand command,
-            @NotNull String alias,
-            @NotNull CommandSender sender,
-            @NotNull String[] providedArgs,
-            @NotNull MessageProvider messages) {
-        
+        int index,
+        int argCount,
+        boolean lastIsGreedy,
+        @NotNull SlashCommand command,
+        @NotNull String alias,
+        @NotNull CommandSender sender,
+        @NotNull String[] providedArgs,
+        @NotNull MessageProvider messages) {
+
         if (index >= argCount) {
             if (!lastIsGreedy) {
                 // Too many arguments typed
@@ -197,28 +200,28 @@ public final class TabCompletionHandler {
      * @return true if all previous arguments are valid, false otherwise
      */
     private static boolean validatePreviousArguments(
-            int currentArgIndex,
-            @NotNull String[] providedArgs,
-            @NotNull CommandSender sender,
-            @NotNull SlashCommand command,
-            @NotNull Map<String, Object> parsedSoFar,
-            @NotNull MessageProvider messages) {
-        
+        int currentArgIndex,
+        @NotNull String[] providedArgs,
+        @NotNull CommandSender sender,
+        @NotNull SlashCommand command,
+        @NotNull Map<String, Object> parsedSoFar,
+        @NotNull MessageProvider messages) {
+
         for (int i = 0; i < currentArgIndex; i++) {
             Arg<?> prev = command.args().get(i);
-            
+
             // Check per-argument permission
-            if (prev.permission() != null && !prev.permission().isEmpty() 
-                    && !sender.hasPermission(prev.permission())) {
+            if (prev.permission() != null && !prev.permission().isEmpty()
+                && !sender.hasPermission(prev.permission())) {
                 return false;
             }
 
             String token = providedArgs[i];
             ParseResult<?> res = prev.parser().parse(token, sender);
-            
+
             if (res == null) {
                 throw new ParsingException(
-                    "Parser " + prev.parser().getClass().getName() 
+                    "Parser " + prev.parser().getClass().getName()
                     + " returned null ParseResult for argument '" + prev.name() + "'");
             }
 
@@ -229,19 +232,20 @@ public final class TabCompletionHandler {
                 }
                 return false;
             }
-            
+
             Object parsedValue = res.value().orElse(null);
-            
+
             // Apply validations from ArgContext (range, length, pattern, custom validators)
             ArgContext ctx = prev.context();
-            String validationError = ValidationHelper.validateValue(parsedValue, ctx, prev.name(), prev.parser().getTypeName(), messages);
+            String validationError = ValidationHelper.validateValue(
+                parsedValue, ctx, prev.name(), prev.parser().getTypeName(), messages);
             if (validationError != null) {
                 if (command.sendErrors()) {
                     sender.sendMessage(messages.validationFailed(prev.name(), validationError));
                 }
                 return false;
             }
-            
+
             parsedSoFar.put(prev.name(), parsedValue);
         }
         return true;
@@ -251,12 +255,12 @@ public final class TabCompletionHandler {
      * Determine the prefix string for completion matching, accounting for greedy arguments.
      */
     private static @NotNull String determinePrefix(
-            @NotNull String[] providedArgs,
-            int index,
-            int currentArgIndex,
-            int argCount,
-            boolean lastIsGreedy) {
-        
+        @NotNull String[] providedArgs,
+        int index,
+        int currentArgIndex,
+        int argCount,
+        boolean lastIsGreedy) {
+
         if (lastIsGreedy && currentArgIndex == argCount - 1) {
             // Join all tokens that belong to the greedy argument
             int greedyStart = argCount - 1;
@@ -277,33 +281,34 @@ public final class TabCompletionHandler {
      * Generate completion suggestions for the current argument.
      */
     private static @NotNull List<String> generateSuggestions(
-            @NotNull Arg<?> current,
-            @NotNull String prefix,
-            @NotNull CommandSender sender,
-            @NotNull String alias,
-            @NotNull String[] providedArgs,
-            int currentArgIndex,
-            @NotNull SlashCommand command,
-            @NotNull Map<String, Object> parsedSoFar) {
-        
+        @NotNull Arg<?> current,
+        @NotNull String prefix,
+        @NotNull CommandSender sender,
+        @NotNull String alias,
+        @NotNull String[] providedArgs,
+        int currentArgIndex,
+        @NotNull SlashCommand command,
+        @NotNull Map<String, Object> parsedSoFar) {
+
         List<String> completions = current.context().completionsPredefined();
-        
+
         // Check for predefined completions first
         if (!completions.isEmpty()) {
             return filterAndSort(completions, prefix);
         }
-        
+
         // Check for dynamic completion provider
         if (current.context().completionsDynamic() != null) {
             ArgContext.DynamicCompletionProvider provider = current.context().completionsDynamic();
             DynamicCompletionContext dctx = new DynamicCompletionContext(
-                sender, alias, providedArgs, currentArgIndex, prefix, 
-                command.args(), parsedSoFar, command);
+                sender, alias, providedArgs, currentArgIndex, prefix,
+                command.args(), parsedSoFar, command
+            );
             List<String> dyn = provider.provide(dctx);
             if (dyn == null) dyn = Collections.emptyList();
             return filterAndSort(dyn, prefix);
         }
-        
+
         // Check for async predefined completion supplier
         if (current.context().completionsPredefinedAsync() != null) {
             ArgContext.AsyncPredefinedCompletionSupplier supplier = current.context().completionsPredefinedAsync();
@@ -315,18 +320,21 @@ public final class TabCompletionHandler {
             } catch (Exception e) {
                 // Log the error and fall through to other completion sources
                 if (command.plugin() != null) {
-                    command.plugin().getLogger().log(Level.WARNING, 
-                        "Async predefined completion failed for argument '" + current.name() + "'", e);
+                    command.plugin().getLogger().log(
+                        Level.WARNING,
+                        "Async predefined completion failed for argument '" + current.name() + "'", e
+                    );
                 }
             }
         }
-        
+
         // Check for async dynamic completion provider
         if (current.context().completionsDynamicAsync() != null) {
             ArgContext.AsyncDynamicCompletionProvider provider = current.context().completionsDynamicAsync();
             DynamicCompletionContext dctx = new DynamicCompletionContext(
-                sender, alias, providedArgs, currentArgIndex, prefix, 
-                command.args(), parsedSoFar, command);
+                sender, alias, providedArgs, currentArgIndex, prefix,
+                command.args(), parsedSoFar, command
+            );
             try {
                 CompletableFuture<List<String>> future = provider.provideAsync(dctx);
                 List<String> asyncDyn = future.get(ASYNC_COMPLETION_TIMEOUT_MS, TimeUnit.MILLISECONDS);
@@ -335,17 +343,19 @@ public final class TabCompletionHandler {
             } catch (Exception e) {
                 // Log the error and fall through to parser completions
                 if (command.plugin() != null) {
-                    command.plugin().getLogger().log(Level.WARNING, 
-                        "Async dynamic completion failed for argument '" + current.name() + "'", e);
+                    command.plugin().getLogger().log(
+                        Level.WARNING,
+                        "Async dynamic completion failed for argument '" + current.name() + "'", e
+                    );
                 }
             }
         }
-        
+
         // Fall back to parser completions
         List<String> suggestions = current.parser().complete(prefix, sender);
         if (suggestions == null) {
             throw new ParsingException(
-                "Parser " + current.parser().getClass().getName() 
+                "Parser " + current.parser().getClass().getName()
                 + " returned null suggestions for argument '" + current.name() + "'");
         }
         Collections.sort(suggestions);
@@ -368,16 +378,16 @@ public final class TabCompletionHandler {
             Collections.sort(result);
             return result;
         }
-        
+
         String pfxLow = prefix.toLowerCase(Locale.ROOT);
         List<String> exactMatches = new ArrayList<>();
         List<String> prefixMatches = new ArrayList<>();
         List<String> substringMatches = new ArrayList<>();
-        
+
         for (String s : completions) {
             if (s == null) continue;
             String sLow = s.toLowerCase(Locale.ROOT);
-            
+
             // Exact match (case-insensitive)
             if (sLow.equals(pfxLow)) {
                 exactMatches.add(s);
@@ -391,18 +401,18 @@ public final class TabCompletionHandler {
                 substringMatches.add(s);
             }
         }
-        
+
         // Sort each category
         Collections.sort(exactMatches);
         Collections.sort(prefixMatches);
         Collections.sort(substringMatches);
-        
+
         // Combine: exact first, then prefix, then substring
         List<String> result = new ArrayList<>();
         result.addAll(exactMatches);
         result.addAll(prefixMatches);
         result.addAll(substringMatches);
-        
+
         return result;
     }
 }

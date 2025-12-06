@@ -12,6 +12,7 @@ import de.feelix.leviathan.util.Preconditions;
 public class CommandExecutionException extends RuntimeException {
     /**
      * Create a new command execution exception.
+     *
      * @param message description of the execution error
      */
     public CommandExecutionException(@NotNull String message) {
@@ -20,8 +21,9 @@ public class CommandExecutionException extends RuntimeException {
 
     /**
      * Create a new command execution exception with a cause.
+     *
      * @param message description of the execution error
-     * @param cause underlying cause (may be original throwable or its cause)
+     * @param cause   underlying cause (may be original throwable or its cause)
      */
     public CommandExecutionException(@NotNull String message, @Nullable Throwable cause) {
         super(Preconditions.checkNotNull(message, "message"), cause);

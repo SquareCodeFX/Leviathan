@@ -30,9 +30,10 @@ public final class Arg<T> {
 
     /**
      * Create an argument with default context.
-     * @param name argument name (no whitespace)
+     *
+     * @param name     argument name (no whitespace)
      * @param optional whether this argument is optional
-     * @param parser parser used to parse this argument's token(s)
+     * @param parser   parser used to parse this argument's token(s)
      */
     public Arg(@NotNull String name, boolean optional, @NotNull ArgumentParser<T> parser) {
         this(name, parser, ArgContext.builder().optional(optional).build());
@@ -40,9 +41,10 @@ public final class Arg<T> {
 
     /**
      * Create an argument with a permission requirement (default greedy=false).
-     * @param name argument name (no whitespace)
-     * @param optional whether this argument is optional
-     * @param parser parser used to parse this argument's token(s)
+     *
+     * @param name       argument name (no whitespace)
+     * @param optional   whether this argument is optional
+     * @param parser     parser used to parse this argument's token(s)
      * @param permission required permission to use/see this argument (null/blank for none)
      */
     public Arg(@NotNull String name, boolean optional, @NotNull ArgumentParser<T> parser, @Nullable String permission) {
@@ -51,13 +53,15 @@ public final class Arg<T> {
 
     /**
      * Full constructor allowing greedy configuration.
-     * @param name argument name (no whitespace)
-     * @param optional whether this argument is optional
-     * @param parser parser used to parse this argument's token(s)
+     *
+     * @param name       argument name (no whitespace)
+     * @param optional   whether this argument is optional
+     * @param parser     parser used to parse this argument's token(s)
      * @param permission required permission to use/see this argument (null/blank for none)
-     * @param greedy if true and this is last, captures the rest of the input as one string value
+     * @param greedy     if true and this is last, captures the rest of the input as one string value
      */
-    public Arg(@NotNull String name, boolean optional, @NotNull ArgumentParser<T> parser, @Nullable String permission, boolean greedy) {
+    public Arg(@NotNull String name, boolean optional, @NotNull ArgumentParser<T> parser, @Nullable String permission,
+               boolean greedy) {
         this(name, parser, ArgContext.builder().optional(optional).permission(permission).greedy(greedy).build());
     }
 
@@ -118,32 +122,44 @@ public final class Arg<T> {
     /**
      * @return the required permission to use this argument, or null if none
      */
-    public @Nullable String permission() { return context.permission(); }
+    public @Nullable String permission() {
+        return context.permission();
+    }
 
     /**
      * @return true if this is a greedy trailing string argument
      */
-    public boolean greedy() { return context.greedy(); }
+    public boolean greedy() {
+        return context.greedy();
+    }
 
     /**
      * @return the broad option type for this argument, inferred from its parser
      */
-    public @NotNull OptionType optionType() { return optionType; }
+    public @NotNull OptionType optionType() {
+        return optionType;
+    }
 
     /**
      * @return the associated {@link ArgContext}
      */
-    public @NotNull ArgContext context() { return context; }
+    public @NotNull ArgContext context() {
+        return context;
+    }
 
     /**
      * @return the condition predicate for this argument, or null if none
      */
-    public @Nullable Predicate<CommandContext> condition() { return condition; }
+    public @Nullable Predicate<CommandContext> condition() {
+        return condition;
+    }
 
     /**
      * @return the transformer function for this argument, or null if none
      */
-    public @Nullable Function<T, T> transformer() { return transformer; }
+    public @Nullable Function<T, T> transformer() {
+        return transformer;
+    }
 
     /**
      * Helper method to copy all properties from the current context into a new builder.
@@ -153,19 +169,19 @@ public final class Arg<T> {
      */
     private @NotNull ArgContext.Builder copyContextToBuilder() {
         ArgContext.Builder b = ArgContext.builder()
-                .optional(context.optional())
-                .greedy(context.greedy())
-                .permission(context.permission())
-                .completionsPredefined(new ArrayList<>(context.completionsPredefined()))
-                .completionsDynamic(context.completionsDynamic())
-                .intRange(context.intMin(), context.intMax())
-                .longRange(context.longMin(), context.longMax())
-                .doubleRange(context.doubleMin(), context.doubleMax())
-                .floatRange(context.floatMin(), context.floatMax())
-                .stringLengthRange(context.stringMinLength(), context.stringMaxLength())
-                .stringPattern(context.stringPattern())
-                .didYouMean(context.didYouMean())
-                .defaultValue(context.defaultValue());
+            .optional(context.optional())
+            .greedy(context.greedy())
+            .permission(context.permission())
+            .completionsPredefined(new ArrayList<>(context.completionsPredefined()))
+            .completionsDynamic(context.completionsDynamic())
+            .intRange(context.intMin(), context.intMax())
+            .longRange(context.longMin(), context.longMax())
+            .doubleRange(context.doubleMin(), context.doubleMax())
+            .floatRange(context.floatMin(), context.floatMax())
+            .stringLengthRange(context.stringMinLength(), context.stringMaxLength())
+            .stringPattern(context.stringPattern())
+            .didYouMean(context.didYouMean())
+            .defaultValue(context.defaultValue());
         for (ArgContext.Validator<?> validator : context.customValidators()) {
             b.addValidator(validator);
         }
@@ -196,6 +212,7 @@ public final class Arg<T> {
     /**
      * Return a copy of this argument with a default value.
      * When this argument is not provided by the user, the default value will be used.
+     *
      * @param value the default value to use when the argument is missing
      * @return a new Arg instance with the default value set
      */
@@ -206,6 +223,7 @@ public final class Arg<T> {
     /**
      * Return a copy of this argument with a condition.
      * The argument will only be parsed if the condition evaluates to true.
+     *
      * @param condition the predicate to evaluate based on previously parsed arguments
      * @return a new Arg instance with the condition set
      */
@@ -216,6 +234,7 @@ public final class Arg<T> {
     /**
      * Return a copy of this argument with a transformer.
      * The transformer will be applied to the parsed value before validation.
+     *
      * @param transformer the function to transform the parsed value
      * @return a new Arg instance with the transformer set
      */

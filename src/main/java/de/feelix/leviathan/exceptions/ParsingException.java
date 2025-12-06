@@ -15,6 +15,7 @@ import de.feelix.leviathan.util.Preconditions;
 public class ParsingException extends RuntimeException {
     /**
      * Create a new parsing exception.
+     *
      * @param message human-readable description of the developer error
      */
     public ParsingException(@NotNull String message) {
@@ -23,8 +24,9 @@ public class ParsingException extends RuntimeException {
 
     /**
      * Create a new parsing exception with a cause.
+     *
      * @param message human-readable description of the developer error
-     * @param cause underlying cause
+     * @param cause   underlying cause
      */
     public ParsingException(@NotNull String message, @Nullable Throwable cause) {
         super(Preconditions.checkNotNull(message, "message"), cause);

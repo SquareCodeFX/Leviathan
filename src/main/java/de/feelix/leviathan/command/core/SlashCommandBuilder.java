@@ -422,7 +422,8 @@ public final class SlashCommandBuilder {
      * @return this builder
      */
     public @NotNull SlashCommandBuilder argOfflinePlayer(@NotNull String name, @NotNull ArgContext argContext) {
-        return arg(new Arg<>(name, ArgParsers.offlinePlayerParser(), Preconditions.checkNotNull(argContext, "argContext")));
+        return arg(
+            new Arg<>(name, ArgParsers.offlinePlayerParser(), Preconditions.checkNotNull(argContext, "argContext")));
     }
 
     /**
@@ -488,8 +489,10 @@ public final class SlashCommandBuilder {
      * @param <E>        enum type
      * @return this builder
      */
-    public <E extends Enum<E>> @NotNull SlashCommandBuilder argEnum(@NotNull String name, @NotNull Class<E> enumClass, @NotNull ArgContext argContext) {
-        return arg(new Arg<>(name, ArgParsers.enumParser(enumClass), Preconditions.checkNotNull(argContext, "argContext")));
+    public <E extends Enum<E>> @NotNull SlashCommandBuilder argEnum(@NotNull String name, @NotNull Class<E> enumClass,
+                                                                    @NotNull ArgContext argContext) {
+        return arg(
+            new Arg<>(name, ArgParsers.enumParser(enumClass), Preconditions.checkNotNull(argContext, "argContext")));
     }
 
     /**
@@ -503,8 +506,10 @@ public final class SlashCommandBuilder {
      */
     public @NotNull SlashCommandBuilder argIntRange(@NotNull String name, int min, int max) {
         Preconditions.checkArgument(min <= max, "min must be <= max for range [" + min + ", " + max + "]");
-        return arg(new Arg<>(name, ArgParsers.intParser(), 
-            ArgContext.builder().intRange(min, max).rangeHint(min, max).build()));
+        return arg(new Arg<>(
+            name, ArgParsers.intParser(),
+            ArgContext.builder().intRange(min, max).rangeHint(min, max).build()
+        ));
     }
 
     /**
@@ -518,8 +523,10 @@ public final class SlashCommandBuilder {
      */
     public @NotNull SlashCommandBuilder argLongRange(@NotNull String name, long min, long max) {
         Preconditions.checkArgument(min <= max, "min must be <= max for range [" + min + ", " + max + "]");
-        return arg(new Arg<>(name, ArgParsers.longParser(), 
-            ArgContext.builder().longRange(min, max).rangeHint(min, max).build()));
+        return arg(new Arg<>(
+            name, ArgParsers.longParser(),
+            ArgContext.builder().longRange(min, max).rangeHint(min, max).build()
+        ));
     }
 
     /**
@@ -533,8 +540,10 @@ public final class SlashCommandBuilder {
      */
     public @NotNull SlashCommandBuilder argDoubleRange(@NotNull String name, double min, double max) {
         Preconditions.checkArgument(min <= max, "min must be <= max for range [" + min + ", " + max + "]");
-        return arg(new Arg<>(name, ArgParsers.doubleParser(), 
-            ArgContext.builder().doubleRange(min, max).rangeHint(min, max).build()));
+        return arg(new Arg<>(
+            name, ArgParsers.doubleParser(),
+            ArgContext.builder().doubleRange(min, max).rangeHint(min, max).build()
+        ));
     }
 
     /**
@@ -548,8 +557,10 @@ public final class SlashCommandBuilder {
      */
     public @NotNull SlashCommandBuilder argFloatRange(@NotNull String name, float min, float max) {
         Preconditions.checkArgument(min <= max, "min must be <= max for range [" + min + ", " + max + "]");
-        return arg(new Arg<>(name, ArgParsers.floatParser(), 
-            ArgContext.builder().floatRange(min, max).rangeHint((double) min, (double) max).build()));
+        return arg(new Arg<>(
+            name, ArgParsers.floatParser(),
+            ArgContext.builder().floatRange(min, max).rangeHint((double) min, (double) max).build()
+        ));
     }
 
     /**
@@ -564,11 +575,14 @@ public final class SlashCommandBuilder {
     public @NotNull SlashCommandBuilder argStringLength(@NotNull String name, int minLength, int maxLength) {
         Preconditions.checkNonNegative(minLength, "minLength");
         Preconditions.checkNonNegative(maxLength, "maxLength");
-        Preconditions.checkArgument(minLength <= maxLength, "minLength must be <= maxLength for range [" + minLength + ", " + maxLength + "]");
-        return arg(new Arg<>(name, ArgParsers.stringParser(), 
-            ArgContext.builder().stringLengthRange(minLength, maxLength).build()));
+        Preconditions.checkArgument(
+            minLength <= maxLength, "minLength must be <= maxLength for range [" + minLength + ", " + maxLength + "]");
+        return arg(new Arg<>(
+            name, ArgParsers.stringParser(),
+            ArgContext.builder().stringLengthRange(minLength, maxLength).build()
+        ));
     }
-    
+
     /**
      * Add a string argument with predefined completion suggestions.
      * Convenience method for common pattern of string args with fixed completion options.
@@ -577,12 +591,15 @@ public final class SlashCommandBuilder {
      * @param completions list of completion suggestions
      * @return this builder
      */
-    public @NotNull SlashCommandBuilder argStringWithCompletions(@NotNull String name, @NotNull List<String> completions) {
+    public @NotNull SlashCommandBuilder argStringWithCompletions(@NotNull String name,
+                                                                 @NotNull List<String> completions) {
         Preconditions.checkNotNull(completions, "completions");
-        return arg(new Arg<>(name, ArgParsers.stringParser(),
-            ArgContext.builder().withCompletions(completions).build()));
+        return arg(new Arg<>(
+            name, ArgParsers.stringParser(),
+            ArgContext.builder().withCompletions(completions).build()
+        ));
     }
-    
+
     /**
      * Add a string argument with predefined completion suggestions (varargs version).
      * Convenience method for common pattern of string args with fixed completion options.
@@ -643,20 +660,22 @@ public final class SlashCommandBuilder {
      */
     public @NotNull SlashCommandBuilder argPage(@NotNull String name) {
         Preconditions.checkNotNull(name, "name");
-        return arg(new Arg<>(name, ArgParsers.intParser(), 
+        return arg(new Arg<>(
+            name, ArgParsers.intParser(),
             ArgContext.builder()
                 .optional(true)
                 .defaultValue(1)
                 .intMin(1)
-                .build()));
+                .build()
+        ));
     }
 
     /**
      * Add an optional page number argument with custom default value.
      * Validates that the value is at least 1.
      *
-     * @param name         the argument name (no whitespace)
-     * @param defaultPage  the default page number (must be >= 1)
+     * @param name        the argument name (no whitespace)
+     * @param defaultPage the default page number (must be >= 1)
      * @return this builder
      * @see #argPage()
      * @see de.feelix.leviathan.command.pagination.PaginationHelper
@@ -664,12 +683,14 @@ public final class SlashCommandBuilder {
     public @NotNull SlashCommandBuilder argPage(@NotNull String name, int defaultPage) {
         Preconditions.checkNotNull(name, "name");
         Preconditions.checkArgument(defaultPage >= 1, "defaultPage must be >= 1");
-        return arg(new Arg<>(name, ArgParsers.intParser(), 
+        return arg(new Arg<>(
+            name, ArgParsers.intParser(),
             ArgContext.builder()
                 .optional(true)
                 .defaultValue(defaultPage)
                 .intMin(1)
-                .build()));
+                .build()
+        ));
     }
 
     /**
@@ -1158,18 +1179,18 @@ public final class SlashCommandBuilder {
                 throw new CommandConfigurationException("Invalid subcommand entry");
             }
             SlashCommand subCmd = e.getValue();
-            
+
             // Forward parent's exceptionHandler to subcommand if subcommand doesn't have its own
             if (subCmd.exceptionHandler == null && this.exceptionHandler != null) {
                 subCmd.exceptionHandler = this.exceptionHandler;
             }
-            
+
             // Register primary name
             String low = k.toLowerCase(Locale.ROOT);
             if (subs.put(low, subCmd) != null) {
                 throw new CommandConfigurationException("Duplicate subcommand alias: '" + k + "'");
             }
-            
+
             // Register all aliases for this subcommand
             for (String alias : subCmd.aliases()) {
                 if (alias == null || alias.trim().isEmpty()) {
@@ -1189,12 +1210,12 @@ public final class SlashCommandBuilder {
             perUserCooldownMillis, perServerCooldownMillis, enableHelp, helpPageSize, messages, sanitizeInputs,
             fuzzySubcommandMatching
         );
-        
+
         // Set parent reference for all subcommands
         for (SlashCommand subCmd : new java.util.HashSet<>(subs.values())) {
             subCmd.setParent(cmd);
         }
-        
+
         return cmd;
     }
 

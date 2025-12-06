@@ -15,21 +15,24 @@ public interface OptionMapping {
      *
      * @return non-null argument name
      */
-    @NotNull String name();
+    @NotNull
+    String name();
 
     /**
      * Gets the raw stored value for this argument, which may be null when the argument was optional and omitted.
      *
      * @return raw value or null
      */
-    @Nullable Object raw();
+    @Nullable
+    Object raw();
 
     /**
      * Gets a broad kind describing this option's type, if known.
      *
      * @return non-null option kind, or {@link OptionType#UNKNOWN}
      */
-    @NotNull OptionType optionType();
+    @NotNull
+    OptionType optionType();
 
     /**
      * Returns the value cast to the requested type.
@@ -45,26 +48,30 @@ public interface OptionMapping {
      *
      * @return String value, or null if the argument is not available or not a String
      */
-    @Nullable String asString();
+    @Nullable
+    String asString();
 
     /**
      * Convenience getter for Integer values.
      *
      * @return Integer value, or null if the argument is not available or not an Integer
      */
-    @Nullable Integer asInt();
+    @Nullable
+    Integer asInt();
 
     /**
      * Convenience getter for Long values.
      *
      * @return Long value, or null if the argument is not available or not a Long
      */
-    @Nullable Long asLong();
+    @Nullable
+    Long asLong();
 
     /**
      * Convenience getter for UUID values.
      *
      * @return UUID value, or null if the argument is not available or not a UUID
      */
-    @Nullable UUID asUuid();
+    @Nullable
+    UUID asUuid();
 }

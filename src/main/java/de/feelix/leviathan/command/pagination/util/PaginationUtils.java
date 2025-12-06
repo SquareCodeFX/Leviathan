@@ -66,8 +66,8 @@ public final class PaginationUtils {
     public static List<Integer> generatePageNumbers(int currentPage, int totalPages, int maxVisible) {
         if (totalPages <= maxVisible) {
             return IntStream.rangeClosed(1, totalPages)
-                    .boxed()
-                    .collect(Collectors.toList());
+                .boxed()
+                .collect(Collectors.toList());
         }
 
         int half = maxVisible / 2;
@@ -80,8 +80,8 @@ public final class PaginationUtils {
         }
 
         return IntStream.rangeClosed(start, end)
-                .boxed()
-                .collect(Collectors.toList());
+            .boxed()
+            .collect(Collectors.toList());
     }
 
     /**
@@ -105,15 +105,15 @@ public final class PaginationUtils {
      * Paginates a collection with optional filtering and sorting.
      */
     public static <T> List<T> paginateCollection(
-            Collection<T> collection,
-            int pageNumber,
-            int pageSize,
-            Predicate<T> filter,
-            Comparator<T> comparator) {
+        Collection<T> collection,
+        int pageNumber,
+        int pageSize,
+        Predicate<T> filter,
+        Comparator<T> comparator) {
 
         List<T> filtered = collection.stream()
-                .filter(filter != null ? filter : t -> true)
-                .collect(Collectors.toList());
+            .filter(filter != null ? filter : t -> true)
+            .collect(Collectors.toList());
 
         if (comparator != null) {
             filtered.sort(comparator);
@@ -128,9 +128,9 @@ public final class PaginationUtils {
     @SafeVarargs
     public static <T> List<T> mergeResults(PaginatedResult<T>... results) {
         return Arrays.stream(results)
-                .filter(Objects::nonNull)
-                .flatMap(r -> r.getItems().stream())
-                .collect(Collectors.toList());
+            .filter(Objects::nonNull)
+            .flatMap(r -> r.getItems().stream())
+            .collect(Collectors.toList());
     }
 
     /**
@@ -138,8 +138,8 @@ public final class PaginationUtils {
      */
     public static <T, R> List<R> transformItems(PaginatedResult<T> result, Function<T, R> transformer) {
         return result.getItems().stream()
-                .map(transformer)
-                .collect(Collectors.toList());
+            .map(transformer)
+            .collect(Collectors.toList());
     }
 
     /**
@@ -150,8 +150,8 @@ public final class PaginationUtils {
             return a == b;
         }
         return a.getCurrentPage() == b.getCurrentPage() &&
-                a.getPageSize() == b.getPageSize() &&
-                a.getTotalElements() == b.getTotalElements();
+               a.getPageSize() == b.getPageSize() &&
+               a.getTotalElements() == b.getTotalElements();
     }
 
     /**
@@ -162,12 +162,14 @@ public final class PaginationUtils {
             return "No items found";
         }
 
-        return String.format("Showing %d-%d of %d items (Page %d of %d)",
-                pageInfo.getStartIndex(),
-                pageInfo.getEndIndex(),
-                pageInfo.getTotalElements(),
-                pageInfo.getCurrentPage(),
-                pageInfo.getTotalPages());
+        return String.format(
+            "Showing %d-%d of %d items (Page %d of %d)",
+            pageInfo.getStartIndex(),
+            pageInfo.getEndIndex(),
+            pageInfo.getTotalElements(),
+            pageInfo.getCurrentPage(),
+            pageInfo.getTotalPages()
+        );
     }
 
     /**
@@ -190,8 +192,8 @@ public final class PaginationUtils {
             int page = pages.get(i);
             if (page == window.getCurrentPage()) {
                 sb.append(config.getCurrentPagePrefix())
-                        .append(page)
-                        .append(config.getCurrentPageSuffix());
+                    .append(page)
+                    .append(config.getCurrentPageSuffix());
             } else {
                 sb.append(page);
             }
@@ -199,7 +201,7 @@ public final class PaginationUtils {
 
         if (window.showEndEllipsis()) {
             sb.append(" ").append(config.getEllipsis())
-                    .append(" ").append(window.getTotalPages());
+                .append(" ").append(window.getTotalPages());
         }
 
         sb.append(")");
@@ -217,10 +219,10 @@ public final class PaginationUtils {
      * Calculates optimal page size for given constraints.
      */
     public static int calculateOptimalPageSize(
-            long totalElements,
-            int minPageSize,
-            int maxPageSize,
-            int targetPages) {
+        long totalElements,
+        int minPageSize,
+        int maxPageSize,
+        int targetPages) {
 
         if (totalElements <= 0) {
             return minPageSize;
@@ -238,8 +240,8 @@ public final class PaginationUtils {
             throw new IllegalArgumentException("Start must be <= end");
         }
         return IntStream.rangeClosed(start, end)
-                .boxed()
-                .collect(Collectors.toList());
+            .boxed()
+            .collect(Collectors.toList());
     }
 
     /**

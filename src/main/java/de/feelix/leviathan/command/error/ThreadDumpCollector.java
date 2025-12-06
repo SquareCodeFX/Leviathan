@@ -92,8 +92,8 @@ public final class ThreadDumpCollector {
             for (ThreadInfo info : deadlockInfo) {
                 if (info != null) {
                     report.append("    - ").append(info.getThreadName())
-                            .append(" blocked on ").append(info.getLockName())
-                            .append(" owned by ").append(info.getLockOwnerName()).append("\n");
+                        .append(" blocked on ").append(info.getLockName())
+                        .append(" owned by ").append(info.getLockOwnerName()).append("\n");
                 }
             }
         }
@@ -150,7 +150,7 @@ public final class ThreadDumpCollector {
 
     private static void appendBlockedThreadInfo(@NotNull StringBuilder report, @NotNull ThreadInfo info) {
         report.append("    - ").append(info.getThreadName())
-                .append(" (").append(info.getThreadState()).append(")\n");
+            .append(" (").append(info.getThreadState()).append(")\n");
 
         if (info.getLockName() != null) {
             report.append("      Waiting on: ").append(info.getLockName()).append("\n");

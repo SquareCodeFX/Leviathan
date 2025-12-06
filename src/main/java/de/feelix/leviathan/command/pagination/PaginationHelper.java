@@ -38,7 +38,7 @@ import java.util.function.Function;
  *     .executes((sender, ctx) -> {
  *         int page = ctx.getIntOrDefault("page", 1);
  *         List<String> items = getItems();
- *         
+ *
  *         PaginationHelper.paginate(items)
  *             .page(page)
  *             .pageSize(10)
@@ -96,9 +96,9 @@ public final class PaginationHelper {
     public static <T> @NotNull PaginatedResult<T> getPage(@NotNull Collection<T> items, int pageNumber, int pageSize) {
         Preconditions.checkNotNull(items, "items");
         PaginationService<T> service = PaginationService.<T>builder()
-                .dataSource(ListDataSource.of(items))
-                .config(PaginationConfig.builder().pageSize(pageSize).build())
-                .build();
+            .dataSource(ListDataSource.of(items))
+            .config(PaginationConfig.builder().pageSize(pageSize).build())
+            .build();
         return service.getPage(pageNumber);
     }
 
@@ -125,7 +125,7 @@ public final class PaginationHelper {
      * @return list of formatted lines including footer
      */
     public static <T> @NotNull List<String> format(@NotNull PaginatedResult<T> result,
-                                                    @NotNull Function<T, String> formatter) {
+                                                   @NotNull Function<T, String> formatter) {
         return format(result, formatter, null, null);
     }
 
@@ -142,9 +142,9 @@ public final class PaginationHelper {
      * @return list of formatted lines
      */
     public static <T> @NotNull List<String> format(@NotNull PaginatedResult<T> result,
-                                                    @NotNull Function<T, String> formatter,
-                                                    @Nullable String header,
-                                                    @Nullable String footer) {
+                                                   @NotNull Function<T, String> formatter,
+                                                   @Nullable String header,
+                                                   @Nullable String footer) {
         Preconditions.checkNotNull(result, "result");
         Preconditions.checkNotNull(formatter, "formatter");
 
@@ -180,10 +180,12 @@ public final class PaginationHelper {
      */
     public static @NotNull String formatPageInfo(@NotNull PageInfo pageInfo) {
         Preconditions.checkNotNull(pageInfo, "pageInfo");
-        return String.format("§7Page §f%d§7/§f%d §7(§f%d §7items)",
-                pageInfo.getCurrentPage(),
-                pageInfo.getTotalPages(),
-                pageInfo.getTotalElements());
+        return String.format(
+            "§7Page §f%d§7/§f%d §7(§f%d §7items)",
+            pageInfo.getCurrentPage(),
+            pageInfo.getTotalPages(),
+            pageInfo.getTotalElements()
+        );
     }
 
     /**
@@ -194,13 +196,14 @@ public final class PaginationHelper {
      * @param commandBase the base command for navigation hints (e.g., "/list")
      * @return formatted string with navigation hints
      */
-    public static @NotNull String formatPageInfoWithNavigation(@NotNull PageInfo pageInfo, @NotNull String commandBase) {
+    public static @NotNull String formatPageInfoWithNavigation(@NotNull PageInfo pageInfo,
+                                                               @NotNull String commandBase) {
         Preconditions.checkNotNull(pageInfo, "pageInfo");
         Preconditions.checkNotNull(commandBase, "commandBase");
 
         StringBuilder sb = new StringBuilder();
         sb.append("§7Page §f").append(pageInfo.getCurrentPage())
-                .append("§7/§f").append(pageInfo.getTotalPages());
+            .append("§7/§f").append(pageInfo.getTotalPages());
 
         if (pageInfo.hasPreviousPage() || pageInfo.hasNextPage()) {
             sb.append(" §8[");
@@ -235,7 +238,8 @@ public final class PaginationHelper {
      * @param config      pagination config for styling
      * @return navigation bar string
      */
-    public static @NotNull String createNavigationBar(int currentPage, int totalPages, @NotNull PaginationConfig config) {
+    public static @NotNull String createNavigationBar(int currentPage, int totalPages,
+                                                      @NotNull PaginationConfig config) {
         Preconditions.checkNotNull(config, "config");
 
         StringBuilder sb = new StringBuilder("§7");
@@ -248,7 +252,8 @@ public final class PaginationHelper {
         }
 
         // Page numbers
-        List<Integer> visiblePages = PaginationUtils.generatePageNumbers(currentPage, totalPages, config.getVisiblePages());
+        List<Integer> visiblePages = PaginationUtils.generatePageNumbers(
+            currentPage, totalPages, config.getVisiblePages());
 
         // Show start ellipsis if needed
         if (!visiblePages.isEmpty() && visiblePages.get(0) > 1) {
@@ -338,7 +343,8 @@ public final class PaginationHelper {
      * @param config pagination config for styling
      * @return formatted page window string
      */
-    public static @NotNull String renderPageWindow(@NotNull PaginatedResult<?> result, @NotNull PaginationConfig config) {
+    public static @NotNull String renderPageWindow(@NotNull PaginatedResult<?> result,
+                                                   @NotNull PaginationConfig config) {
         Preconditions.checkNotNull(result, "result");
         return renderPageWindow(result.getNavigationWindow(), config);
     }
@@ -359,14 +365,14 @@ public final class PaginationHelper {
      * This allows full customization of the page window output through the MessageProvider interface,
      * enabling localization and custom styling of the pagination display.
      *
-     * @param window the navigation window containing visible pages
-     * @param config pagination config for styling parameters
+     * @param window   the navigation window containing visible pages
+     * @param config   pagination config for styling parameters
      * @param messages the message provider for rendering
      * @return formatted page window string
      */
-    public static @NotNull String renderPageWindow(@NotNull NavigationWindow window, 
-                                                    @NotNull PaginationConfig config,
-                                                    @NotNull MessageProvider messages) {
+    public static @NotNull String renderPageWindow(@NotNull NavigationWindow window,
+                                                   @NotNull PaginationConfig config,
+                                                   @NotNull MessageProvider messages) {
         Preconditions.checkNotNull(window, "window");
         Preconditions.checkNotNull(config, "config");
         Preconditions.checkNotNull(messages, "messages");
@@ -389,14 +395,14 @@ public final class PaginationHelper {
      * <p>
      * Convenience method that extracts the NavigationWindow from the result.
      *
-     * @param result the paginated result
-     * @param config pagination config for styling
+     * @param result   the paginated result
+     * @param config   pagination config for styling
      * @param messages the message provider for rendering
      * @return formatted page window string
      */
-    public static @NotNull String renderPageWindow(@NotNull PaginatedResult<?> result, 
-                                                    @NotNull PaginationConfig config,
-                                                    @NotNull MessageProvider messages) {
+    public static @NotNull String renderPageWindow(@NotNull PaginatedResult<?> result,
+                                                   @NotNull PaginationConfig config,
+                                                   @NotNull MessageProvider messages) {
         Preconditions.checkNotNull(result, "result");
         return renderPageWindow(result.getNavigationWindow(), config, messages);
     }
@@ -588,12 +594,12 @@ public final class PaginationHelper {
          */
         public @NotNull PaginatedResult<T> build() {
             PaginationConfig paginationConfig = config != null ? config :
-                    PaginationConfig.builder().pageSize(pageSize).build();
+                PaginationConfig.builder().pageSize(pageSize).build();
 
             PaginationService<T> service = PaginationService.<T>builder()
-                    .dataSource(ListDataSource.of(items))
-                    .config(paginationConfig)
-                    .build();
+                .dataSource(ListDataSource.of(items))
+                .config(paginationConfig)
+                .build();
 
             // Clamp page number to valid range
             int totalPages = service.getTotalPages();
@@ -632,7 +638,7 @@ public final class PaginationHelper {
 
             // Footer and navigation
             PaginationConfig navConfig = config != null ? config : PaginationConfig.defaults();
-            
+
             if (footer != null && !footer.isEmpty()) {
                 lines.add(footer);
             }

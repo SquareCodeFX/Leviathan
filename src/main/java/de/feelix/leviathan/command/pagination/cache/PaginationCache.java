@@ -40,7 +40,7 @@ public interface PaginationCache<K, V> {
     /**
      * Store a value in the cache with the default TTL.
      *
-     * @param key the key with which the value is to be associated
+     * @param key   the key with which the value is to be associated
      * @param value the value to be cached
      */
     void put(K key, V value);
@@ -48,16 +48,16 @@ public interface PaginationCache<K, V> {
     /**
      * Store a value in the cache with a custom TTL.
      *
-     * @param key the key with which the value is to be associated
+     * @param key   the key with which the value is to be associated
      * @param value the value to be cached
-     * @param ttl the time-to-live duration for this entry
+     * @param ttl   the time-to-live duration for this entry
      */
     void put(K key, V value, Duration ttl);
 
     /**
      * Store a value in the cache asynchronously with the default TTL.
      *
-     * @param key the key with which the value is to be associated
+     * @param key   the key with which the value is to be associated
      * @param value the value to be cached
      * @return a CompletableFuture that completes when the value is stored
      */
@@ -67,7 +67,7 @@ public interface PaginationCache<K, V> {
      * Get a value from the cache, or compute and cache it if absent.
      * This is an atomic operation that prevents multiple simultaneous loads for the same key.
      *
-     * @param key the key whose associated value is to be returned or computed
+     * @param key    the key whose associated value is to be returned or computed
      * @param loader the supplier function to compute the value if not cached
      * @return the cached or newly computed value
      */
@@ -77,7 +77,7 @@ public interface PaginationCache<K, V> {
      * Get a value from the cache asynchronously, or compute and cache it if absent.
      * This is an atomic operation that prevents multiple simultaneous loads for the same key.
      *
-     * @param key the key whose associated value is to be returned or computed
+     * @param key    the key whose associated value is to be returned or computed
      * @param loader the supplier function that returns a CompletableFuture with the value
      * @return a CompletableFuture containing the cached or newly computed value
      */

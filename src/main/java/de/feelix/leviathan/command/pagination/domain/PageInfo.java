@@ -45,12 +45,12 @@ public final class PageInfo {
         int elementsOnPage = calculateElementsOnPage(currentPage, totalPages, totalElements, pageSize);
 
         return builder()
-                .currentPage(currentPage)
-                .totalPages(totalPages)
-                .pageSize(pageSize)
-                .totalElements(totalElements)
-                .elementsOnPage(elementsOnPage)
-                .build();
+            .currentPage(currentPage)
+            .totalPages(totalPages)
+            .pageSize(pageSize)
+            .totalElements(totalElements)
+            .elementsOnPage(elementsOnPage)
+            .build();
     }
 
     private static int calculateTotalPages(long totalElements, int pageSize) {
@@ -161,9 +161,9 @@ public final class PageInfo {
         if (o == null || getClass() != o.getClass()) return false;
         PageInfo pageInfo = (PageInfo) o;
         return currentPage == pageInfo.currentPage &&
-                totalPages == pageInfo.totalPages &&
-                pageSize == pageInfo.pageSize &&
-                totalElements == pageInfo.totalElements;
+               totalPages == pageInfo.totalPages &&
+               pageSize == pageInfo.pageSize &&
+               totalElements == pageInfo.totalElements;
     }
 
     @Override
@@ -173,8 +173,10 @@ public final class PageInfo {
 
     @Override
     public String toString() {
-        return String.format("PageInfo{page=%d/%d, elements=%d-%d of %d}",
-                currentPage, totalPages, getStartIndex(), getEndIndex(), totalElements);
+        return String.format(
+            "PageInfo{page=%d/%d, elements=%d-%d of %d}",
+            currentPage, totalPages, getStartIndex(), getEndIndex(), totalElements
+        );
     }
 
     public static final class Builder {
@@ -184,7 +186,8 @@ public final class PageInfo {
         private long totalElements = 0;
         private int elementsOnPage = 0;
 
-        private Builder() {}
+        private Builder() {
+        }
 
         public Builder currentPage(int currentPage) {
             if (currentPage < 1) {

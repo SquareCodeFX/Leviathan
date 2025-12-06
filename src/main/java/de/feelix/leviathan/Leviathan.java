@@ -28,7 +28,7 @@ import java.util.List;
  *     })
  *     .register(plugin);
  * }</pre>
- * 
+ *
  * <b>Paginated command example:</b>
  * <pre>{@code
  * Leviathan.command("list")
@@ -48,11 +48,11 @@ import java.util.List;
  * @since 1.2.0
  */
 public final class Leviathan {
-    
+
     private Leviathan() {
         // Utility class - prevent instantiation
     }
-    
+
     /**
      * Create a new command builder with the given name.
      * <p>
@@ -65,7 +65,7 @@ public final class Leviathan {
     public static @NotNull SlashCommandBuilder command(@NotNull String name) {
         return SlashCommand.builder(name);
     }
-    
+
     /**
      * Create a new argument context builder for configuring argument behavior.
      * <p>
@@ -79,7 +79,7 @@ public final class Leviathan {
     public static @NotNull ArgContext.Builder argContext() {
         return ArgContext.builder();
     }
-    
+
     /**
      * Get the default argument context (no special configuration).
      * <p>
@@ -116,7 +116,7 @@ public final class Leviathan {
     public static <T> @NotNull PaginationHelper.PaginatedOutputBuilder<T> paginate(@NotNull Collection<T> items) {
         return PaginationHelper.paginate(items);
     }
-    
+
     /**
      * Start building a paginated output from a list of items.
      *
@@ -128,7 +128,7 @@ public final class Leviathan {
     public static <T> @NotNull PaginationHelper.PaginatedOutputBuilder<T> paginate(@NotNull List<T> items) {
         return PaginationHelper.paginate(items);
     }
-    
+
     /**
      * Quick pagination with default settings - returns paginated items for manual handling.
      *
@@ -142,7 +142,7 @@ public final class Leviathan {
     public static <T> @NotNull PaginatedResult<T> getPage(@NotNull Collection<T> items, int pageNumber, int pageSize) {
         return PaginationHelper.getPage(items, pageNumber, pageSize);
     }
-    
+
     /**
      * Quick pagination with default page size of 10.
      *
@@ -155,7 +155,7 @@ public final class Leviathan {
     public static <T> @NotNull PaginatedResult<T> getPage(@NotNull Collection<T> items, int pageNumber) {
         return PaginationHelper.getPage(items, pageNumber);
     }
-    
+
     /**
      * Create a new pagination configuration builder.
      * <p>
@@ -167,7 +167,7 @@ public final class Leviathan {
     public static @NotNull PaginationConfig.Builder paginationConfig() {
         return PaginationConfig.builder();
     }
-    
+
     /**
      * Get the default pagination configuration.
      *

@@ -11,14 +11,15 @@ import de.feelix.leviathan.annotations.Nullable;
  * requirements at runtime with clear, developer-focused exceptions.
  */
 public final class Preconditions {
-    private Preconditions() {}
+    private Preconditions() {
+    }
 
     /**
      * Ensure that the given value is not {@code null}.
      *
-     * @param value the value to check
+     * @param value     the value to check
      * @param paramName the parameter name for error messages
-     * @param <T> value type
+     * @param <T>       value type
      * @return the non-null value (same reference), for fluent usage
      * @throws ApiMisuseException if {@code value} is {@code null}
      */
@@ -64,7 +65,7 @@ public final class Preconditions {
     /**
      * Ensure that the given long value is non-negative (>= 0).
      *
-     * @param value the value to check
+     * @param value     the value to check
      * @param paramName the parameter name for error messages
      * @return the same value, for fluent usage
      * @throws ApiMisuseException if {@code value} is negative
@@ -80,7 +81,7 @@ public final class Preconditions {
     /**
      * Ensure that the given int value is non-negative (>= 0).
      *
-     * @param value the value to check
+     * @param value     the value to check
      * @param paramName the parameter name for error messages
      * @return the same value, for fluent usage
      * @throws ApiMisuseException if {@code value} is negative

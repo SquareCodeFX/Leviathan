@@ -16,12 +16,18 @@ import lombok.Getter;
 @Getter
 public final class InvalidPageException extends PaginationException {
 
-    /** Error code for invalid page requests. */
+    /**
+     * Error code for invalid page requests.
+     */
     private static final String ERROR_CODE = "PAG-002";
 
-    /** The page number that was requested (1-based). */
+    /**
+     * The page number that was requested (1-based).
+     */
     private final int requestedPage;
-    /** Total number of available pages at the time of the request (at least 1). */
+    /**
+     * Total number of available pages at the time of the request (at least 1).
+     */
     private final int totalPages;
 
     /**

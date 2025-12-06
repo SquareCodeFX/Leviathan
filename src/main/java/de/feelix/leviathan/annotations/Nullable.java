@@ -10,6 +10,6 @@ import java.lang.annotation.Target;
  * This is a simple marker annotation for API consumers and static analysis tools.
  */
 @Retention(RetentionPolicy.CLASS)
-@Target({ElementType.METHOD, ElementType.PARAMETER, ElementType.FIELD})
+@Target({ ElementType.METHOD, ElementType.PARAMETER, ElementType.FIELD })
 public @interface Nullable {
 }

@@ -96,7 +96,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
     private final long asyncTimeoutMillis;
     final List<Guard> guards;
     private final List<CrossArgumentValidator> crossArgumentValidators;
-    @Nullable ExceptionHandler exceptionHandler;
+    @Nullable
+    ExceptionHandler exceptionHandler;
     private final long perUserCooldownMillis;
     private final long perServerCooldownMillis;
     private final boolean enableHelp;
@@ -107,7 +108,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
     private final boolean fuzzySubcommandMatching;
     JavaPlugin plugin;
     private boolean subOnly = false;
-    @Nullable private SlashCommand parent = null;
+    @Nullable
+    private SlashCommand parent = null;
 
 
     /**
@@ -318,20 +320,41 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         if (input == null || input.isEmpty()) {
             return input == null ? "" : input;
         }
-        
+
         StringBuilder result = new StringBuilder(input.length());
         for (int i = 0; i < input.length(); i++) {
             char c = input.charAt(i);
             switch (c) {
                 // Remove control characters and null bytes
                 case '\0':
-                case '\u0001': case '\u0002': case '\u0003': case '\u0004':
-                case '\u0005': case '\u0006': case '\u0007': case '\u0008':
-                case '\u000B': case '\u000C': case '\u000E': case '\u000F':
-                case '\u0010': case '\u0011': case '\u0012': case '\u0013':
-                case '\u0014': case '\u0015': case '\u0016': case '\u0017':
-                case '\u0018': case '\u0019': case '\u001A': case '\u001B':
-                case '\u001C': case '\u001D': case '\u001E': case '\u001F':
+                case '\u0001':
+                case '\u0002':
+                case '\u0003':
+                case '\u0004':
+                case '\u0005':
+                case '\u0006':
+                case '\u0007':
+                case '\u0008':
+                case '\u000B':
+                case '\u000C':
+                case '\u000E':
+                case '\u000F':
+                case '\u0010':
+                case '\u0011':
+                case '\u0012':
+                case '\u0013':
+                case '\u0014':
+                case '\u0015':
+                case '\u0016':
+                case '\u0017':
+                case '\u0018':
+                case '\u0019':
+                case '\u001A':
+                case '\u001B':
+                case '\u001C':
+                case '\u001D':
+                case '\u001E':
+                case '\u001F':
                     // Skip control characters
                     break;
                 // Escape HTML/XML special characters
@@ -364,7 +387,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                     result.append(c);
             }
         }
-        
+
         // Trim and collapse multiple consecutive spaces
         return result.toString().trim().replaceAll("\\s+", " ");
     }
@@ -434,7 +457,9 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                 // Exception handler itself threw an exception - log it and continue with default behavior
                 sender.sendMessage(messages.exceptionHandlerError(handlerException.getMessage()));
                 if (plugin != null) {
-                    plugin.getLogger().severe("Exception handler threw an exception while handling " + errorType + ": " + handlerException.getMessage());
+                    plugin.getLogger()
+                        .severe("Exception handler threw an exception while handling " + errorType + ": "
+                                + handlerException.getMessage());
                     handlerException.printStackTrace();
                 }
             }
@@ -511,7 +536,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         if (!subcommands.isEmpty() && providedArgs.length >= 1) {
             String first = providedArgs[0].toLowerCase(Locale.ROOT);
             SlashCommand sub = subcommands.get(first);
-            
+
             // Check if first argument is a page number for help pagination
             if (sub == null && enableHelp) {
                 try {
@@ -524,7 +549,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                     // Not a number, continue with normal processing
                 }
             }
-            
+
             // Fuzzy matching: if no exact match found and fuzzy matching is enabled, try to find a similar subcommand
             if (sub == null && fuzzySubcommandMatching) {
                 List<String> subcommandNames = new ArrayList<>(subcommands.keySet());
@@ -533,7 +558,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                     sub = subcommands.get(similar.get(0));
                 }
             }
-            
+
             if (sub != null) {
                 String[] remaining = Arrays.copyOfRange(providedArgs, 1, providedArgs.length);
                 try {
@@ -543,7 +568,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                     String errorMsg = messages.subcommandInternalError(first);
                     sendErrorMessage(sender, ErrorType.INTERNAL_ERROR, errorMsg, t);
                     if (plugin != null) {
-                        plugin.getLogger().severe("Subcommand '" + first + "' threw unexpected exception: " + t.getMessage());
+                        plugin.getLogger()
+                            .severe("Subcommand '" + first + "' threw unexpected exception: " + t.getMessage());
                         t.printStackTrace();
                     }
                     return true;
@@ -571,7 +597,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         int tokenIndex = 0;
         while (argIndex < args.size() && tokenIndex < providedArgs.length) {
             Arg<?> arg = args.get(argIndex);
-            
+
             // Evaluate conditional argument
             if (arg.condition() != null) {
                 CommandContext tempCtx = new CommandContext(values, providedArgs);
@@ -585,13 +611,14 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                     String errorMsg = messages.argumentConditionError(arg.name());
                     sendErrorMessage(sender, ErrorType.INTERNAL_ERROR, errorMsg, t);
                     if (plugin != null) {
-                        plugin.getLogger().severe("Condition evaluation failed for argument '" + arg.name() + "': " + t.getMessage());
+                        plugin.getLogger()
+                            .severe("Condition evaluation failed for argument '" + arg.name() + "': " + t.getMessage());
                         t.printStackTrace();
                     }
                     return true;
                 }
             }
-            
+
             // Per-argument permission check
             if (arg.permission() != null && !arg.permission().isEmpty() && !sender.hasPermission(arg.permission())) {
                 sendErrorMessage(
@@ -613,7 +640,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                 res = parser.parse(token, sender);
                 if (res == null) {
                     throw new ParsingException(
-                        "Parser " + parser.getClass().getName() + " returned null ParseResult for argument '" + arg.name()
+                        "Parser " + parser.getClass().getName() + " returned null ParseResult for argument '"
+                        + arg.name()
                         + "'");
                 }
             } catch (ParsingException pe) {
@@ -624,7 +652,9 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                 String errorMsg = messages.argumentParsingError(arg.name());
                 sendErrorMessage(sender, ErrorType.INTERNAL_ERROR, errorMsg, t);
                 if (plugin != null) {
-                    plugin.getLogger().severe("Parser " + parser.getClass().getName() + " threw unexpected exception for argument '" + arg.name() + "': " + t.getMessage());
+                    plugin.getLogger()
+                        .severe("Parser " + parser.getClass().getName() + " threw unexpected exception for argument '"
+                                + arg.name() + "': " + t.getMessage());
                     t.printStackTrace();
                 }
                 return true;
@@ -639,14 +669,17 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                     ArgContext argCtx = arg.context();
                     if (argCtx.didYouMean() && !argCtx.completionsPredefined().isEmpty()) {
                         try {
-                            List<String> suggestions = StringSimilarity.findSimilar(token, argCtx.completionsPredefined());
+                            List<String> suggestions = StringSimilarity.findSimilar(
+                                token, argCtx.completionsPredefined());
                             if (!suggestions.isEmpty()) {
                                 sender.sendMessage(messages.didYouMean(String.join(", ", suggestions)));
                             }
                         } catch (Throwable t) {
                             // Silently ignore errors in suggestion generation - it's non-critical
                             if (plugin != null) {
-                                plugin.getLogger().warning("Failed to generate 'Did you mean' suggestions for argument '" + arg.name() + "': " + t.getMessage());
+                                plugin.getLogger()
+                                    .warning("Failed to generate 'Did you mean' suggestions for argument '" + arg.name()
+                                             + "': " + t.getMessage());
                             }
                         }
                     }
@@ -670,7 +703,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                     String errorMsg = messages.argumentTransformationError(arg.name());
                     sendErrorMessage(sender, ErrorType.INTERNAL_ERROR, errorMsg, t);
                     if (plugin != null) {
-                        plugin.getLogger().severe("Transformation failed for argument '" + arg.name() + "': " + t.getMessage());
+                        plugin.getLogger()
+                            .severe("Transformation failed for argument '" + arg.name() + "': " + t.getMessage());
                         t.printStackTrace();
                     }
                     return true;
@@ -688,7 +722,9 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                 String errorMsg = messages.argumentValidationError(arg.name());
                 sendErrorMessage(sender, ErrorType.INTERNAL_ERROR, errorMsg, t);
                 if (plugin != null) {
-                    plugin.getLogger().severe("Validation failed with unexpected exception for argument '" + arg.name() + "': " + t.getMessage());
+                    plugin.getLogger()
+                        .severe("Validation failed with unexpected exception for argument '" + arg.name() + "': "
+                                + t.getMessage());
                     t.printStackTrace();
                 }
                 return true;
@@ -730,7 +766,9 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                     String errorMsg = messages.crossValidationInternalError();
                     sendErrorMessage(sender, ErrorType.INTERNAL_ERROR, errorMsg, t);
                     if (plugin != null) {
-                        plugin.getLogger().severe("Cross-argument validator " + validator.getClass().getName() + " threw unexpected exception: " + t.getMessage());
+                        plugin.getLogger()
+                            .severe("Cross-argument validator " + validator.getClass().getName()
+                                    + " threw unexpected exception: " + t.getMessage());
                         t.printStackTrace();
                     }
                     return true;
@@ -749,7 +787,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
             } catch (Throwable t) {
                 // Log but don't fail the command if cooldown update fails
                 if (plugin != null) {
-                    plugin.getLogger().warning("Failed to update server cooldown for command '" + name + "': " + t.getMessage());
+                    plugin.getLogger()
+                        .warning("Failed to update server cooldown for command '" + name + "': " + t.getMessage());
                 }
             }
         }
@@ -759,7 +798,10 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
             } catch (Throwable t) {
                 // Log but don't fail the command if cooldown update fails
                 if (plugin != null) {
-                    plugin.getLogger().warning("Failed to update user cooldown for command '" + name + "' and user '" + sender.getName() + "': " + t.getMessage());
+                    plugin.getLogger()
+                        .warning(
+                            "Failed to update user cooldown for command '" + name + "' and user '" + sender.getName()
+                            + "': " + t.getMessage());
                 }
             }
         }
@@ -780,7 +822,9 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                     } catch (Throwable t) {
                         // Log progress callback errors instead of silently ignoring
                         if (plugin != null) {
-                            plugin.getLogger().warning("Failed to send progress message for command '" + name + "': " + t.getMessage());
+                            plugin.getLogger()
+                                .warning(
+                                    "Failed to send progress message for command '" + name + "': " + t.getMessage());
                         }
                     }
                 };
@@ -817,7 +861,9 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                             String handlerMsg = messages.exceptionHandlerError(handlerException.getMessage());
                             if (plugin != null) {
                                 plugin.getServer().getScheduler().runTask(plugin, () -> sender.sendMessage(handlerMsg));
-                                plugin.getLogger().severe("Exception handler threw an exception while handling " + errorType + ": " + handlerException.getMessage());
+                                plugin.getLogger()
+                                    .severe("Exception handler threw an exception while handling " + errorType + ": "
+                                            + handlerException.getMessage());
                                 handlerException.printStackTrace();
                             } else {
                                 sender.sendMessage(handlerMsg);
@@ -844,10 +890,13 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                             try {
                                 suppressDefault = exceptionHandler.handle(sender, ErrorType.EXECUTION, errorMsg, cause);
                             } catch (Throwable handlerException) {
-                                // Exception handler itself threw an exception - log it and continue with default behavior
+                                // Exception handler itself threw an exception - log it and continue with default
+                                // behavior
                                 sender.sendMessage(messages.exceptionHandlerError(handlerException.getMessage()));
                                 if (plugin != null) {
-                                    plugin.getLogger().severe("Exception handler threw an exception while handling EXECUTION: " + handlerException.getMessage());
+                                    plugin.getLogger()
+                                        .severe("Exception handler threw an exception while handling EXECUTION: "
+                                                + handlerException.getMessage());
                                     handlerException.printStackTrace();
                                 }
                             }
@@ -857,7 +906,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                         }
                         // Log the exception but don't re-throw to prevent unhandled exception in async thread
                         if (plugin != null) {
-                            plugin.getLogger().severe("Error executing command '" + name + "' asynchronously: " + cause.getMessage());
+                            plugin.getLogger()
+                                .severe("Error executing command '" + name + "' asynchronously: " + cause.getMessage());
                             cause.printStackTrace();
                         }
                     }
@@ -902,14 +952,14 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
      */
     private int categorizeByArguments(@NotNull SlashCommand command) {
         List<Arg<?>> args = command.args();
-        
+
         if (args.isEmpty()) {
             return 0; // No arguments - first
         }
-        
+
         boolean hasOptional = false;
         boolean hasRequired = false;
-        
+
         for (Arg<?> arg : args) {
             if (arg.optional()) {
                 hasOptional = true;
@@ -917,7 +967,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                 hasRequired = true;
             }
         }
-        
+
         if (hasRequired && hasOptional) {
             return 2; // Both optional and required - between
         } else if (hasOptional) {
@@ -932,21 +982,21 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
      * If the command has subcommands, displays a paginated list of available subcommands with their usage.
      * If the command has no subcommands, displays the usage format for this command.
      *
-     * @param label the command label used to invoke this command
+     * @param label      the command label used to invoke this command
      * @param pageNumber the page number to display (1-based)
-     * @param sender the command sender to send messages to
+     * @param sender     the command sender to send messages to
      */
     private void generateHelpMessage(@NotNull String label, int pageNumber, @NotNull CommandSender sender) {
         String commandPath = fullCommandPath(label);
-        
+
         if (!subcommands.isEmpty()) {
             // Format command name: first letter uppercase, rest lowercase
-            String formattedName = name.isEmpty() ? "" : 
+            String formattedName = name.isEmpty() ? "" :
                 Character.toUpperCase(name.charAt(0)) + name.substring(1).toLowerCase(Locale.ROOT);
 
             // Get unique subcommands (since aliases point to the same command)
             Set<SlashCommand> uniqueSubcommands = new LinkedHashSet<>(subcommands.values());
-            
+
             // Sort subcommands by argument requirements:
             // 1. No arguments first
             // 2. Optional arguments only
@@ -954,12 +1004,12 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
             // 4. Required arguments only last
             List<SlashCommand> sortedSubcommands = new ArrayList<>(uniqueSubcommands);
             sortedSubcommands.sort(Comparator.comparingInt(this::categorizeByArguments));
-            
+
             // Use pagination for subcommand listing
             PaginationConfig config = PaginationConfig.builder()
                 .pageSize(helpPageSize)
                 .build();
-            
+
             PaginationHelper.paginate(sortedSubcommands)
                 .page(pageNumber)
                 .pageSize(helpPageSize)
@@ -1001,7 +1051,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         } catch (Throwable t) {
             // Top-level catch to ensure no exception escapes from tab completion
             if (plugin != null) {
-                plugin.getLogger().severe("Unhandled exception in tab completion for command '" + name + "': " + t.getMessage());
+                plugin.getLogger()
+                    .severe("Unhandled exception in tab completion for command '" + name + "': " + t.getMessage());
                 t.printStackTrace();
             }
             return Collections.emptyList();

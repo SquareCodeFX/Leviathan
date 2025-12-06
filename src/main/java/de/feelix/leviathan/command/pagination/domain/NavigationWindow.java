@@ -2,6 +2,7 @@ package de.feelix.leviathan.command.pagination.domain;
 
 import de.feelix.leviathan.command.pagination.config.PaginationConfig;
 import lombok.Getter;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -32,26 +33,42 @@ import java.util.Objects;
  */
 public final class NavigationWindow {
 
-    /** The current page number (1-based) */
+    /**
+     * The current page number (1-based)
+     */
     @Getter
     private final int currentPage;
-    /** Total number of pages available */
+    /**
+     * Total number of pages available
+     */
     @Getter
     private final int totalPages;
-    /** Number of pages shown on each side of the current page */
+    /**
+     * Number of pages shown on each side of the current page
+     */
     @Getter
     private final int sidePages;
-    /** List of page numbers visible in the navigation window */
+    /**
+     * List of page numbers visible in the navigation window
+     */
     @Getter
     private final List<Integer> visiblePages;
-    /** Whether to show ellipsis before the visible window */
+    /**
+     * Whether to show ellipsis before the visible window
+     */
     private final boolean showStartEllipsis;
-    /** Whether to show ellipsis after the visible window */
+    /**
+     * Whether to show ellipsis after the visible window
+     */
     private final boolean showEndEllipsis;
-    /** First page number in the visible window */
+    /**
+     * First page number in the visible window
+     */
     @Getter
     private final int windowStart;
-    /** Last page number in the visible window */
+    /**
+     * Last page number in the visible window
+     */
     @Getter
     private final int windowEnd;
 
@@ -59,7 +76,7 @@ public final class NavigationWindow {
         this.currentPage = pageInfo.getCurrentPage();
         this.totalPages = pageInfo.getTotalPages();
         this.sidePages = sidePages;
-        
+
         WindowBounds bounds = calculateWindowBounds();
         this.windowStart = bounds.start;
         this.windowEnd = bounds.end;
@@ -72,7 +89,7 @@ public final class NavigationWindow {
      * Create a NavigationWindow from PageInfo and configuration.
      *
      * @param pageInfo the page information containing current page and total pages
-     * @param config the pagination configuration with side pages setting
+     * @param config   the pagination configuration with side pages setting
      * @return a new NavigationWindow instance
      * @throws NullPointerException if pageInfo or config is null
      */
@@ -85,10 +102,10 @@ public final class NavigationWindow {
     /**
      * Create a NavigationWindow with a custom side pages count.
      *
-     * @param pageInfo the page information containing current page and total pages
+     * @param pageInfo  the page information containing current page and total pages
      * @param sidePages the number of pages to show on each side of current page
      * @return a new NavigationWindow instance
-     * @throws NullPointerException if pageInfo is null
+     * @throws NullPointerException     if pageInfo is null
      * @throws IllegalArgumentException if sidePages is negative
      */
     public static NavigationWindow of(PageInfo pageInfo, int sidePages) {
@@ -107,7 +124,7 @@ public final class NavigationWindow {
      */
     private WindowBounds calculateWindowBounds() {
         int windowSize = 2 * sidePages + 1;
-        
+
         // If total pages fit in window, show all
         if (totalPages <= windowSize) {
             return new WindowBounds(1, totalPages);
@@ -241,8 +258,8 @@ public final class NavigationWindow {
         if (o == null || getClass() != o.getClass()) return false;
         NavigationWindow that = (NavigationWindow) o;
         return currentPage == that.currentPage &&
-                totalPages == that.totalPages &&
-                sidePages == that.sidePages;
+               totalPages == that.totalPages &&
+               sidePages == that.sidePages;
     }
 
     @Override
@@ -252,8 +269,10 @@ public final class NavigationWindow {
 
     @Override
     public String toString() {
-        return String.format("NavigationWindow{visible=%s, current=%d, ellipsis=[start=%b, end=%b]}",
-                visiblePages, currentPage, showStartEllipsis, showEndEllipsis);
+        return String.format(
+            "NavigationWindow{visible=%s, current=%d, ellipsis=[start=%b, end=%b]}",
+            visiblePages, currentPage, showStartEllipsis, showEndEllipsis
+        );
     }
 
     /**
@@ -273,13 +292,21 @@ public final class NavigationWindow {
      * Enum representing window position relative to full page range.
      */
     public enum WindowPosition {
-        /** All pages are visible, no ellipsis needed */
+        /**
+         * All pages are visible, no ellipsis needed
+         */
         FULL,
-        /** Window is at the start, may show end ellipsis */
+        /**
+         * Window is at the start, may show end ellipsis
+         */
         AT_START,
-        /** Window is at the end, may show start ellipsis */
+        /**
+         * Window is at the end, may show start ellipsis
+         */
         AT_END,
-        /** Window is in the middle, may show both ellipses */
+        /**
+         * Window is in the middle, may show both ellipses
+         */
         MIDDLE
     }
 }

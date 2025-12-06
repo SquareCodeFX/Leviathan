@@ -13,11 +13,13 @@ import org.bukkit.entity.Player;
 import java.util.UUID;
 
 /**
- * Utility methods that can be used as method references with {@link CommandContext#arg(String, java.util.function.Function)},
+ * Utility methods that can be used as method references with
+ * {@link CommandContext#arg(String, java.util.function.Function)},
  * for example: {@code context.arg("name", ArgumentMapper::asString)}.
  */
 public final class ArgumentMapper {
-    private ArgumentMapper() {}
+    private ArgumentMapper() {
+    }
 
     /**
      * Retrieve the value as a String via the provided mapping.

@@ -19,24 +19,28 @@ import java.util.stream.Collectors;
  * All parsers returned from this class are stateless and thread-safe.
  */
 public final class ArgParsers {
-    private ArgParsers() {}
+    private ArgParsers() {
+    }
 
     private static List<String> startingWith(String prefix, Collection<String> options) {
         String low = prefix.toLowerCase(Locale.ROOT);
         return options.stream()
-                .filter(s -> s.toLowerCase(Locale.ROOT).startsWith(low))
-                .sorted()
-                .collect(Collectors.toList());
+            .filter(s -> s.toLowerCase(Locale.ROOT).startsWith(low))
+            .sorted()
+            .collect(Collectors.toList());
     }
 
     /**
      * Parser for 32-bit integers.
+     *
      * @return an ArgumentParser that parses {@code int} values
      */
     public static @NotNull ArgumentParser<Integer> intParser() {
         return new ArgumentParser<>() {
             @Override
-            public String getTypeName() { return "int"; }
+            public String getTypeName() {
+                return "int";
+            }
 
             @Override
             public ParseResult<Integer> parse(String input, CommandSender sender) {
@@ -60,12 +64,15 @@ public final class ArgParsers {
 
     /**
      * Parser for 64-bit integers.
+     *
      * @return an ArgumentParser that parses {@code long} values
      */
     public static @NotNull ArgumentParser<Long> longParser() {
         return new ArgumentParser<>() {
             @Override
-            public String getTypeName() { return "long"; }
+            public String getTypeName() {
+                return "long";
+            }
 
             @Override
             public ParseResult<Long> parse(String input, CommandSender sender) {
@@ -89,12 +96,15 @@ public final class ArgParsers {
 
     /**
      * Parser for a raw string token (no validation).
+     *
      * @return an ArgumentParser that returns the input unchanged
      */
     public static @NotNull ArgumentParser<String> stringParser() {
         return new ArgumentParser<>() {
             @Override
-            public String getTypeName() { return "string"; }
+            public String getTypeName() {
+                return "string";
+            }
 
             @Override
             public ParseResult<String> parse(String input, CommandSender sender) {
@@ -115,12 +125,15 @@ public final class ArgParsers {
 
     /**
      * Parser for a UUID in canonical string form.
+     *
      * @return an ArgumentParser that parses {@link UUID} values
      */
     public static @NotNull ArgumentParser<UUID> uuidParser() {
         return new ArgumentParser<>() {
             @Override
-            public String getTypeName() { return "uuid"; }
+            public String getTypeName() {
+                return "uuid";
+            }
 
             @Override
             public ParseResult<UUID> parse(String input, CommandSender sender) {
@@ -146,13 +159,14 @@ public final class ArgParsers {
      * Create a parser that accepts only a predefined set of aliases and maps them to values.
      * Keys are matched case-insensitively.
      *
-     * @param aliasToValue mapping from alias to value (must be non-empty; keys non-blank; values non-null)
+     * @param aliasToValue     mapping from alias to value (must be non-empty; keys non-blank; values non-null)
      * @param typeNameForError short type label for error messages (e.g., "gamemode")
-     * @param <T> value type
+     * @param <T>              value type
      * @return an ArgumentParser that parses to one of the provided values
      * @throws ParsingException if the alias map is invalid (null/empty keys/values or case-insensitive duplicates)
      */
-    public static <T> @NotNull ArgumentParser<T> choices(@NotNull Map<String, T> aliasToValue, @NotNull String typeNameForError) {
+    public static <T> @NotNull ArgumentParser<T> choices(@NotNull Map<String, T> aliasToValue,
+                                                         @NotNull String typeNameForError) {
         if (aliasToValue == null || aliasToValue.isEmpty()) {
             throw new ParsingException("choices requires a non-empty alias map");
         }
@@ -175,10 +189,15 @@ public final class ArgParsers {
             }
         }
         Map<String, T> lower = aliasToValue.entrySet().stream()
-                .collect(Collectors.toMap(e -> e.getKey().toLowerCase(Locale.ROOT), Map.Entry::getValue, (a, b) -> a, LinkedHashMap::new));
+            .collect(Collectors.toMap(
+                e -> e.getKey().toLowerCase(Locale.ROOT), Map.Entry::getValue, (a, b) -> a,
+                LinkedHashMap::new
+            ));
         return new ArgumentParser<>() {
             @Override
-            public String getTypeName() { return typeNameForError; }
+            public String getTypeName() {
+                return typeNameForError;
+            }
 
             @Override
             public ParseResult<T> parse(String input, CommandSender sender) {
@@ -203,13 +222,14 @@ public final class ArgParsers {
      * Tab completions from all provided parsers are merged (duplicates removed, original order preserved).
      *
      * @param typeNameForError short label for error messages encompassing the accepted types (e.g., "uuid")
-     * @param parsers candidate parsers (must be non-null, at least one)
-     * @param <T> target type
+     * @param parsers          candidate parsers (must be non-null, at least one)
+     * @param <T>              target type
      * @return an ArgumentParser that delegates to the first successful parser
      * @throws ParsingException if typeNameForError is blank or parsers list is invalid
      */
     @SafeVarargs
-    public static <T> @NotNull ArgumentParser<T> oneOf(@NotNull String typeNameForError, @NotNull ArgumentParser<? extends T>... parsers) {
+    public static <T> @NotNull ArgumentParser<T> oneOf(@NotNull String typeNameForError,
+                                                       @NotNull ArgumentParser<? extends T>... parsers) {
         if (typeNameForError == null || typeNameForError.trim().isEmpty()) {
             throw new ParsingException("oneOf requires a non-blank typeNameForError");
         }
@@ -224,7 +244,9 @@ public final class ArgParsers {
         List<ArgumentParser<? extends T>> list = List.of(parsers);
         return new ArgumentParser<>() {
             @Override
-            public String getTypeName() { return typeNameForError; }
+            public String getTypeName() {
+                return typeNameForError;
+            }
 
             @Override
             public ParseResult<T> parse(String input, CommandSender sender) {
@@ -254,12 +276,15 @@ public final class ArgParsers {
 
     /**
      * Parser for double-precision floating point numbers.
+     *
      * @return an ArgumentParser that parses {@code double} values
      */
     public static @NotNull ArgumentParser<Double> doubleParser() {
         return new ArgumentParser<>() {
             @Override
-            public String getTypeName() { return "double"; }
+            public String getTypeName() {
+                return "double";
+            }
 
             @Override
             public ParseResult<Double> parse(String input, CommandSender sender) {
@@ -283,12 +308,15 @@ public final class ArgParsers {
 
     /**
      * Parser for single-precision floating point numbers.
+     *
      * @return an ArgumentParser that parses {@code float} values
      */
     public static @NotNull ArgumentParser<Float> floatParser() {
         return new ArgumentParser<>() {
             @Override
-            public String getTypeName() { return "float"; }
+            public String getTypeName() {
+                return "float";
+            }
 
             @Override
             public ParseResult<Float> parse(String input, CommandSender sender) {
@@ -313,12 +341,15 @@ public final class ArgParsers {
     /**
      * Parser for boolean values (accepts: true, false, yes, no, on, off, 1, 0).
      * All inputs are case-insensitive.
+     *
      * @return an ArgumentParser that parses {@code boolean} values
      */
     public static @NotNull ArgumentParser<Boolean> booleanParser() {
         return new ArgumentParser<>() {
             @Override
-            public String getTypeName() { return "boolean"; }
+            public String getTypeName() {
+                return "boolean";
+            }
 
             @Override
             public ParseResult<Boolean> parse(String input, CommandSender sender) {
@@ -343,12 +374,15 @@ public final class ArgParsers {
 
     /**
      * Parser for online players by name.
+     *
      * @return an ArgumentParser that parses online {@link Player} objects
      */
     public static @NotNull ArgumentParser<Player> playerParser() {
         return new ArgumentParser<>() {
             @Override
-            public String getTypeName() { return "player"; }
+            public String getTypeName() {
+                return "player";
+            }
 
             @Override
             public ParseResult<Player> parse(String input, CommandSender sender) {
@@ -365,9 +399,11 @@ public final class ArgParsers {
             public List<String> complete(String input, CommandSender sender) {
                 Preconditions.checkNotNull(input, "input");
                 Preconditions.checkNotNull(sender, "sender");
-                return startingWith(input, Bukkit.getOnlinePlayers().stream()
-                    .map(Player::getName)
-                    .collect(Collectors.toList()));
+                return startingWith(
+                    input, Bukkit.getOnlinePlayers().stream()
+                        .map(Player::getName)
+                        .collect(Collectors.toList())
+                );
             }
         };
     }
@@ -375,12 +411,15 @@ public final class ArgParsers {
     /**
      * Parser for offline players by name (includes online players).
      * Uses Bukkit's getOfflinePlayer which may perform blocking lookups.
+     *
      * @return an ArgumentParser that parses {@link OfflinePlayer} objects
      */
     public static @NotNull ArgumentParser<OfflinePlayer> offlinePlayerParser() {
         return new ArgumentParser<>() {
             @Override
-            public String getTypeName() { return "offlinePlayer"; }
+            public String getTypeName() {
+                return "offlinePlayer";
+            }
 
             @Override
             public ParseResult<OfflinePlayer> parse(String input, CommandSender sender) {
@@ -395,21 +434,26 @@ public final class ArgParsers {
             public List<String> complete(String input, CommandSender sender) {
                 Preconditions.checkNotNull(input, "input");
                 Preconditions.checkNotNull(sender, "sender");
-                return startingWith(input, Bukkit.getOnlinePlayers().stream()
-                    .map(Player::getName)
-                    .collect(Collectors.toList()));
+                return startingWith(
+                    input, Bukkit.getOnlinePlayers().stream()
+                        .map(Player::getName)
+                        .collect(Collectors.toList())
+                );
             }
         };
     }
 
     /**
      * Parser for worlds by name.
+     *
      * @return an ArgumentParser that parses {@link World} objects
      */
     public static @NotNull ArgumentParser<World> worldParser() {
         return new ArgumentParser<>() {
             @Override
-            public String getTypeName() { return "world"; }
+            public String getTypeName() {
+                return "world";
+            }
 
             @Override
             public ParseResult<World> parse(String input, CommandSender sender) {
@@ -426,21 +470,26 @@ public final class ArgParsers {
             public List<String> complete(String input, CommandSender sender) {
                 Preconditions.checkNotNull(input, "input");
                 Preconditions.checkNotNull(sender, "sender");
-                return startingWith(input, Bukkit.getWorlds().stream()
-                    .map(World::getName)
-                    .collect(Collectors.toList()));
+                return startingWith(
+                    input, Bukkit.getWorlds().stream()
+                        .map(World::getName)
+                        .collect(Collectors.toList())
+                );
             }
         };
     }
 
     /**
      * Parser for materials by name (case-insensitive).
+     *
      * @return an ArgumentParser that parses {@link Material} values
      */
     public static @NotNull ArgumentParser<Material> materialParser() {
         return new ArgumentParser<>() {
             @Override
-            public String getTypeName() { return "material"; }
+            public String getTypeName() {
+                return "material";
+            }
 
             @Override
             public ParseResult<Material> parse(String input, CommandSender sender) {
@@ -458,17 +507,20 @@ public final class ArgParsers {
             public List<String> complete(String input, CommandSender sender) {
                 Preconditions.checkNotNull(input, "input");
                 Preconditions.checkNotNull(sender, "sender");
-                return startingWith(input, Arrays.stream(Material.values())
-                    .map(m -> m.name().toLowerCase(Locale.ROOT))
-                    .collect(Collectors.toList()));
+                return startingWith(
+                    input, Arrays.stream(Material.values())
+                        .map(m -> m.name().toLowerCase(Locale.ROOT))
+                        .collect(Collectors.toList())
+                );
             }
         };
     }
 
     /**
      * Parser for enum constants by name (case-insensitive).
+     *
      * @param enumClass the enum class to parse
-     * @param <E> enum type
+     * @param <E>       enum type
      * @return an ArgumentParser that parses enum constants
      * @throws ParsingException if enumClass is null or has no constants
      */
@@ -483,10 +535,12 @@ public final class ArgParsers {
         Map<String, E> lowerMap = Arrays.stream(constants)
             .collect(Collectors.toMap(e -> e.name().toLowerCase(Locale.ROOT), e -> e));
         String typeName = enumClass.getSimpleName().toLowerCase(Locale.ROOT);
-        
+
         return new ArgumentParser<>() {
             @Override
-            public String getTypeName() { return typeName; }
+            public String getTypeName() {
+                return typeName;
+            }
 
             @Override
             public ParseResult<E> parse(String input, CommandSender sender) {

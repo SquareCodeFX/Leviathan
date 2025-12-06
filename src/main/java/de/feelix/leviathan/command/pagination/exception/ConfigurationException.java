@@ -13,7 +13,9 @@ package de.feelix.leviathan.command.pagination.exception;
  */
 public final class ConfigurationException extends PaginationException {
 
-    /** Error code for configuration failures. */
+    /**
+     * Error code for configuration failures.
+     */
     private static final String ERROR_CODE = "PAG-001";
 
     /**

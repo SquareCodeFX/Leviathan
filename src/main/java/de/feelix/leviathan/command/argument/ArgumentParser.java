@@ -22,7 +22,8 @@ public interface ArgumentParser<T> {
     /**
      * @return a short human-readable type name used in error messages (e.g., "int", "uuid").
      */
-    @NotNull String getTypeName();
+    @NotNull
+    String getTypeName();
 
     /**
      * Attempt to parse the given raw input token into the target type.
@@ -31,7 +32,8 @@ public interface ArgumentParser<T> {
      * @param sender The command sender (for context such as permissions, world, etc.).
      * @return ParseResult with either a value or an error message.
      */
-    @NotNull ParseResult<T> parse(@NotNull String input, @NotNull CommandSender sender);
+    @NotNull
+    ParseResult<T> parse(@NotNull String input, @NotNull CommandSender sender);
 
     /**
      * Provide tab-completion suggestions for the current partial token.
@@ -40,5 +42,6 @@ public interface ArgumentParser<T> {
      * @param sender The command sender (for dynamic completions).
      * @return List of suggestion strings. Never null.
      */
-    @NotNull List<String> complete(@NotNull String input, @NotNull CommandSender sender);
+    @NotNull
+    List<String> complete(@NotNull String input, @NotNull CommandSender sender);
 }

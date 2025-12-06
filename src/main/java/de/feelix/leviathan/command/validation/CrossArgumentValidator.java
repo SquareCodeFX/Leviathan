@@ -22,5 +22,6 @@ public interface CrossArgumentValidator {
      * @param context the command context containing all parsed argument values
      * @return null if valid, or an error message string if invalid
      */
-    @Nullable String validate(@NotNull CommandContext context);
+    @Nullable
+    String validate(@NotNull CommandContext context);
 }

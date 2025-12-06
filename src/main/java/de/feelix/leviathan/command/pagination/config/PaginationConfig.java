@@ -40,42 +40,78 @@ import java.util.Objects;
  */
 public final class PaginationConfig {
 
-    /** Default number of items displayed per page */
+    /**
+     * Default number of items displayed per page
+     */
     private static final int DEFAULT_PAGE_SIZE = 10;
-    /** Default number of page numbers visible in navigation */
+    /**
+     * Default number of page numbers visible in navigation
+     */
     private static final int DEFAULT_VISIBLE_PAGES = 7;
-    /** Default number of pages shown on each side of current page */
+    /**
+     * Default number of pages shown on each side of current page
+     */
     private static final int DEFAULT_SIDE_PAGES = 3;
-    /** Default time-to-live for cached pagination results */
+    /**
+     * Default time-to-live for cached pagination results
+     */
     private static final Duration DEFAULT_CACHE_TTL = Duration.ofMinutes(5);
-    /** Default maximum number of entries in the pagination cache */
+    /**
+     * Default maximum number of entries in the pagination cache
+     */
     private static final int DEFAULT_CACHE_MAX_SIZE = 1000;
 
-    /** Number of items to display per page */
+    /**
+     * Number of items to display per page
+     */
     private final int pageSize;
-    /** Number of page numbers visible in navigation bar */
+    /**
+     * Number of page numbers visible in navigation bar
+     */
     private final int visiblePages;
-    /** Number of pages shown on each side of the current page */
+    /**
+     * Number of pages shown on each side of the current page
+     */
     private final int sidePages;
-    /** Time-to-live duration for cached pagination results */
+    /**
+     * Time-to-live duration for cached pagination results
+     */
     private final Duration cacheTtl;
-    /** Maximum number of entries allowed in the cache */
+    /**
+     * Maximum number of entries allowed in the cache
+     */
     private final int cacheMaxSize;
-    /** Whether caching of pagination results is enabled */
+    /**
+     * Whether caching of pagination results is enabled
+     */
     private final boolean cacheEnabled;
-    /** Whether asynchronous pagination operations are enabled */
+    /**
+     * Whether asynchronous pagination operations are enabled
+     */
     private final boolean asyncEnabled;
-    /** Symbol used to indicate omitted pages (e.g., "...") */
+    /**
+     * Symbol used to indicate omitted pages (e.g., "...")
+     */
     private final String ellipsis;
-    /** Separator between page numbers in navigation (e.g., " | ") */
+    /**
+     * Separator between page numbers in navigation (e.g., " | ")
+     */
     private final String pageSeparator;
-    /** Prefix displayed before the current page number (e.g., "_") */
+    /**
+     * Prefix displayed before the current page number (e.g., "_")
+     */
     private final String currentPagePrefix;
-    /** Suffix displayed after the current page number (e.g., "_") */
+    /**
+     * Suffix displayed after the current page number (e.g., "_")
+     */
     private final String currentPageSuffix;
-    /** Symbol for navigating to the previous page (e.g., "<-") */
+    /**
+     * Symbol for navigating to the previous page (e.g., "<-")
+     */
     private final String previousSymbol;
-    /** Symbol for navigating to the next page (e.g., "->") */
+    /**
+     * Symbol for navigating to the next page (e.g., "->")
+     */
     private final String nextSymbol;
 
     private PaginationConfig(Builder builder) {
@@ -237,17 +273,17 @@ public final class PaginationConfig {
      */
     public Builder toBuilder() {
         return new Builder()
-                .pageSize(this.pageSize)
-                .visiblePages(this.visiblePages)
-                .sidePages(this.sidePages)
-                .cacheTtl(this.cacheTtl)
-                .cacheMaxSize(this.cacheMaxSize)
-                .cacheEnabled(this.cacheEnabled)
-                .asyncEnabled(this.asyncEnabled)
-                .ellipsis(this.ellipsis)
-                .pageSeparator(this.pageSeparator)
-                .currentPageMarkers(this.currentPagePrefix, this.currentPageSuffix)
-                .navigationSymbols(this.previousSymbol, this.nextSymbol);
+            .pageSize(this.pageSize)
+            .visiblePages(this.visiblePages)
+            .sidePages(this.sidePages)
+            .cacheTtl(this.cacheTtl)
+            .cacheMaxSize(this.cacheMaxSize)
+            .cacheEnabled(this.cacheEnabled)
+            .asyncEnabled(this.asyncEnabled)
+            .ellipsis(this.ellipsis)
+            .pageSeparator(this.pageSeparator)
+            .currentPageMarkers(this.currentPagePrefix, this.currentPageSuffix)
+            .navigationSymbols(this.previousSymbol, this.nextSymbol);
     }
 
     /**
@@ -269,7 +305,8 @@ public final class PaginationConfig {
         private String previousSymbol = "<-";
         private String nextSymbol = "->";
 
-        private Builder() {}
+        private Builder() {
+        }
 
         /**
          * Set the number of items to display per page.
@@ -407,7 +444,7 @@ public final class PaginationConfig {
          * Set the symbols for previous and next page navigation.
          *
          * @param previous the previous page symbol (e.g., "<-" or "←")
-         * @param next the next page symbol (e.g., "->" or "→")
+         * @param next     the next page symbol (e.g., "->" or "→")
          * @return this builder for method chaining
          * @throws NullPointerException if previous or next is null
          */
@@ -438,8 +475,10 @@ public final class PaginationConfig {
         private void validate() {
             if (sidePages * 2 + 1 > visiblePages) {
                 throw new ConfigurationException(
-                        String.format("Side pages (%d) too large for visible pages (%d). " +
-                                "Required: sidePages * 2 + 1 <= visiblePages", sidePages, visiblePages));
+                    String.format(
+                        "Side pages (%d) too large for visible pages (%d). " +
+                        "Required: sidePages * 2 + 1 <= visiblePages", sidePages, visiblePages
+                    ));
             }
         }
     }
@@ -450,12 +489,12 @@ public final class PaginationConfig {
         if (o == null || getClass() != o.getClass()) return false;
         PaginationConfig that = (PaginationConfig) o;
         return pageSize == that.pageSize &&
-                visiblePages == that.visiblePages &&
-                sidePages == that.sidePages &&
-                cacheMaxSize == that.cacheMaxSize &&
-                cacheEnabled == that.cacheEnabled &&
-                asyncEnabled == that.asyncEnabled &&
-                Objects.equals(cacheTtl, that.cacheTtl);
+               visiblePages == that.visiblePages &&
+               sidePages == that.sidePages &&
+               cacheMaxSize == that.cacheMaxSize &&
+               cacheEnabled == that.cacheEnabled &&
+               asyncEnabled == that.asyncEnabled &&
+               Objects.equals(cacheTtl, that.cacheTtl);
     }
 
     @Override
@@ -466,13 +505,13 @@ public final class PaginationConfig {
     @Override
     public String toString() {
         return "PaginationConfig{" +
-                "pageSize=" + pageSize +
-                ", visiblePages=" + visiblePages +
-                ", sidePages=" + sidePages +
-                ", cacheTtl=" + cacheTtl +
-                ", cacheMaxSize=" + cacheMaxSize +
-                ", cacheEnabled=" + cacheEnabled +
-                ", asyncEnabled=" + asyncEnabled +
-                '}';
+               "pageSize=" + pageSize +
+               ", visiblePages=" + visiblePages +
+               ", sidePages=" + sidePages +
+               ", cacheTtl=" + cacheTtl +
+               ", cacheMaxSize=" + cacheMaxSize +
+               ", cacheEnabled=" + cacheEnabled +
+               ", asyncEnabled=" + asyncEnabled +
+               '}';
     }
 }

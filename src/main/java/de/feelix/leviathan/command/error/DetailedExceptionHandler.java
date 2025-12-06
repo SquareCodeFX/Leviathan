@@ -78,9 +78,9 @@ public class DetailedExceptionHandler implements ExceptionHandler {
     /**
      * Creates a new DetailedExceptionHandler with configurable features.
      *
-     * @param logger            the logger to use for output
-     * @param includeThreadDump whether to include thread dump information
-     * @param includeJvmDetails whether to include JVM details
+     * @param logger             the logger to use for output
+     * @param includeThreadDump  whether to include thread dump information
+     * @param includeJvmDetails  whether to include JVM details
      * @param includeSuggestions whether to include error suggestions
      */
     public DetailedExceptionHandler(@NotNull Logger logger,
@@ -180,7 +180,9 @@ public class DetailedExceptionHandler implements ExceptionHandler {
         report.append("  EXCEPTION INFORMATION\n");
         report.append(THIN_SEPARATOR).append("\n");
         report.append("  Class   : ").append(exception.getClass().getName()).append("\n");
-        report.append("  Message : ").append(exception.getMessage() != null ? exception.getMessage() : "No message").append("\n");
+        report.append("  Message : ")
+            .append(exception.getMessage() != null ? exception.getMessage() : "No message")
+            .append("\n");
 
         // Print full stack trace
         report.append("\n  Stack Trace:\n");
@@ -204,7 +206,10 @@ public class DetailedExceptionHandler implements ExceptionHandler {
             while (cause != null && depth < maxDepth) {
                 String indent = "  " + "  ".repeat(depth);
                 report.append(indent).append("↳ Caused by: ").append(cause.getClass().getName()).append("\n");
-                report.append(indent).append("  Message: ").append(cause.getMessage() != null ? cause.getMessage() : "No message").append("\n");
+                report.append(indent)
+                    .append("  Message: ")
+                    .append(cause.getMessage() != null ? cause.getMessage() : "No message")
+                    .append("\n");
 
                 StackTraceElement[] stackTrace = cause.getStackTrace();
                 if (stackTrace.length > 0) {

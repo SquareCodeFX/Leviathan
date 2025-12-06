@@ -22,7 +22,8 @@ import java.util.stream.Collectors;
  *   <li>Filtering and sorting are applied once during construction for predictable performance.</li>
  *   <li>Offsets are 0-based; {@code fetch(offset, limit)} clamps the end index and returns an empty list if
  *       {@code offset >= size}.</li>
- *   <li>{@link #identifier} is intended to be stable and unique for a given logical dataset; use builder to set it.</li>
+ *   <li>{@link #identifier} is intended to be stable and unique for a given logical dataset; use builder to set it
+ *   .</li>
  * </ul>
  * <p>
  * Example usage:
@@ -47,13 +48,21 @@ import java.util.stream.Collectors;
  */
 public final class ListDataSource<T> implements PaginationDataSource<T> {
 
-    /** The immutable list of filtered and sorted data */
+    /**
+     * The immutable list of filtered and sorted data
+     */
     private final List<T> data;
-    /** Unique identifier for this data source */
+    /**
+     * Unique identifier for this data source
+     */
     private final String identifier;
-    /** Optional comparator used for sorting (may be null) */
+    /**
+     * Optional comparator used for sorting (may be null)
+     */
     private final Comparator<? super T> comparator;
-    /** Filter predicate applied to elements */
+    /**
+     * Filter predicate applied to elements
+     */
     private final Predicate<? super T> filter;
 
     private ListDataSource(Builder<T> builder) {
@@ -63,8 +72,8 @@ public final class ListDataSource<T> implements PaginationDataSource<T> {
 
         // Apply filter and sorting during construction for efficiency
         List<T> processedData = builder.data.stream()
-                .filter(filter)
-                .collect(Collectors.toList());
+            .filter(filter)
+            .collect(Collectors.toList());
 
         if (comparator != null) {
             processedData.sort(comparator);
@@ -88,13 +97,13 @@ public final class ListDataSource<T> implements PaginationDataSource<T> {
      * Convenience factory method for quick creation without custom options.
      *
      * @param data the collection to wrap
-     * @param <T> the type of elements
+     * @param <T>  the type of elements
      * @return a new ListDataSource containing all elements from the collection
      */
     public static <T> ListDataSource<T> of(Collection<T> data) {
         return ListDataSource.<T>builder()
-                .data(data)
-                .build();
+            .data(data)
+            .build();
     }
 
     /**
@@ -161,11 +170,11 @@ public final class ListDataSource<T> implements PaginationDataSource<T> {
     public ListDataSource<T> withFilter(Predicate<? super T> additionalFilter) {
         Predicate<T> combined = t -> filter.test(t) && additionalFilter.test(t);
         return ListDataSource.<T>builder()
-                .data(data)
-                .identifier(identifier + "_filtered")
-                .filter(combined)
-                .comparator(comparator)
-                .build();
+            .data(data)
+            .identifier(identifier + "_filtered")
+            .filter(combined)
+            .comparator(comparator)
+            .build();
     }
 
     /**
@@ -177,11 +186,11 @@ public final class ListDataSource<T> implements PaginationDataSource<T> {
      */
     public ListDataSource<T> withSort(Comparator<? super T> newComparator) {
         return ListDataSource.<T>builder()
-                .data(data)
-                .identifier(identifier + "_sorted")
-                .filter(filter)
-                .comparator(newComparator)
-                .build();
+            .data(data)
+            .identifier(identifier + "_sorted")
+            .filter(filter)
+            .comparator(newComparator)
+            .build();
     }
 
     private void validateFetchParameters(long offset, int limit) {
@@ -223,7 +232,8 @@ public final class ListDataSource<T> implements PaginationDataSource<T> {
         private Comparator<? super T> comparator = null;
         private Predicate<? super T> filter = t -> true;
 
-        private Builder() {}
+        private Builder() {
+        }
 
         /**
          * Set the data from a collection.

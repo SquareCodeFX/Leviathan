@@ -12,7 +12,7 @@ import java.util.stream.Collectors;
 /**
  * Immutable container for paginated data with metadata.
  * Generic type T represents the type of items in the page.
- * 
+ *
  * @param <T> The type of elements in this page
  */
 @Getter
@@ -44,10 +44,10 @@ public final class PaginatedResult<T> implements Iterable<T> {
      */
     public static <T> PaginatedResult<T> of(List<T> items, PageInfo pageInfo, PaginationConfig config) {
         return PaginatedResult.<T>builder()
-                .items(items)
-                .pageInfo(pageInfo)
-                .navigationWindow(NavigationWindow.from(pageInfo, config))
-                .build();
+            .items(items)
+            .pageInfo(pageInfo)
+            .navigationWindow(NavigationWindow.from(pageInfo, config))
+            .build();
     }
 
     /**
@@ -95,17 +95,17 @@ public final class PaginatedResult<T> implements Iterable<T> {
     public <R> PaginatedResult<R> map(Function<? super T, ? extends R> mapper) {
         Objects.requireNonNull(mapper, "Mapper function cannot be null");
         List<R> mappedItems = items.stream()
-                .map(mapper)
-                .collect(Collectors.toList());
-        
+            .map(mapper)
+            .collect(Collectors.toList());
+
         return PaginatedResult.<R>builder()
-                .items(mappedItems)
-                .pageInfo(this.pageInfo)
-                .navigationWindow(this.navigationWindow)
-                .queryId(this.queryId)
-                .metadata(this.metadata)
-                .createdAt(this.createdAt)
-                .build();
+            .items(mappedItems)
+            .pageInfo(this.pageInfo)
+            .navigationWindow(this.navigationWindow)
+            .queryId(this.queryId)
+            .metadata(this.metadata)
+            .createdAt(this.createdAt)
+            .build();
     }
 
     /**
@@ -114,17 +114,17 @@ public final class PaginatedResult<T> implements Iterable<T> {
     public PaginatedResult<T> filter(java.util.function.Predicate<? super T> predicate) {
         Objects.requireNonNull(predicate, "Predicate cannot be null");
         List<T> filteredItems = items.stream()
-                .filter(predicate)
-                .collect(Collectors.toList());
-        
+            .filter(predicate)
+            .collect(Collectors.toList());
+
         return PaginatedResult.<T>builder()
-                .items(filteredItems)
-                .pageInfo(this.pageInfo)
-                .navigationWindow(this.navigationWindow)
-                .queryId(this.queryId)
-                .metadata(this.metadata)
-                .createdAt(this.createdAt)
-                .build();
+            .items(filteredItems)
+            .pageInfo(this.pageInfo)
+            .navigationWindow(this.navigationWindow)
+            .queryId(this.queryId)
+            .metadata(this.metadata)
+            .createdAt(this.createdAt)
+            .build();
     }
 
     // Navigation shortcuts
@@ -165,8 +165,8 @@ public final class PaginatedResult<T> implements Iterable<T> {
         if (o == null || getClass() != o.getClass()) return false;
         PaginatedResult<?> that = (PaginatedResult<?>) o;
         return Objects.equals(items, that.items) &&
-                Objects.equals(pageInfo, that.pageInfo) &&
-                Objects.equals(queryId, that.queryId);
+               Objects.equals(pageInfo, that.pageInfo) &&
+               Objects.equals(queryId, that.queryId);
     }
 
     @Override
@@ -176,8 +176,10 @@ public final class PaginatedResult<T> implements Iterable<T> {
 
     @Override
     public String toString() {
-        return String.format("PaginatedResult{%s, items=%d, queryId='%s'}",
-                pageInfo, items.size(), queryId);
+        return String.format(
+            "PaginatedResult{%s, items=%d, queryId='%s'}",
+            pageInfo, items.size(), queryId
+        );
     }
 
     public static final class Builder<T> {
@@ -188,7 +190,8 @@ public final class PaginatedResult<T> implements Iterable<T> {
         private String queryId = UUID.randomUUID().toString();
         private Map<String, Object> metadata = new HashMap<>();
 
-        private Builder() {}
+        private Builder() {
+        }
 
         public Builder<T> items(List<T> items) {
             this.items = Objects.requireNonNull(items, "Items cannot be null");
@@ -222,8 +225,8 @@ public final class PaginatedResult<T> implements Iterable<T> {
 
         public Builder<T> addMetadata(String key, Object value) {
             this.metadata.put(
-                    Objects.requireNonNull(key, "Metadata key cannot be null"),
-                    Objects.requireNonNull(value, "Metadata value cannot be null")
+                Objects.requireNonNull(key, "Metadata key cannot be null"),
+                Objects.requireNonNull(value, "Metadata value cannot be null")
             );
             return this;
         }

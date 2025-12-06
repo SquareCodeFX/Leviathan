@@ -45,15 +45,25 @@ import java.util.function.Supplier;
  */
 public final class LazyDataSource<T> implements PaginationDataSource<T> {
 
-    /** Function to fetch a page of data given offset and limit */
+    /**
+     * Function to fetch a page of data given offset and limit
+     */
     private final BiFunction<Long, Integer, List<T>> fetchFunction;
-    /** Function to fetch a page of data asynchronously */
+    /**
+     * Function to fetch a page of data asynchronously
+     */
     private final BiFunction<Long, Integer, CompletableFuture<List<T>>> asyncFetchFunction;
-    /** Supplier to get the total count of elements */
+    /**
+     * Supplier to get the total count of elements
+     */
     private final Supplier<Long> countSupplier;
-    /** Supplier to get the total count asynchronously */
+    /**
+     * Supplier to get the total count asynchronously
+     */
     private final Supplier<CompletableFuture<Long>> asyncCountSupplier;
-    /** Unique identifier for this data source */
+    /**
+     * Unique identifier for this data source
+     */
     private final String identifier;
 
     private LazyDataSource(Builder<T> builder) {
@@ -88,9 +98,9 @@ public final class LazyDataSource<T> implements PaginationDataSource<T> {
     public CompletableFuture<List<T>> fetchAsync(long offset, int limit) {
         validateParameters(offset, limit);
         return asyncFetchFunction.apply(offset, limit)
-                .exceptionally(e -> {
-                    throw new DataSourceException("Async fetch failed at offset " + offset, e);
-                });
+            .exceptionally(e -> {
+                throw new DataSourceException("Async fetch failed at offset " + offset, e);
+            });
     }
 
     @Override
@@ -105,9 +115,9 @@ public final class LazyDataSource<T> implements PaginationDataSource<T> {
     @Override
     public CompletableFuture<Long> countAsync() {
         return asyncCountSupplier.get()
-                .exceptionally(e -> {
-                    throw new DataSourceException("Async count failed", e);
-                });
+            .exceptionally(e -> {
+                throw new DataSourceException("Async count failed", e);
+            });
     }
 
     @Override
@@ -142,7 +152,8 @@ public final class LazyDataSource<T> implements PaginationDataSource<T> {
         private Supplier<CompletableFuture<Long>> asyncCountSupplier;
         private String identifier = UUID.randomUUID().toString();
 
-        private Builder() {}
+        private Builder() {
+        }
 
         /**
          * Set the synchronous fetch function for retrieving paginated data.
@@ -157,7 +168,7 @@ public final class LazyDataSource<T> implements PaginationDataSource<T> {
             // Default async to wrapping sync if not set
             if (this.asyncFetchFunction == null) {
                 this.asyncFetchFunction = (offset, limit) ->
-                        CompletableFuture.supplyAsync(() -> fetchFunction.apply(offset, limit));
+                    CompletableFuture.supplyAsync(() -> fetchFunction.apply(offset, limit));
             }
             return this;
         }

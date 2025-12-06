@@ -28,7 +28,8 @@ public final class CommandContext {
 
     /**
      * Create a new command context.
-     * @param values parsed name-to-value mapping
+     *
+     * @param values  parsed name-to-value mapping
      * @param rawArgs raw argument tokens provided by Bukkit
      */
     public CommandContext(@NotNull Map<String, Object> values, @NotNull String[] rawArgs) {
@@ -45,6 +46,7 @@ public final class CommandContext {
 
     /**
      * Retrieve an optional typed value by argument name.
+     *
      * @param name argument name
      * @param type expected type class
      * @return Optional of the value if present and assignable to the given type, otherwise empty
@@ -61,6 +63,7 @@ public final class CommandContext {
 
     /**
      * Retrieve a typed value by argument name, returning null when missing or of a different type.
+     *
      * @param name argument name
      * @param type expected type class
      * @return the value or null
@@ -77,6 +80,7 @@ public final class CommandContext {
 
     /**
      * Strictly retrieve a value by name, throwing if it is missing or of the wrong type.
+     *
      * @param name argument name
      * @param type expected type class
      * @return non-null value of the requested type
@@ -92,7 +96,8 @@ public final class CommandContext {
         Object o = values.get(name);
         if (!type.isInstance(o)) {
             String actual = (o == null) ? "null" : o.getClass().getName();
-            throw new ApiMisuseException("Argument '" + name + "' has type " + actual + ", not assignable to " + type.getName());
+            throw new ApiMisuseException(
+                "Argument '" + name + "' has type " + actual + ", not assignable to " + type.getName());
         }
         return (T) o;
     }
@@ -113,9 +118,11 @@ public final class CommandContext {
     }
 
     /**
-     * Retrieve a typed value by argument name, returning the provided default value when missing or of a different type.
-     * @param name argument name
-     * @param type expected type class
+     * Retrieve a typed value by argument name, returning the provided default value when missing or of a different
+     * type.
+     *
+     * @param name         argument name
+     * @param type         expected type class
      * @param defaultValue value to return if the argument is missing or has a different type
      * @return the value or the default value
      */
@@ -129,7 +136,8 @@ public final class CommandContext {
 
     /**
      * Convenience method to retrieve a String argument or return a default value.
-     * @param name argument name
+     *
+     * @param name         argument name
      * @param defaultValue value to return if the argument is missing
      * @return the string value or the default value
      */
@@ -139,7 +147,8 @@ public final class CommandContext {
 
     /**
      * Convenience method to retrieve an Integer argument or return a default value.
-     * @param name argument name
+     *
+     * @param name         argument name
      * @param defaultValue value to return if the argument is missing
      * @return the integer value or the default value
      */
@@ -149,7 +158,8 @@ public final class CommandContext {
 
     /**
      * Convenience method to retrieve a Long argument or return a default value.
-     * @param name argument name
+     *
+     * @param name         argument name
      * @param defaultValue value to return if the argument is missing
      * @return the long value or the default value
      */
@@ -159,7 +169,8 @@ public final class CommandContext {
 
     /**
      * Convenience method to retrieve a Double argument or return a default value.
-     * @param name argument name
+     *
+     * @param name         argument name
      * @param defaultValue value to return if the argument is missing
      * @return the double value or the default value
      */
@@ -169,7 +180,8 @@ public final class CommandContext {
 
     /**
      * Convenience method to retrieve a Float argument or return a default value.
-     * @param name argument name
+     *
+     * @param name         argument name
      * @param defaultValue value to return if the argument is missing
      * @return the float value or the default value
      */
@@ -179,7 +191,8 @@ public final class CommandContext {
 
     /**
      * Convenience method to retrieve a Boolean argument or return a default value.
-     * @param name argument name
+     *
+     * @param name         argument name
      * @param defaultValue value to return if the argument is missing
      * @return the boolean value or the default value
      */
@@ -189,7 +202,8 @@ public final class CommandContext {
 
     /**
      * Convenience method to retrieve a UUID argument or return a default value.
-     * @param name argument name
+     *
+     * @param name         argument name
      * @param defaultValue value to return if the argument is missing
      * @return the UUID value or the default value
      */
@@ -199,7 +213,8 @@ public final class CommandContext {
 
     /**
      * Convenience method to retrieve a Player argument or return a default value.
-     * @param name argument name
+     *
+     * @param name         argument name
      * @param defaultValue value to return if the argument is missing
      * @return the Player value or the default value
      */
@@ -210,6 +225,7 @@ public final class CommandContext {
     /**
      * Functional retrieval using an {@link OptionMapping} and a mapper function.
      * Example usage: {@code String n = ctx.arg("name", ArgumentMapper::asString);}.
+     *
      * @return the mapped value, or null if the argument is not available
      */
     public <T> @Nullable T arg(@NotNull String name, @NotNull Function<OptionMapping, T> mapper) {
@@ -220,11 +236,25 @@ public final class CommandContext {
 
     private final class MappingImpl implements OptionMapping {
         private final String name;
-        private MappingImpl(String name) { this.name = name; }
 
-        @Override public @NotNull String name() { return name; }
-        @Override public Object raw() { return values.get(name); }
-        @Override public @NotNull OptionType optionType() { return inferType(raw()); }
+        private MappingImpl(String name) {
+            this.name = name;
+        }
+
+        @Override
+        public @NotNull String name() {
+            return name;
+        }
+
+        @Override
+        public Object raw() {
+            return values.get(name);
+        }
+
+        @Override
+        public @NotNull OptionType optionType() {
+            return inferType(raw());
+        }
 
         @Override
         public <T> @Nullable T as(@NotNull Class<T> type) {
@@ -243,10 +273,25 @@ public final class CommandContext {
             return t;
         }
 
-        @Override public @Nullable String asString() { return as(String.class); }
-        @Override public @Nullable Integer asInt() { return as(Integer.class); }
-        @Override public @Nullable Long asLong() { return as(Long.class); }
-        @Override public @Nullable UUID asUuid() { return as(UUID.class); }
+        @Override
+        public @Nullable String asString() {
+            return as(String.class);
+        }
+
+        @Override
+        public @Nullable Integer asInt() {
+            return as(Integer.class);
+        }
+
+        @Override
+        public @Nullable Long asLong() {
+            return as(Long.class);
+        }
+
+        @Override
+        public @Nullable UUID asUuid() {
+            return as(UUID.class);
+        }
     }
 
     private static @NotNull OptionType inferType(Object o) {

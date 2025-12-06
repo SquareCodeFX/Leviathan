@@ -12,6 +12,7 @@ import de.feelix.leviathan.util.Preconditions;
 public class ApiMisuseException extends RuntimeException {
     /**
      * Create a new API misuse exception.
+     *
      * @param message human-readable description of the misuse
      */
     public ApiMisuseException(@NotNull String message) {
@@ -20,8 +21,9 @@ public class ApiMisuseException extends RuntimeException {
 
     /**
      * Create a new API misuse exception with a cause.
+     *
      * @param message human-readable description of the misuse
-     * @param cause underlying cause
+     * @param cause   underlying cause
      */
     public ApiMisuseException(@NotNull String message, @Nullable Throwable cause) {
         super(Preconditions.checkNotNull(message, "message"), cause);

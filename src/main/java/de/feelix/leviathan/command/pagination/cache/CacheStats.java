@@ -20,15 +20,25 @@ import java.util.Objects;
  */
 public final class CacheStats {
 
-    /** Number of cache hits (successful lookups) */
+    /**
+     * Number of cache hits (successful lookups)
+     */
     private final long hitCount;
-    /** Number of cache misses (failed lookups requiring load) */
+    /**
+     * Number of cache misses (failed lookups requiring load)
+     */
     private final long missCount;
-    /** Number of entries evicted from the cache */
+    /**
+     * Number of entries evicted from the cache
+     */
     private final long evictionCount;
-    /** Number of successful load operations */
+    /**
+     * Number of successful load operations
+     */
     private final long loadSuccessCount;
-    /** Number of failed load operations */
+    /**
+     * Number of failed load operations
+     */
     private final long loadFailureCount;
     /**
      * Total time spent loading entries in milliseconds.
@@ -39,9 +49,13 @@ public final class CacheStats {
      * This field therefore stores milliseconds.</p>
      */
     private final long totalLoadTime;
-    /** Current number of entries in the cache */
+    /**
+     * Current number of entries in the cache
+     */
     private final int currentSize;
-    /** Maximum allowed entries in the cache */
+    /**
+     * Maximum allowed entries in the cache
+     */
     private final int maxSize;
 
     private CacheStats(Builder builder) {
@@ -232,14 +246,14 @@ public final class CacheStats {
      */
     public Builder toBuilder() {
         return new Builder()
-                .hitCount(hitCount)
-                .missCount(missCount)
-                .evictionCount(evictionCount)
-                .loadSuccessCount(loadSuccessCount)
-                .loadFailureCount(loadFailureCount)
-                .totalLoadTime(totalLoadTime)
-                .currentSize(currentSize)
-                .maxSize(maxSize);
+            .hitCount(hitCount)
+            .missCount(missCount)
+            .evictionCount(evictionCount)
+            .loadSuccessCount(loadSuccessCount)
+            .loadFailureCount(loadFailureCount)
+            .totalLoadTime(totalLoadTime)
+            .currentSize(currentSize)
+            .maxSize(maxSize);
     }
 
     @Override
@@ -248,10 +262,10 @@ public final class CacheStats {
         if (o == null || getClass() != o.getClass()) return false;
         CacheStats that = (CacheStats) o;
         return hitCount == that.hitCount &&
-                missCount == that.missCount &&
-                evictionCount == that.evictionCount &&
-                loadSuccessCount == that.loadSuccessCount &&
-                loadFailureCount == that.loadFailureCount;
+               missCount == that.missCount &&
+               evictionCount == that.evictionCount &&
+               loadSuccessCount == that.loadSuccessCount &&
+               loadFailureCount == that.loadFailureCount;
     }
 
     @Override
@@ -261,8 +275,10 @@ public final class CacheStats {
 
     @Override
     public String toString() {
-        return String.format("CacheStats{hits=%d, misses=%d, hitRate=%.2f%%, size=%d/%d, evictions=%d}",
-                hitCount, missCount, getHitRate() * 100, currentSize, maxSize, evictionCount);
+        return String.format(
+            "CacheStats{hits=%d, misses=%d, hitRate=%.2f%%, size=%d/%d, evictions=%d}",
+            hitCount, missCount, getHitRate() * 100, currentSize, maxSize, evictionCount
+        );
     }
 
     /**
@@ -279,7 +295,8 @@ public final class CacheStats {
         private int currentSize = 0;
         private int maxSize = 0;
 
-        private Builder() {}
+        private Builder() {
+        }
 
         /**
          * Set the number of cache hits.

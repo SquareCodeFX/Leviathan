@@ -13,7 +13,9 @@ package de.feelix.leviathan.command.pagination.exception;
  */
 public final class DataSourceException extends PaginationException {
 
-    /** Error code for data source failures. */
+    /**
+     * Error code for data source failures.
+     */
     private static final String ERROR_CODE = "PAG-003";
 
     /**

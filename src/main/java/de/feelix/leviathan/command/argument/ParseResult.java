@@ -1,6 +1,7 @@
 package de.feelix.leviathan.command.argument;
 
 import java.util.Optional;
+
 import de.feelix.leviathan.annotations.NotNull;
 import de.feelix.leviathan.annotations.Nullable;
 import de.feelix.leviathan.util.Preconditions;
@@ -24,6 +25,7 @@ public final class ParseResult<T> {
 
     /**
      * Create a successful parse result.
+     *
      * @param value parsed value (may be null, depending on parser contract)
      * @return success result
      */
@@ -33,6 +35,7 @@ public final class ParseResult<T> {
 
     /**
      * Create a failed parse result with a human-readable error message.
+     *
      * @param message error message to surface to the user
      * @return error result
      */

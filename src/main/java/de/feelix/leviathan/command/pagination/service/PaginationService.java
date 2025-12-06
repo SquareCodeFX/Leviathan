@@ -27,20 +27,25 @@ import java.util.concurrent.ForkJoinPool;
 public final class PaginationService<T> {
 
     /**
-     * -- GETTER --
-     *  Returns the pagination configuration used by this service.
-     *
-     * @return the pagination config
+     * Returns the pagination configuration used by this service.
      */
     @Getter
     private final PaginationConfig config;
-    /** Data provider used to fetch elements and total count. */
+    /**
+     * Data provider used to fetch elements and total count.
+     */
     private final PaginationDataSource<T> dataSource;
-    /** Optional cache for page results keyed by {@link CacheKey}. */
+    /**
+     * Optional cache for page results keyed by {@link CacheKey}.
+     */
     private final PaginationCache<CacheKey, PaginatedResult<T>> cache;
-    /** Executor for async operations (defaults to {@link ForkJoinPool#commonPool()}). */
+    /**
+     * Executor for async operations (defaults to {@link ForkJoinPool#commonPool()}).
+     */
     private final ExecutorService executor;
-    /** Whether caching is enabled per configuration and a cache instance is present. */
+    /**
+     * Whether caching is enabled per configuration and a cache instance is present.
+     */
     private final boolean cacheEnabled;
 
     private PaginationService(Builder<T> builder) {
@@ -147,10 +152,10 @@ public final class PaginationService<T> {
      */
     public CompletableFuture<PaginatedResult<T>> getLastPageAsync() {
         return countAsync()
-                .thenCompose(count -> {
-                    int totalPages = calculateTotalPages(count);
-                    return getPageAsync(totalPages);
-                });
+            .thenCompose(count -> {
+                int totalPages = calculateTotalPages(count);
+                return getPageAsync(totalPages);
+            });
     }
 
     /**
@@ -183,7 +188,7 @@ public final class PaginationService<T> {
         }
 
         return getPageAsync(current.getCurrentPage() + 1)
-                .thenApply(Optional::of);
+            .thenApply(Optional::of);
     }
 
     /**
@@ -216,7 +221,7 @@ public final class PaginationService<T> {
         }
 
         return getPageAsync(current.getCurrentPage() - 1)
-                .thenApply(Optional::of);
+            .thenApply(Optional::of);
     }
 
     /**
@@ -249,8 +254,8 @@ public final class PaginationService<T> {
         }
 
         return java.util.stream.IntStream.rangeClosed(startPage, endPage)
-                .mapToObj(this::getPage)
-                .toList();
+            .mapToObj(this::getPage)
+            .toList();
     }
 
     /**
@@ -270,14 +275,14 @@ public final class PaginationService<T> {
         }
 
         List<CompletableFuture<PaginatedResult<T>>> futures = java.util.stream.IntStream
-                .rangeClosed(startPage, endPage)
-                .mapToObj(this::getPageAsync)
-                .toList();
+            .rangeClosed(startPage, endPage)
+            .mapToObj(this::getPageAsync)
+            .toList();
 
         return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
-                .thenApply(v -> futures.stream()
-                        .map(CompletableFuture::join)
-                        .toList());
+            .thenApply(v -> futures.stream()
+                .map(CompletableFuture::join)
+                .toList());
     }
 
     /**
@@ -329,10 +334,10 @@ public final class PaginationService<T> {
     }
 
     /**
-    * Returns the total number of elements asynchronously.
-    *
-    * @return future completing with total element count
-    */
+     * Returns the total number of elements asynchronously.
+     *
+     * @return future completing with total element count
+     */
     public CompletableFuture<Long> countAsync() {
         return dataSource.countAsync();
     }
@@ -400,11 +405,11 @@ public final class PaginationService<T> {
         NavigationWindow window = NavigationWindow.from(pageInfo, config);
 
         return PaginatedResult.<T>builder()
-                .items(items)
-                .pageInfo(pageInfo)
-                .navigationWindow(window)
-                .addMetadata("dataSourceId", dataSource.getIdentifier())
-                .build();
+            .items(items)
+            .pageInfo(pageInfo)
+            .navigationWindow(window)
+            .addMetadata("dataSourceId", dataSource.getIdentifier())
+            .build();
     }
 
     /**
@@ -412,26 +417,26 @@ public final class PaginationService<T> {
      */
     private CompletableFuture<PaginatedResult<T>> fetchPageAsync(int pageNumber) {
         return dataSource.countAsync()
-                .thenCompose(totalElements -> {
-                    PageInfo pageInfo = PageInfo.of(pageNumber, totalElements, config.getPageSize());
+            .thenCompose(totalElements -> {
+                PageInfo pageInfo = PageInfo.of(pageNumber, totalElements, config.getPageSize());
 
-                    if (pageNumber > pageInfo.getTotalPages()) {
-                        return CompletableFuture.failedFuture(
-                                new InvalidPageException(pageNumber, pageInfo.getTotalPages()));
-                    }
+                if (pageNumber > pageInfo.getTotalPages()) {
+                    return CompletableFuture.failedFuture(
+                        new InvalidPageException(pageNumber, pageInfo.getTotalPages()));
+                }
 
-                    long offset = pageInfo.getOffset();
-                    return dataSource.fetchAsync(offset, config.getPageSize())
-                            .thenApply(items -> {
-                                NavigationWindow window = NavigationWindow.from(pageInfo, config);
-                                return PaginatedResult.<T>builder()
-                                        .items(items)
-                                        .pageInfo(pageInfo)
-                                        .navigationWindow(window)
-                                        .addMetadata("dataSourceId", dataSource.getIdentifier())
-                                        .build();
-                            });
-                });
+                long offset = pageInfo.getOffset();
+                return dataSource.fetchAsync(offset, config.getPageSize())
+                    .thenApply(items -> {
+                        NavigationWindow window = NavigationWindow.from(pageInfo, config);
+                        return PaginatedResult.<T>builder()
+                            .items(items)
+                            .pageInfo(pageInfo)
+                            .navigationWindow(window)
+                            .addMetadata("dataSourceId", dataSource.getIdentifier())
+                            .build();
+                    });
+            });
     }
 
     /**
@@ -476,16 +481,25 @@ public final class PaginationService<T> {
      * Builder for {@link PaginationService}.
      */
     public static final class Builder<T> {
-        /** Configuration used by the service (defaults applied via {@link PaginationConfig#defaults()}). */
+        /**
+         * Configuration used by the service (defaults applied via {@link PaginationConfig#defaults()}).
+         */
         private PaginationConfig config = PaginationConfig.defaults();
-        /** Data source for items and counts (required). */
+        /**
+         * Data source for items and counts (required).
+         */
         private PaginationDataSource<T> dataSource;
-        /** Optional cache for page results (if unset and caching enabled, use {@link #withDefaultCache()}). */
+        /**
+         * Optional cache for page results (if unset and caching enabled, use {@link #withDefaultCache()}).
+         */
         private PaginationCache<CacheKey, PaginatedResult<T>> cache;
-        /** Executor for async operations (defaults to common pool). */
+        /**
+         * Executor for async operations (defaults to common pool).
+         */
         private ExecutorService executor = ForkJoinPool.commonPool();
 
-        private Builder() {}
+        private Builder() {
+        }
 
         /**
          * Set the pagination configuration.
@@ -531,7 +545,7 @@ public final class PaginationService<T> {
          */
         public Builder<T> withDefaultCache() {
             this.cache = LruPaginationCache.fromConfig(
-                    config != null ? config : PaginationConfig.defaults()
+                config != null ? config : PaginationConfig.defaults()
             );
             return this;
         }

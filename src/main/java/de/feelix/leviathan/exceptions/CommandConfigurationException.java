@@ -12,6 +12,7 @@ import de.feelix.leviathan.util.Preconditions;
 public class CommandConfigurationException extends RuntimeException {
     /**
      * Create a new configuration exception.
+     *
      * @param message human-readable description of the configuration mistake
      */
     public CommandConfigurationException(@NotNull String message) {
@@ -20,8 +21,9 @@ public class CommandConfigurationException extends RuntimeException {
 
     /**
      * Create a new configuration exception with a cause.
+     *
      * @param message human-readable description of the configuration mistake
-     * @param cause underlying cause
+     * @param cause   underlying cause
      */
     public CommandConfigurationException(@NotNull String message, @Nullable Throwable cause) {
         super(Preconditions.checkNotNull(message, "message"), cause);

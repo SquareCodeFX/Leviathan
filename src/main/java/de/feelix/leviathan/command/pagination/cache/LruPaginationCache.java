@@ -57,33 +57,59 @@ import java.util.function.Supplier;
  */
 public final class LruPaginationCache<K, V> implements PaginationCache<K, V> {
 
-    /** Maximum number of entries the cache can hold */
+    /**
+     * Maximum number of entries the cache can hold
+     */
     private final int maxSize;
-    /** Default time-to-live duration for cache entries */
+    /**
+     * Default time-to-live duration for cache entries
+     */
     private final Duration defaultTtl;
-    /** The underlying LRU map storing cache entries */
+    /**
+     * The underlying LRU map storing cache entries
+     */
     private final Map<K, CacheEntry<V>> cache;
-    /** Lock for thread-safe read/write operations */
+    /**
+     * Lock for thread-safe read/write operations
+     */
     private final ReadWriteLock lock;
-    /** Executor service for async operations */
+    /**
+     * Executor service for async operations
+     */
     private final ExecutorService executor;
-    /** Scheduler for periodic cleanup of expired entries */
+    /**
+     * Scheduler for periodic cleanup of expired entries
+     */
     private final ScheduledExecutorService cleanupScheduler;
 
-    /** Counter for cache hits (successful lookups) */
+    /**
+     * Counter for cache hits (successful lookups)
+     */
     private final AtomicLong hitCount;
-    /** Counter for cache misses (failed lookups) */
+    /**
+     * Counter for cache misses (failed lookups)
+     */
     private final AtomicLong missCount;
-    /** Counter for entries evicted from cache */
+    /**
+     * Counter for entries evicted from cache
+     */
     private final AtomicLong evictionCount;
-    /** Counter for successful load operations */
+    /**
+     * Counter for successful load operations
+     */
     private final AtomicLong loadSuccessCount;
-    /** Counter for failed load operations */
+    /**
+     * Counter for failed load operations
+     */
     private final AtomicLong loadFailureCount;
-    /** Total time spent loading entries in nanoseconds */
+    /**
+     * Total time spent loading entries in nanoseconds
+     */
     private final AtomicLong totalLoadTimeNanos;
 
-    /** Interval between automatic cleanup runs for expired entries */
+    /**
+     * Interval between automatic cleanup runs for expired entries
+     */
     private static final Duration CLEANUP_INTERVAL = Duration.ofMinutes(1);
 
     private LruPaginationCache(Builder<K, V> builder) {
@@ -136,15 +162,15 @@ public final class LruPaginationCache<K, V> implements PaginationCache<K, V> {
      * Convenience factory method that extracts cache settings from the config.
      *
      * @param config the pagination configuration containing cache settings
-     * @param <K> the type of keys
-     * @param <V> the type of values
+     * @param <K>    the type of keys
+     * @param <V>    the type of values
      * @return a new LruPaginationCache configured according to the config
      */
     public static <K, V> LruPaginationCache<K, V> fromConfig(PaginationConfig config) {
         return LruPaginationCache.<K, V>builder()
-                .maxSize(config.getCacheMaxSize())
-                .defaultTtl(config.getCacheTtl())
-                .build();
+            .maxSize(config.getCacheMaxSize())
+            .defaultTtl(config.getCacheTtl())
+            .build();
     }
 
     /**
@@ -154,10 +180,10 @@ public final class LruPaginationCache<K, V> implements PaginationCache<K, V> {
      */
     private void scheduleCleanup() {
         cleanupScheduler.scheduleAtFixedRate(
-                this::removeExpiredEntries,
-                CLEANUP_INTERVAL.toMillis(),
-                CLEANUP_INTERVAL.toMillis(),
-                TimeUnit.MILLISECONDS
+            this::removeExpiredEntries,
+            CLEANUP_INTERVAL.toMillis(),
+            CLEANUP_INTERVAL.toMillis(),
+            TimeUnit.MILLISECONDS
         );
     }
 
@@ -256,7 +282,7 @@ public final class LruPaginationCache<K, V> implements PaginationCache<K, V> {
             long loadTime = System.nanoTime() - startTime;
             totalLoadTimeNanos.addAndGet(loadTime);
             loadSuccessCount.incrementAndGet();
-            
+
             put(key, value);
             return value;
         } catch (Exception e) {
@@ -277,17 +303,17 @@ public final class LruPaginationCache<K, V> implements PaginationCache<K, V> {
 
             long startTime = System.nanoTime();
             return loader.get()
-                    .thenApply(value -> {
-                        long loadTime = System.nanoTime() - startTime;
-                        totalLoadTimeNanos.addAndGet(loadTime);
-                        loadSuccessCount.incrementAndGet();
-                        put(key, value);
-                        return value;
-                    })
-                    .exceptionally(e -> {
-                        loadFailureCount.incrementAndGet();
-                        throw new CacheException("Failed to load value for key: " + key, e);
-                    });
+                .thenApply(value -> {
+                    long loadTime = System.nanoTime() - startTime;
+                    totalLoadTimeNanos.addAndGet(loadTime);
+                    loadSuccessCount.incrementAndGet();
+                    put(key, value);
+                    return value;
+                })
+                .exceptionally(e -> {
+                    loadFailureCount.incrementAndGet();
+                    throw new CacheException("Failed to load value for key: " + key, e);
+                });
         });
     }
 
@@ -333,15 +359,15 @@ public final class LruPaginationCache<K, V> implements PaginationCache<K, V> {
         lock.readLock().lock();
         try {
             return CacheStats.builder()
-                    .hitCount(hitCount.get())
-                    .missCount(missCount.get())
-                    .evictionCount(evictionCount.get())
-                    .loadSuccessCount(loadSuccessCount.get())
-                    .loadFailureCount(loadFailureCount.get())
-                    .totalLoadTime(TimeUnit.NANOSECONDS.toMillis(totalLoadTimeNanos.get()))
-                    .currentSize(cache.size())
-                    .maxSize(maxSize)
-                    .build();
+                .hitCount(hitCount.get())
+                .missCount(missCount.get())
+                .evictionCount(evictionCount.get())
+                .loadSuccessCount(loadSuccessCount.get())
+                .loadFailureCount(loadFailureCount.get())
+                .totalLoadTime(TimeUnit.NANOSECONDS.toMillis(totalLoadTimeNanos.get()))
+                .currentSize(cache.size())
+                .maxSize(maxSize)
+                .build();
         } finally {
             lock.readLock().unlock();
         }
@@ -398,7 +424,8 @@ public final class LruPaginationCache<K, V> implements PaginationCache<K, V> {
         private Duration defaultTtl = Duration.ofMinutes(5);
         private ExecutorService executor = ForkJoinPool.commonPool();
 
-        private Builder() {}
+        private Builder() {
+        }
 
         /**
          * Set the maximum number of entries the cache can hold.

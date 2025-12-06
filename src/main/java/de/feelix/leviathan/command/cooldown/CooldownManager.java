@@ -25,7 +25,7 @@ public final class CooldownManager {
     /**
      * Check if a per-server cooldown is active for the given command.
      *
-     * @param commandName command name to check
+     * @param commandName    command name to check
      * @param cooldownMillis cooldown duration in milliseconds
      * @return cooldown check result
      */
@@ -53,12 +53,13 @@ public final class CooldownManager {
     /**
      * Check if a per-user cooldown is active for the given command and user.
      *
-     * @param commandName command name to check
-     * @param userId user identifier (typically player name)
+     * @param commandName    command name to check
+     * @param userId         user identifier (typically player name)
      * @param cooldownMillis cooldown duration in milliseconds
      * @return cooldown check result
      */
-    public static @NotNull CooldownResult checkUserCooldown(@NotNull String commandName, @NotNull String userId, long cooldownMillis) {
+    public static @NotNull CooldownResult checkUserCooldown(@NotNull String commandName, @NotNull String userId,
+                                                            long cooldownMillis) {
         Preconditions.checkNotNull(commandName, "commandName");
         Preconditions.checkNotNull(userId, "userId");
         if (cooldownMillis <= 0) {
@@ -99,7 +100,7 @@ public final class CooldownManager {
      * Update the user cooldown timestamp for the given command and user.
      *
      * @param commandName command name to update
-     * @param userId user identifier (typically player name)
+     * @param userId      user identifier (typically player name)
      */
     public static void updateUserCooldown(@NotNull String commandName, @NotNull String userId) {
         Preconditions.checkNotNull(commandName, "commandName");
@@ -111,7 +112,7 @@ public final class CooldownManager {
     /**
      * Format a cooldown message with a human-readable time remaining.
      *
-     * @param template message template with %s placeholder for the time
+     * @param template        message template with %s placeholder for the time
      * @param remainingMillis remaining cooldown time in milliseconds
      * @return formatted message
      */

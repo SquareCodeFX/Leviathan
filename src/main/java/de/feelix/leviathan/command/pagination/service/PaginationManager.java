@@ -18,17 +18,22 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class PaginationManager {
 
-    /** Default configuration applied to newly created services.
+    /**
+     * Default configuration applied to newly created services.
      * -- GETTER --
-     *  Returns the default configuration.
+     * Returns the default configuration.
      *
      * @return default pagination config
      */
     @Getter
     private final PaginationConfig defaultConfig;
-    /** Registry of named services managed by this manager. */
+    /**
+     * Registry of named services managed by this manager.
+     */
     private final Map<String, PaginationService<?>> services;
-    /** Optional shared cache that can be reused across services. */
+    /**
+     * Optional shared cache that can be reused across services.
+     */
     private final LruPaginationCache<Object, Object> sharedCache;
 
     private PaginationManager(Builder builder) {
@@ -69,10 +74,10 @@ public final class PaginationManager {
      */
     public <T> PaginatedResult<T> paginate(Collection<T> items, int pageNumber, PaginationConfig config) {
         ListDataSource<T> dataSource = ListDataSource.of(items);
-       PaginationService<T> service = PaginationService.<T>builder()
-                .config(config)
-                .dataSource(dataSource)
-                .build();
+        PaginationService<T> service = PaginationService.<T>builder()
+            .config(config)
+            .dataSource(dataSource)
+            .build();
 
         return service.getPage(pageNumber);
     }
@@ -143,7 +148,7 @@ public final class PaginationManager {
     @SuppressWarnings("unchecked")
     public <T> Optional<PaginatedResult<T>> getPage(String serviceName, int pageNumber) {
         return getService(serviceName)
-                .map(service -> (PaginatedResult<T>) service.getPage(pageNumber));
+            .map(service -> (PaginatedResult<T>) service.getPage(pageNumber));
     }
 
     /**
@@ -189,7 +194,7 @@ public final class PaginationManager {
         Map<String, CacheStats> stats = new HashMap<>();
 
         services.forEach((name, service) ->
-                service.getCacheStats().ifPresent(s -> stats.put(name, s)));
+                             service.getCacheStats().ifPresent(s -> stats.put(name, s)));
 
         if (sharedCache != null) {
             stats.put("shared", sharedCache.getStats());
@@ -218,10 +223,10 @@ public final class PaginationManager {
      */
     public <T> PaginationService<T> createAndRegister(String name, PaginationDataSource<T> dataSource) {
         PaginationService<T> service = PaginationService.<T>builder()
-                .config(defaultConfig)
-                .dataSource(dataSource)
-                .withDefaultCache()
-                .build();
+            .config(defaultConfig)
+            .dataSource(dataSource)
+            .withDefaultCache()
+            .build();
 
         registerService(name, service);
         return service;
@@ -241,14 +246,21 @@ public final class PaginationManager {
      * Builder for {@link PaginationManager}.
      */
     public static final class Builder {
-        /** Default configuration used when creating services via this manager. */
+        /**
+         * Default configuration used when creating services via this manager.
+         */
         private PaginationConfig defaultConfig = PaginationConfig.defaults();
-        /** Initial services to register. */
+        /**
+         * Initial services to register.
+         */
         private final Map<String, PaginationService<?>> services = new HashMap<>();
-        /** Optional shared cache to be managed and reused across services. */
+        /**
+         * Optional shared cache to be managed and reused across services.
+         */
         private LruPaginationCache<Object, Object> sharedCache;
 
-        private Builder() {}
+        private Builder() {
+        }
 
         /**
          * Set the default configuration for services created by this manager.
@@ -263,8 +275,8 @@ public final class PaginationManager {
          */
         public <T> Builder registerService(String name, PaginationService<T> service) {
             services.put(
-                    Objects.requireNonNull(name, "Name cannot be null"),
-                    Objects.requireNonNull(service, "Service cannot be null")
+                Objects.requireNonNull(name, "Name cannot be null"),
+                Objects.requireNonNull(service, "Service cannot be null")
             );
             return this;
         }

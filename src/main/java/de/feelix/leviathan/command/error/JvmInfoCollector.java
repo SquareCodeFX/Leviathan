@@ -39,8 +39,8 @@ public final class JvmInfoCollector {
 
     private static String buildOsInfo() {
         return System.getProperty("os.name") + " " +
-                System.getProperty("os.version") + " (" +
-                System.getProperty("os.arch") + ")";
+               System.getProperty("os.version") + " (" +
+               System.getProperty("os.arch") + ")";
     }
 
     private static RuntimeMXBean getRuntimeMxBean() {
@@ -71,8 +71,8 @@ public final class JvmInfoCollector {
     /**
      * Collects and appends JVM details to the provided StringBuilder.
      *
-     * @param report    the StringBuilder to append to
-     * @param separator the separator string to use
+     * @param report     the StringBuilder to append to
+     * @param separator  the separator string to use
      * @param dateFormat the date format for timestamps
      */
     public static void appendJvmDetails(@NotNull StringBuilder report,

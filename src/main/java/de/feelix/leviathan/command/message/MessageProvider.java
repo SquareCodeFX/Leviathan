@@ -83,7 +83,7 @@ public interface MessageProvider {
      * Message when insufficient arguments are provided.
      *
      * @param commandPath the full command path
-     * @param usage the usage string
+     * @param usage       the usage string
      * @return the usage message
      */
     @NotNull
@@ -93,7 +93,7 @@ public interface MessageProvider {
      * Message when too many arguments are provided.
      *
      * @param commandPath the full command path
-     * @param usage the usage string
+     * @param usage       the usage string
      * @return the too many arguments message
      */
     @NotNull
@@ -104,11 +104,12 @@ public interface MessageProvider {
      *
      * @param argumentName the name of the argument
      * @param expectedType the expected type name
-     * @param errorDetail the specific parsing error detail
+     * @param errorDetail  the specific parsing error detail
      * @return the invalid argument message
      */
     @NotNull
-    String invalidArgumentValue(@NotNull String argumentName, @NotNull String expectedType, @NotNull String errorDetail);
+    String invalidArgumentValue(@NotNull String argumentName, @NotNull String expectedType,
+                                @NotNull String errorDetail);
 
     /**
      * "Did you mean" suggestion message.
@@ -124,7 +125,7 @@ public interface MessageProvider {
     /**
      * Message when argument fails validation.
      *
-     * @param argumentName the name of the argument
+     * @param argumentName    the name of the argument
      * @param validationError the validation error detail
      * @return the validation error message
      */
@@ -143,7 +144,7 @@ public interface MessageProvider {
     /**
      * Validation message when numeric value is below minimum.
      *
-     * @param min the minimum allowed value
+     * @param min    the minimum allowed value
      * @param actual the actual value provided
      * @return the validation message
      */
@@ -153,7 +154,7 @@ public interface MessageProvider {
     /**
      * Validation message when numeric value exceeds maximum.
      *
-     * @param max the maximum allowed value
+     * @param max    the maximum allowed value
      * @param actual the actual value provided
      * @return the validation message
      */
@@ -163,7 +164,7 @@ public interface MessageProvider {
     /**
      * Validation message when string is too short.
      *
-     * @param minLength the minimum required length
+     * @param minLength    the minimum required length
      * @param actualLength the actual string length
      * @return the validation message
      */
@@ -173,7 +174,7 @@ public interface MessageProvider {
     /**
      * Validation message when string is too long.
      *
-     * @param maxLength the maximum allowed length
+     * @param maxLength    the maximum allowed length
      * @param actualLength the actual string length
      * @return the validation message
      */
@@ -320,7 +321,7 @@ public interface MessageProvider {
      * Usage message for commands without subcommands.
      *
      * @param commandPath the full command path
-     * @param usage the usage string (empty if no arguments)
+     * @param usage       the usage string (empty if no arguments)
      * @return the usage message
      */
     @NotNull
@@ -414,8 +415,8 @@ public interface MessageProvider {
      * Page info display format.
      *
      * @param currentPage the current page number
-     * @param totalPages the total number of pages
-     * @param totalItems the total number of items
+     * @param totalPages  the total number of pages
+     * @param totalItems  the total number of items
      * @return the formatted page info string
      */
     @NotNull
@@ -425,7 +426,7 @@ public interface MessageProvider {
      * Message when requested page is out of range.
      *
      * @param requestedPage the page that was requested
-     * @param totalPages the total number of pages available
+     * @param totalPages    the total number of pages available
      * @return the error message
      */
     @NotNull
@@ -470,7 +471,7 @@ public interface MessageProvider {
      * Footer for paginated list output.
      *
      * @param currentPage the current page number
-     * @param totalPages the total number of pages
+     * @param totalPages  the total number of pages
      * @return the formatted footer
      */
     @NotNull
@@ -481,13 +482,13 @@ public interface MessageProvider {
      * <p>
      * Example output: {@code (1 ... 4 | _5_ | 6 ... 10)} where 5 is the current page.
      *
-     * @param visiblePages list of page numbers currently visible in the navigation window
-     * @param currentPage the current page number
-     * @param totalPages the total number of pages
+     * @param visiblePages      list of page numbers currently visible in the navigation window
+     * @param currentPage       the current page number
+     * @param totalPages        the total number of pages
      * @param showStartEllipsis whether to show ellipsis at the start (indicating pages before visible range)
-     * @param showEndEllipsis whether to show ellipsis at the end (indicating pages after visible range)
-     * @param ellipsis the ellipsis string to use (e.g., "...")
-     * @param pageSeparator the separator between page numbers (e.g., " | ")
+     * @param showEndEllipsis   whether to show ellipsis at the end (indicating pages after visible range)
+     * @param ellipsis          the ellipsis string to use (e.g., "...")
+     * @param pageSeparator     the separator between page numbers (e.g., " | ")
      * @param currentPagePrefix prefix for the current page (e.g., "_")
      * @param currentPageSuffix suffix for the current page (e.g., "_")
      * @return the formatted page window string
