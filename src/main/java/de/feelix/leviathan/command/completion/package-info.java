@@ -11,7 +11,7 @@
  *   <li><b>Context-aware completions</b> - Access to previously parsed arguments</li>
  * </ul>
  * 
- * <h3>Using Predefined Completions</h3>
+ * <h2>Using Predefined Completions</h2>
  * <pre>{@code
  * SlashCommand.builder("example")
  *     .argStringWithCompletions("action", "start", "stop", "restart")
@@ -22,7 +22,7 @@
  *     .register(plugin);
  * }</pre>
  * 
- * <h3>Using Dynamic Completions</h3>
+ * <h2>Using Dynamic Completions</h2>
  * <pre>{@code
  * SlashCommand.builder("config")
  *     .argString("key", ArgContext.builder()
@@ -40,7 +40,7 @@
  *     .register(plugin);
  * }</pre>
  * 
- * <h3>Using Helper Factories</h3>
+ * <h2>Using Helper Factories</h2>
  * <pre>{@code
  * // Permission-filtered completions
  * ArgContext.DynamicCompletionProvider provider = 
@@ -64,7 +64,7 @@
  *     );
  * }</pre>
  * 
- * <h3>Range Hints for Numeric Arguments</h3>
+ * <h2>Range Hints for Numeric Arguments</h2>
  * <pre>{@code
  * SlashCommand.builder("setlevel")
  *     .argIntRange("level", 1, 100)  // Shows "[1-100]" hint in tab completion
@@ -75,7 +75,7 @@
  *     .register(plugin);
  * }</pre>
  * 
- * <h3>Convenience Methods</h3>
+ * <h2>Convenience Methods</h2>
  * The {@link de.feelix.leviathan.command.argument.ArgContext.Builder} provides several
  * convenience methods for common completion patterns:
  * <ul>
@@ -85,7 +85,7 @@
  *   <li>{@code rangeHint(int, int)} - Show numeric range hint</li>
  * </ul>
  * 
- * <h3>Smart Filtering</h3>
+ * <h2>Smart Filtering</h2>
  * The completion system uses smart filtering to provide the best matches:
  * <ol>
  *   <li>Exact matches (case-insensitive) are shown first</li>

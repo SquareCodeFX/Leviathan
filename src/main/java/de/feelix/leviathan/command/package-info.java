@@ -13,7 +13,7 @@
  *   <li><b>Async</b> - Asynchronous execution with {@link de.feelix.leviathan.command.async}</li>
  * </ul>
  * 
- * <h3>Package Structure</h3>
+ * <h2>Package Structure</h2>
  * <pre>
  * command/
  * ├── core/           - Core command and builder classes
@@ -28,7 +28,7 @@
  * └── mapping/        - Option mapping and type conversion utilities
  * </pre>
  * 
- * <h3>Building Commands</h3>
+ * <h2>Building Commands</h2>
  * Commands are built using the fluent builder pattern:
  * <pre>{@code
  * SlashCommand.builder("mycommand")

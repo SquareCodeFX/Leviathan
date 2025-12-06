@@ -13,7 +13,7 @@
  *   <li>Subcommand routing and hierarchical commands</li>
  * </ul>
  * 
- * <h3>Quick Start</h3>
+ * <h2>Quick Start</h2>
  * <pre>{@code
  * import de.feelix.leviathan.Leviathan;
  * 
@@ -44,7 +44,7 @@
  *     .register(plugin);
  * }</pre>
  * 
- * <h3>Main Entry Points</h3>
+ * <h2>Main Entry Points</h2>
  * <ul>
  *   <li>{@link de.feelix.leviathan.Leviathan} - Main API facade with static factory methods</li>
  *   <li>{@link de.feelix.leviathan.command.core.SlashCommand} - Core command class</li>
