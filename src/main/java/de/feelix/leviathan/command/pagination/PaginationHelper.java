@@ -795,7 +795,9 @@ public final class PaginationHelper {
             if (items.isEmpty()) {
                 java.util.ArrayList<String> lines = new java.util.ArrayList<>();
                 if (header != null) lines.add(header);
-                if (emptyMessage != null) lines.add(emptyMessage);
+                // Use MessageProvider.paginationEmpty() if messageProvider is set, otherwise use emptyMessage
+                String emptyMsg = messageProvider != null ? messageProvider.paginationEmpty() : emptyMessage;
+                if (emptyMsg != null) lines.add(emptyMsg);
                 return lines;
             }
 
