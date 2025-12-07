@@ -1,5 +1,7 @@
 package de.feelix.leviathan.command.pagination.util;
 
+import de.feelix.leviathan.annotations.NotNull;
+import de.feelix.leviathan.command.message.MessageProvider;
 import de.feelix.leviathan.command.pagination.config.PaginationConfig;
 import de.feelix.leviathan.command.pagination.domain.NavigationWindow;
 import de.feelix.leviathan.command.pagination.domain.PageInfo;
@@ -156,14 +158,17 @@ public final class PaginationUtils {
 
     /**
      * Creates a summary string for a paginated result.
+     *
+     * @param pageInfo the page info
+     * @param messages the message provider for customizable messages
+     * @return the formatted summary string
      */
-    public static String createSummary(PageInfo pageInfo) {
+    public static String createSummary(@NotNull PageInfo pageInfo, @NotNull MessageProvider messages) {
         if (pageInfo.isEmpty()) {
-            return "No items found";
+            return messages.paginationEmpty();
         }
 
-        return String.format(
-            "Showing %d-%d of %d items (Page %d of %d)",
+        return messages.paginationSummary(
             pageInfo.getStartIndex(),
             pageInfo.getEndIndex(),
             pageInfo.getTotalElements(),

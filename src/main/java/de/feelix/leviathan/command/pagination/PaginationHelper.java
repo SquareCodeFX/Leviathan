@@ -177,11 +177,30 @@ public final class PaginationHelper {
      *
      * @param pageInfo the page info
      * @return formatted page info string
+     * @deprecated Use {@link #formatPageInfo(PageInfo, MessageProvider)} for customizable messages.
      */
+    @Deprecated
     public static @NotNull String formatPageInfo(@NotNull PageInfo pageInfo) {
         Preconditions.checkNotNull(pageInfo, "pageInfo");
         return String.format(
             "§7Page §f%d§7/§f%d §7(§f%d §7items)",
+            pageInfo.getCurrentPage(),
+            pageInfo.getTotalPages(),
+            pageInfo.getTotalElements()
+        );
+    }
+
+    /**
+     * Format page info as a string using a custom MessageProvider.
+     *
+     * @param pageInfo the page info
+     * @param messages the message provider for customizable formatting
+     * @return formatted page info string
+     */
+    public static @NotNull String formatPageInfo(@NotNull PageInfo pageInfo, @NotNull MessageProvider messages) {
+        Preconditions.checkNotNull(pageInfo, "pageInfo");
+        Preconditions.checkNotNull(messages, "messages");
+        return messages.paginationPageInfo(
             pageInfo.getCurrentPage(),
             pageInfo.getTotalPages(),
             pageInfo.getTotalElements()
@@ -195,7 +214,9 @@ public final class PaginationHelper {
      * @param pageInfo    the page info
      * @param commandBase the base command for navigation hints (e.g., "/list")
      * @return formatted string with navigation hints
+     * @deprecated Use {@link #formatPageInfoWithNavigation(PageInfo, String, MessageProvider)} for customizable messages.
      */
+    @Deprecated
     public static @NotNull String formatPageInfoWithNavigation(@NotNull PageInfo pageInfo,
                                                                @NotNull String commandBase) {
         Preconditions.checkNotNull(pageInfo, "pageInfo");
@@ -220,12 +241,38 @@ public final class PaginationHelper {
     }
 
     /**
+     * Format page info with navigation hints using a custom MessageProvider.
+     *
+     * @param pageInfo    the page info
+     * @param commandBase the base command for navigation hints (e.g., "/list")
+     * @param messages    the message provider for customizable formatting
+     * @return formatted string with navigation hints
+     */
+    public static @NotNull String formatPageInfoWithNavigation(@NotNull PageInfo pageInfo,
+                                                               @NotNull String commandBase,
+                                                               @NotNull MessageProvider messages) {
+        Preconditions.checkNotNull(pageInfo, "pageInfo");
+        Preconditions.checkNotNull(commandBase, "commandBase");
+        Preconditions.checkNotNull(messages, "messages");
+
+        return messages.paginationPageInfoWithNavigation(
+            pageInfo.getCurrentPage(),
+            pageInfo.getTotalPages(),
+            commandBase,
+            pageInfo.hasPreviousPage(),
+            pageInfo.hasNextPage()
+        );
+    }
+
+    /**
      * Create a simple navigation bar string.
      *
      * @param currentPage the current page number
      * @param totalPages  the total number of pages
      * @return navigation bar like {@literal "<< [1] 2 3 ... 10 >>"}
+     * @deprecated Use {@link #createNavigationBar(int, int, PaginationConfig, MessageProvider)} for customizable messages.
      */
+    @Deprecated
     public static @NotNull String createNavigationBar(int currentPage, int totalPages) {
         return createNavigationBar(currentPage, totalPages, PaginationConfig.defaults());
     }
@@ -237,7 +284,9 @@ public final class PaginationHelper {
      * @param totalPages  the total number of pages
      * @param config      pagination config for styling
      * @return navigation bar string
+     * @deprecated Use {@link #createNavigationBar(int, int, PaginationConfig, MessageProvider)} for customizable messages.
      */
+    @Deprecated
     public static @NotNull String createNavigationBar(int currentPage, int totalPages,
                                                       @NotNull PaginationConfig config) {
         Preconditions.checkNotNull(config, "config");
@@ -285,6 +334,37 @@ public final class PaginationHelper {
         }
 
         return sb.toString();
+    }
+
+    /**
+     * Create a navigation bar string with custom config and MessageProvider.
+     *
+     * @param currentPage the current page number
+     * @param totalPages  the total number of pages
+     * @param config      pagination config for styling
+     * @param messages    the message provider for customizable formatting
+     * @return navigation bar string
+     */
+    public static @NotNull String createNavigationBar(int currentPage, int totalPages,
+                                                      @NotNull PaginationConfig config,
+                                                      @NotNull MessageProvider messages) {
+        Preconditions.checkNotNull(config, "config");
+        Preconditions.checkNotNull(messages, "messages");
+
+        List<Integer> visiblePages = PaginationUtils.generatePageNumbers(
+            currentPage, totalPages, config.getVisiblePages());
+
+        boolean showStartEllipsis = !visiblePages.isEmpty() && visiblePages.get(0) > 1;
+        boolean showEndEllipsis = !visiblePages.isEmpty() && visiblePages.get(visiblePages.size() - 1) < totalPages;
+
+        return messages.paginationNavigationBar(
+            visiblePages,
+            currentPage,
+            totalPages,
+            showStartEllipsis,
+            showEndEllipsis,
+            config
+        );
     }
 
     /**

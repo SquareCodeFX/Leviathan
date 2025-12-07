@@ -496,4 +496,50 @@ public interface MessageProvider {
         @NotNull String currentPagePrefix,
         @NotNull String currentPageSuffix
     );
+
+    /**
+     * Summary message for paginated results showing item range.
+     * Example output: {@code Showing 1-10 of 50 items (Page 1 of 5)}
+     *
+     * @param startIndex   the start index (1-based)
+     * @param endIndex     the end index (1-based)
+     * @param totalItems   the total number of items
+     * @param currentPage  the current page number
+     * @param totalPages   the total number of pages
+     * @return the formatted summary string
+     */
+    @NotNull
+    String paginationSummary(long startIndex, long endIndex, long totalItems, int currentPage, int totalPages);
+
+    /**
+     * Page info with navigation hints for commands.
+     * Example output: {@code §7Page §f1§7/§f5 §8[§e/list 0§8 <- -> §e/list 2§8]}
+     *
+     * @param currentPage the current page number
+     * @param totalPages  the total number of pages
+     * @param commandBase the base command for navigation (e.g., "/list")
+     * @param hasPreviousPage whether there is a previous page
+     * @param hasNextPage whether there is a next page
+     * @return the formatted page info with navigation hints
+     */
+    @NotNull
+    String paginationPageInfoWithNavigation(int currentPage, int totalPages, @NotNull String commandBase,
+                                            boolean hasPreviousPage, boolean hasNextPage);
+
+    /**
+     * Navigation bar showing page numbers with arrows.
+     * Example output: {@code §7<< §e§l[1]§r§7 2 3 §8... §710 §e>>}
+     *
+     * @param visiblePages  list of visible page numbers
+     * @param currentPage   the current page number
+     * @param totalPages    the total number of pages
+     * @param showStartEllipsis whether to show ellipsis at the start
+     * @param showEndEllipsis whether to show ellipsis at the end
+     * @param config        pagination config for symbols (previousSymbol, nextSymbol, ellipsis)
+     * @return the formatted navigation bar
+     */
+    @NotNull
+    String paginationNavigationBar(@NotNull java.util.List<Integer> visiblePages, int currentPage, int totalPages,
+                                   boolean showStartEllipsis, boolean showEndEllipsis,
+                                   @NotNull de.feelix.leviathan.command.pagination.config.PaginationConfig config);
 }

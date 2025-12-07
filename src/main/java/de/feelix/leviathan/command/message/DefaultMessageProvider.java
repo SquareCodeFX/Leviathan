@@ -319,4 +319,79 @@ public class DefaultMessageProvider implements MessageProvider {
         sb.append(")");
         return sb.toString();
     }
+
+    @Override
+    public @NotNull String paginationSummary(long startIndex, long endIndex, long totalItems,
+                                             int currentPage, int totalPages) {
+        return String.format("Showing %d-%d of %d items (Page %d of %d)",
+            startIndex, endIndex, totalItems, currentPage, totalPages);
+    }
+
+    @Override
+    public @NotNull String paginationPageInfoWithNavigation(int currentPage, int totalPages,
+                                                            @NotNull String commandBase,
+                                                            boolean hasPreviousPage, boolean hasNextPage) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("§7Page §f").append(currentPage).append("§7/§f").append(totalPages);
+
+        if (hasPreviousPage || hasNextPage) {
+            sb.append(" §8[");
+            if (hasPreviousPage) {
+                sb.append("§e").append(commandBase).append(" ").append(currentPage - 1).append("§8 <- ");
+            }
+            if (hasNextPage) {
+                sb.append("§8-> §e").append(commandBase).append(" ").append(currentPage + 1);
+            }
+            sb.append("§8]");
+        }
+
+        return sb.toString();
+    }
+
+    @Override
+    public @NotNull String paginationNavigationBar(@NotNull java.util.List<Integer> visiblePages,
+                                                   int currentPage, int totalPages,
+                                                   boolean showStartEllipsis, boolean showEndEllipsis,
+                                                   @NotNull de.feelix.leviathan.command.pagination.config.PaginationConfig config) {
+        StringBuilder sb = new StringBuilder("§7");
+
+        // Previous arrow
+        if (currentPage > 1) {
+            sb.append("§e").append(config.getPreviousSymbol()).append(" §7");
+        } else {
+            sb.append("§8").append(config.getPreviousSymbol()).append(" §7");
+        }
+
+        // Show start ellipsis if needed
+        if (showStartEllipsis) {
+            sb.append("1 §8").append(config.getEllipsis()).append("§7 ");
+        }
+
+        // Page numbers
+        for (int i = 0; i < visiblePages.size(); i++) {
+            int page = visiblePages.get(i);
+            if (i > 0) {
+                sb.append(" ");
+            }
+            if (page == currentPage) {
+                sb.append("§e§l[").append(page).append("]§r§7");
+            } else {
+                sb.append(page);
+            }
+        }
+
+        // Show end ellipsis if needed
+        if (showEndEllipsis) {
+            sb.append(" §8").append(config.getEllipsis()).append("§7 ").append(totalPages);
+        }
+
+        // Next arrow
+        if (currentPage < totalPages) {
+            sb.append(" §e").append(config.getNextSymbol());
+        } else {
+            sb.append(" §8").append(config.getNextSymbol());
+        }
+
+        return sb.toString();
+    }
 }
