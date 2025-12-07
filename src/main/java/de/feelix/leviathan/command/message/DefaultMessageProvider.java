@@ -7,6 +7,15 @@ import de.feelix.leviathan.annotations.NotNull;
  * <p>
  * Provides the standard English messages that were previously hardcoded
  * throughout the SlashCommand API.
+ * <p>
+ * Color scheme:
+ * <ul>
+ *   <li>§c - Error/invalid (red)</li>
+ *   <li>§a - Success/valid (green)</li>
+ *   <li>§8 - Brackets, separators (dark gray)</li>
+ *   <li>§f - Primary text (white)</li>
+ *   <li>§7 - Secondary text (gray)</li>
+ * </ul>
  */
 public class DefaultMessageProvider implements MessageProvider {
 
@@ -29,111 +38,111 @@ public class DefaultMessageProvider implements MessageProvider {
 
     @Override
     public @NotNull String argumentPermissionDenied(@NotNull String argumentName) {
-        return "§cYou don't have permission to use argument '" + argumentName + "'.";
+        return "§cYou don't have permission to use argument §8'§f" + argumentName + "§8'§c.";
     }
 
     @Override
     public @NotNull String requiresType(@NotNull String typeName) {
-        return "§cThis command requires a " + typeName + ".";
+        return "§cThis command requires a §f" + typeName + "§c.";
     }
 
     // Cooldown Messages
 
     @Override
     public @NotNull String serverCooldown(@NotNull String formattedTime) {
-        return "§cThis command is on cooldown. Please wait " + formattedTime + ".";
+        return "§cThis command is on cooldown. Please wait §f" + formattedTime + "§c.";
     }
 
     @Override
     public @NotNull String userCooldown(@NotNull String formattedTime) {
-        return "§cYou must wait " + formattedTime + " before using this command again.";
+        return "§cYou must wait §f" + formattedTime + " §cbefore using this command again.";
     }
 
     // Usage and Parsing Messages
 
     @Override
     public @NotNull String insufficientArguments(@NotNull String commandPath, @NotNull String usage) {
-        return "§cUsage: /" + commandPath + " " + usage;
+        return "§cUsage: §f/" + commandPath + " " + usage;
     }
 
     @Override
     public @NotNull String tooManyArguments(@NotNull String commandPath, @NotNull String usage) {
-        return "§cToo many arguments. Usage: /" + commandPath + " " + usage;
+        return "§cToo many arguments. Usage: §f/" + commandPath + " " + usage;
     }
 
     @Override
     public @NotNull String invalidArgumentValue(@NotNull String argumentName, @NotNull String expectedType,
                                                 @NotNull String errorDetail) {
-        return "§cInvalid value for '" + argumentName + "' (expected " + expectedType + "): " + errorDetail;
+        return "§cInvalid value for §8'§f" + argumentName + "§8' §7(§fexpected " + expectedType + "§7)§c: §7" + errorDetail;
     }
 
     @Override
     public @NotNull String didYouMean(@NotNull String suggestions) {
-        return "§cDid you mean: " + suggestions + "?";
+        return "§7Did you mean: §f" + suggestions + "§7?";
     }
 
     // Validation Messages
 
     @Override
     public @NotNull String validationFailed(@NotNull String argumentName, @NotNull String validationError) {
-        return "§cInvalid value for '" + argumentName + "': " + validationError;
+        return "§cInvalid value for §8'§f" + argumentName + "§8'§c: §7" + validationError;
     }
 
     @Override
     public @NotNull String crossValidationFailed(@NotNull String errorDetail) {
-        return "§cValidation error: " + errorDetail;
+        return "§cValidation error: §7" + errorDetail;
     }
 
     @Override
     public @NotNull String numericTooSmall(@NotNull String min, @NotNull String actual) {
-        return "must be at least " + min + " (got " + actual + ")";
+        return "must be at least §f" + min + " §7(§fgot " + actual + "§7)";
     }
 
     @Override
     public @NotNull String numericTooLarge(@NotNull String max, @NotNull String actual) {
-        return "must be at most " + max + " (got " + actual + ")";
+        return "must be at most §f" + max + " §7(§fgot " + actual + "§7)";
     }
 
     @Override
     public @NotNull String stringTooShort(int minLength, int actualLength) {
-        return "length must be at least " + minLength + " (got " + actualLength + ")";
+        return "length must be at least §f" + minLength + " §7(§fgot " + actualLength + "§7)";
     }
 
     @Override
     public @NotNull String stringTooLong(int maxLength, int actualLength) {
-        return "length must be at most " + maxLength + " (got " + actualLength + ")";
+        return "length must be at most §f" + maxLength + " §7(§fgot " + actualLength + "§7)";
     }
 
     @Override
     public @NotNull String stringPatternMismatch(@NotNull String pattern) {
-        return "does not match required pattern: " + pattern;
+        return "does not match required pattern: §f" + pattern;
     }
 
     // Internal Error Messages
 
     @Override
     public @NotNull String subcommandInternalError(@NotNull String subcommandName) {
-        return "§cInternal error while executing subcommand '" + subcommandName + "'.";
+        return "§cInternal error while executing subcommand §8'§f" + subcommandName + "§8'§c.";
     }
 
     @Override
     public @NotNull String argumentConditionError(@NotNull String argumentName) {
-        return "§cInternal error while evaluating condition for argument '" + argumentName + "'.";
+        return "§cInternal error while evaluating condition for argument §8'§f" + argumentName + "§8'§c.";
     }
 
     @Override
     public @NotNull String argumentParsingError(@NotNull String argumentName) {
-        return "§cInternal error while parsing argument '" + argumentName + "'.";
+        return "§cInternal error while parsing argument §8'§f" + argumentName + "§8'§c.";
     }
 
     @Override
     public @NotNull String argumentTransformationError(@NotNull String argumentName) {
-        return "§cInternal error while transforming argument '" + argumentName + "'.";
+        return "§cInternal error while transforming argument §8'§f" + argumentName + "§8'§c.";
     }
 
     @Override
     public @NotNull String argumentValidationError(@NotNull String argumentName) {
-        return "§cInternal error while validating argument '" + argumentName + "'.";
+        return "§cInternal error while validating argument §8'§f" + argumentName + "§8'§c.";
     }
 
     @Override
@@ -143,7 +152,7 @@ public class DefaultMessageProvider implements MessageProvider {
 
     @Override
     public @NotNull String commandTimeout(long timeoutMillis) {
-        return "§cCommand timed out after " + timeoutMillis + " ms.";
+        return "§cCommand timed out after §f" + timeoutMillis + " §cms.";
     }
 
     @Override
@@ -158,19 +167,19 @@ public class DefaultMessageProvider implements MessageProvider {
 
     @Override
     public @NotNull String exceptionHandlerError(@NotNull String exceptionMessage) {
-        return "§cError in exception handler: " + exceptionMessage;
+        return "§cError in exception handler: §7" + exceptionMessage;
     }
 
     // Help Messages
 
     @Override
     public @NotNull String helpSubCommandsHeader(@NotNull String commandName, @NotNull String commandPath) {
-        return "§b" + commandName + " SubCommands: §7(/" + commandPath + " …)\n";
+        return "§f" + commandName + " SubCommands: §7(§f/" + commandPath + " …§7)\n";
     }
 
     @Override
     public @NotNull String helpSubCommandPrefix(@NotNull String subcommandName) {
-        return "§3> §a" + subcommandName;
+        return "§8> §a" + subcommandName;
     }
 
     @Override
@@ -186,9 +195,9 @@ public class DefaultMessageProvider implements MessageProvider {
     @Override
     public @NotNull String helpUsage(@NotNull String commandPath, @NotNull String usage) {
         if (usage.isEmpty()) {
-            return "§cUsage: /" + commandPath;
+            return "§cUsage: §f/" + commandPath;
         } else {
-            return "§cUsage: /" + commandPath + " " + usage;
+            return "§cUsage: §f/" + commandPath + " " + usage;
         }
     }
 
@@ -196,17 +205,17 @@ public class DefaultMessageProvider implements MessageProvider {
 
     @Override
     public @NotNull String guardPermission(@NotNull String permission) {
-        return "§cYou lack permission: " + permission;
+        return "§cYou lack permission: §f" + permission;
     }
 
     @Override
     public @NotNull String guardInWorld(@NotNull String worldName) {
-        return "§cYou must be in world '" + worldName + "'.";
+        return "§cYou must be in world §8'§f" + worldName + "§8'§c.";
     }
 
     @Override
     public @NotNull String guardGameMode(@NotNull String gameModeName) {
-        return "§cYou must be in " + gameModeName + " mode.";
+        return "§cYou must be in §f" + gameModeName + " §cmode.";
     }
 
     @Override
@@ -216,22 +225,22 @@ public class DefaultMessageProvider implements MessageProvider {
 
     @Override
     public @NotNull String guardLevelRange(int minLevel, int maxLevel) {
-        return "§cYou must be between level " + minLevel + " and " + maxLevel + " to use this command.";
+        return "§cYou must be between level §f" + minLevel + " §cand §f" + maxLevel + " §cto use this command.";
     }
 
     @Override
     public @NotNull String guardMinLevel(int minLevel) {
-        return "§cYou must be at least level " + minLevel + " to use this command.";
+        return "§cYou must be at least level §f" + minLevel + " §cto use this command.";
     }
 
     @Override
     public @NotNull String guardHealthAbove(double minHealth) {
-        return "§cYou need more than " + minHealth + " health to use this command.";
+        return "§cYou need more than §f" + minHealth + " §chealth to use this command.";
     }
 
     @Override
     public @NotNull String guardFoodLevelAbove(int minFoodLevel) {
-        return "§cYou need more than " + minFoodLevel + " food level to use this command.";
+        return "§cYou need more than §f" + minFoodLevel + " §cfood level to use this command.";
     }
 
     @Override
@@ -243,12 +252,12 @@ public class DefaultMessageProvider implements MessageProvider {
 
     @Override
     public @NotNull String paginationPageInfo(int currentPage, int totalPages, long totalItems) {
-        return "§7Page §f" + currentPage + "§7/§f" + totalPages + " §7(§f" + totalItems + " §7items)";
+        return "§7Page §f" + currentPage + "§8/§f" + totalPages + " §8(§f" + totalItems + " §7items§8)";
     }
 
     @Override
     public @NotNull String paginationInvalidPage(int requestedPage, int totalPages) {
-        return "§cInvalid page: " + requestedPage + ". Please enter a page between 1 and " + totalPages + ".";
+        return "§cInvalid page: §f" + requestedPage + "§c. Please enter a page between §f1 §cand §f" + totalPages + "§c.";
     }
 
     @Override
@@ -258,17 +267,17 @@ public class DefaultMessageProvider implements MessageProvider {
 
     @Override
     public @NotNull String paginationPreviousHint(@NotNull String command) {
-        return "§8[§e" + command + "§8 <- Previous]";
+        return "§8[§f" + command + " §8<- §7Previous§8]";
     }
 
     @Override
     public @NotNull String paginationNextHint(@NotNull String command) {
-        return "§8[Next -> §e" + command + "§8]";
+        return "§8[§7Next §8-> §f" + command + "§8]";
     }
 
     @Override
     public @NotNull String paginationHeader(@NotNull String title) {
-        return "§6=== " + title + " ===";
+        return "§8=== §f" + title + " §8===";
     }
 
     @Override
@@ -284,22 +293,22 @@ public class DefaultMessageProvider implements MessageProvider {
         @NotNull String currentPageSuffix
     ) {
         StringBuilder sb = new StringBuilder();
-        
+
         // Page info part
-        sb.append("§7Page §f").append(currentPage).append("§7/§f").append(totalPages);
-        
+        sb.append("§7Page §f").append(currentPage).append("§8/§f").append(totalPages);
+
         // Page window part
-        sb.append(" (");
+        sb.append(" §8(");
 
         boolean first = true;
 
         if (showStartEllipsis) {
-            sb.append("1 ").append(ellipsis).append(" ");
+            sb.append("§f1 §8").append(ellipsis).append(" ");
         }
 
         for (int page : visiblePages) {
             if (!first) {
-                sb.append(pageSeparator);
+                sb.append("§8").append(pageSeparator);
             }
             first = false;
 
@@ -308,23 +317,23 @@ public class DefaultMessageProvider implements MessageProvider {
                     .append(page)
                     .append(currentPageSuffix);
             } else {
-                sb.append(page);
+                sb.append("§7").append(page);
             }
         }
 
         if (showEndEllipsis) {
-            sb.append(" ").append(ellipsis).append(" ").append(totalPages);
+            sb.append(" §8").append(ellipsis).append(" §f").append(totalPages);
         }
 
-        sb.append(")");
+        sb.append("§8)");
         return sb.toString();
     }
 
     @Override
     public @NotNull String paginationSummary(long startIndex, long endIndex, long totalItems,
                                              int currentPage, int totalPages) {
-        return String.format("Showing %d-%d of %d items (Page %d of %d)",
-            startIndex, endIndex, totalItems, currentPage, totalPages);
+        return String.format("§7Showing §f%d§8-§f%d §7of §f%d §7items §8(§7Page §f%d§8/§f%d§8)",
+                             startIndex, endIndex, totalItems, currentPage, totalPages);
     }
 
     @Override
@@ -332,15 +341,15 @@ public class DefaultMessageProvider implements MessageProvider {
                                                             @NotNull String commandBase,
                                                             boolean hasPreviousPage, boolean hasNextPage) {
         StringBuilder sb = new StringBuilder();
-        sb.append("§7Page §f").append(currentPage).append("§7/§f").append(totalPages);
+        sb.append("§7Page §f").append(currentPage).append("§8/§f").append(totalPages);
 
         if (hasPreviousPage || hasNextPage) {
             sb.append(" §8[");
             if (hasPreviousPage) {
-                sb.append("§e").append(commandBase).append(" ").append(currentPage - 1).append("§8 <- ");
+                sb.append("§f").append(commandBase).append(" ").append(currentPage - 1).append(" §8<- ");
             }
             if (hasNextPage) {
-                sb.append("§8-> §e").append(commandBase).append(" ").append(currentPage + 1);
+                sb.append("§8-> §f").append(commandBase).append(" ").append(currentPage + 1);
             }
             sb.append("§8]");
         }
@@ -353,18 +362,18 @@ public class DefaultMessageProvider implements MessageProvider {
                                                    int currentPage, int totalPages,
                                                    boolean showStartEllipsis, boolean showEndEllipsis,
                                                    @NotNull de.feelix.leviathan.command.pagination.config.PaginationConfig config) {
-        StringBuilder sb = new StringBuilder("§7");
+        StringBuilder sb = new StringBuilder();
 
         // Previous arrow
         if (currentPage > 1) {
-            sb.append("§e").append(config.getPreviousSymbol()).append(" §7");
+            sb.append("§f").append(config.getPreviousSymbol()).append(" ");
         } else {
-            sb.append("§8").append(config.getPreviousSymbol()).append(" §7");
+            sb.append("§8").append(config.getPreviousSymbol()).append(" ");
         }
 
         // Show start ellipsis if needed
         if (showStartEllipsis) {
-            sb.append("1 §8").append(config.getEllipsis()).append("§7 ");
+            sb.append("§f1 §8").append(config.getEllipsis()).append(" ");
         }
 
         // Page numbers
@@ -374,20 +383,20 @@ public class DefaultMessageProvider implements MessageProvider {
                 sb.append(" ");
             }
             if (page == currentPage) {
-                sb.append("§e§l[").append(page).append("]§r§7");
+                sb.append("§8[§a").append(page).append("§8]");
             } else {
-                sb.append(page);
+                sb.append("§7").append(page);
             }
         }
 
         // Show end ellipsis if needed
         if (showEndEllipsis) {
-            sb.append(" §8").append(config.getEllipsis()).append("§7 ").append(totalPages);
+            sb.append(" §8").append(config.getEllipsis()).append(" §f").append(totalPages);
         }
 
         // Next arrow
         if (currentPage < totalPages) {
-            sb.append(" §e").append(config.getNextSymbol());
+            sb.append(" §f").append(config.getNextSymbol());
         } else {
             sb.append(" §8").append(config.getNextSymbol());
         }
