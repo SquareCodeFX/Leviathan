@@ -272,12 +272,7 @@ public class DefaultMessageProvider implements MessageProvider {
     }
 
     @Override
-    public @NotNull String paginationFooter(int currentPage, int totalPages) {
-        return "§7Page §f" + currentPage + "§7/§f" + totalPages;
-    }
-
-    @Override
-    public @NotNull String paginationPageWindow(
+    public @NotNull String paginationFooter(
         @NotNull java.util.List<Integer> visiblePages,
         int currentPage,
         int totalPages,
@@ -289,7 +284,12 @@ public class DefaultMessageProvider implements MessageProvider {
         @NotNull String currentPageSuffix
     ) {
         StringBuilder sb = new StringBuilder();
-        sb.append("(");
+        
+        // Page info part
+        sb.append("§7Page §f").append(currentPage).append("§7/§f").append(totalPages);
+        
+        // Page window part
+        sb.append(" (");
 
         boolean first = true;
 

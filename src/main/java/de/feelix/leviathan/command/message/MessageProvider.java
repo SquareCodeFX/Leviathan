@@ -468,19 +468,10 @@ public interface MessageProvider {
     String paginationHeader(@NotNull String title);
 
     /**
-     * Footer for paginated list output.
-     *
-     * @param currentPage the current page number
-     * @param totalPages  the total number of pages
-     * @return the formatted footer
-     */
-    @NotNull
-    String paginationFooter(int currentPage, int totalPages);
-
-    /**
-     * Renders a compact page window overview showing visible pages with the current page highlighted.
+     * Footer for paginated list output with compact page window overview.
      * <p>
-     * Example output: {@code (1 ... 4 | _5_ | 6 ... 10)} where 5 is the current page.
+     * Combines page info and page window navigation into a single formatted footer.
+     * Example output: {@code §7Page §f3§7/§f10 (1 ... 2 | _3_ | 4 ... 10)}
      *
      * @param visiblePages      list of page numbers currently visible in the navigation window
      * @param currentPage       the current page number
@@ -491,10 +482,10 @@ public interface MessageProvider {
      * @param pageSeparator     the separator between page numbers (e.g., " | ")
      * @param currentPagePrefix prefix for the current page (e.g., "_")
      * @param currentPageSuffix suffix for the current page (e.g., "_")
-     * @return the formatted page window string
+     * @return the formatted footer with page window
      */
     @NotNull
-    String paginationPageWindow(
+    String paginationFooter(
         @NotNull java.util.List<Integer> visiblePages,
         int currentPage,
         int totalPages,

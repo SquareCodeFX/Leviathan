@@ -296,7 +296,9 @@ public final class PaginationHelper {
      * @param window the navigation window containing visible pages
      * @param config pagination config for styling
      * @return formatted page window string
+     * @deprecated Use {@link #renderFooter(NavigationWindow, PaginationConfig)} instead for combined page info and window
      */
+    @Deprecated
     public static @NotNull String renderPageWindow(@NotNull NavigationWindow window, @NotNull PaginationConfig config) {
         Preconditions.checkNotNull(window, "window");
         Preconditions.checkNotNull(config, "config");
@@ -342,7 +344,9 @@ public final class PaginationHelper {
      * @param result the paginated result
      * @param config pagination config for styling
      * @return formatted page window string
+     * @deprecated Use {@link #renderFooter(PaginatedResult, PaginationConfig)} instead for combined page info and window
      */
+    @Deprecated
     public static @NotNull String renderPageWindow(@NotNull PaginatedResult<?> result,
                                                    @NotNull PaginationConfig config) {
         Preconditions.checkNotNull(result, "result");
@@ -354,30 +358,109 @@ public final class PaginationHelper {
      *
      * @param window the navigation window containing visible pages
      * @return formatted page window string
+     * @deprecated Use {@link #renderFooter(NavigationWindow)} instead for combined page info and window
      */
+    @Deprecated
     public static @NotNull String renderPageWindow(@NotNull NavigationWindow window) {
         return renderPageWindow(window, PaginationConfig.defaults());
     }
 
     /**
-     * Render a compact page window overview using a MessageProvider for customizable formatting.
+     * Render pagination footer with page info and page window using NavigationWindow.
      * <p>
-     * This allows full customization of the page window output through the MessageProvider interface,
+     * This produces output like: {@code §7Page §f3§7/§f10 (1 ... 2 | _3_ | 4 ... 10)} where 
+     * the current page is highlighted with the configured prefix/suffix, and ellipses indicate more pages.
+     *
+     * @param window the navigation window containing visible pages
+     * @param config pagination config for styling
+     * @return formatted footer string with page info and page window
+     */
+    public static @NotNull String renderFooter(@NotNull NavigationWindow window, @NotNull PaginationConfig config) {
+        Preconditions.checkNotNull(window, "window");
+        Preconditions.checkNotNull(config, "config");
+
+        StringBuilder sb = new StringBuilder();
+        
+        // Page info part
+        sb.append("§7Page §f").append(window.getCurrentPage()).append("§7/§f").append(window.getTotalPages());
+        
+        // Page window part
+        sb.append(" (");
+
+        List<Integer> visiblePages = window.getVisiblePages();
+        boolean first = true;
+
+        if (window.showStartEllipsis()) {
+            sb.append("1 ").append(config.getEllipsis()).append(" ");
+        }
+
+        for (int page : visiblePages) {
+            if (!first) {
+                sb.append(config.getPageSeparator());
+            }
+            first = false;
+
+            if (page == window.getCurrentPage()) {
+                sb.append(config.getCurrentPagePrefix())
+                    .append(page)
+                    .append(config.getCurrentPageSuffix());
+            } else {
+                sb.append(page);
+            }
+        }
+
+        if (window.showEndEllipsis()) {
+            sb.append(" ").append(config.getEllipsis()).append(" ").append(window.getTotalPages());
+        }
+
+        sb.append(")");
+        return sb.toString();
+    }
+
+    /**
+     * Render pagination footer with page info and page window from a PaginatedResult.
+     * <p>
+     * Convenience method that extracts the NavigationWindow from the result.
+     *
+     * @param result the paginated result
+     * @param config pagination config for styling
+     * @return formatted footer string with page info and page window
+     */
+    public static @NotNull String renderFooter(@NotNull PaginatedResult<?> result,
+                                               @NotNull PaginationConfig config) {
+        Preconditions.checkNotNull(result, "result");
+        return renderFooter(result.getNavigationWindow(), config);
+    }
+
+    /**
+     * Render pagination footer with page info and page window with default config.
+     *
+     * @param window the navigation window containing visible pages
+     * @return formatted footer string with page info and page window
+     */
+    public static @NotNull String renderFooter(@NotNull NavigationWindow window) {
+        return renderFooter(window, PaginationConfig.defaults());
+    }
+
+    /**
+     * Render pagination footer with page window using a MessageProvider for customizable formatting.
+     * <p>
+     * This allows full customization of the footer output through the MessageProvider interface,
      * enabling localization and custom styling of the pagination display.
      *
      * @param window   the navigation window containing visible pages
      * @param config   pagination config for styling parameters
      * @param messages the message provider for rendering
-     * @return formatted page window string
+     * @return formatted footer string with page info and page window
      */
-    public static @NotNull String renderPageWindow(@NotNull NavigationWindow window,
-                                                   @NotNull PaginationConfig config,
-                                                   @NotNull MessageProvider messages) {
+    public static @NotNull String renderFooter(@NotNull NavigationWindow window,
+                                               @NotNull PaginationConfig config,
+                                               @NotNull MessageProvider messages) {
         Preconditions.checkNotNull(window, "window");
         Preconditions.checkNotNull(config, "config");
         Preconditions.checkNotNull(messages, "messages");
 
-        return messages.paginationPageWindow(
+        return messages.paginationFooter(
             window.getVisiblePages(),
             window.getCurrentPage(),
             window.getTotalPages(),
@@ -391,20 +474,20 @@ public final class PaginationHelper {
     }
 
     /**
-     * Render a compact page window overview from a PaginatedResult using a MessageProvider.
+     * Render pagination footer with page window from a PaginatedResult using a MessageProvider.
      * <p>
      * Convenience method that extracts the NavigationWindow from the result.
      *
      * @param result   the paginated result
      * @param config   pagination config for styling
      * @param messages the message provider for rendering
-     * @return formatted page window string
+     * @return formatted footer string with page info and page window
      */
-    public static @NotNull String renderPageWindow(@NotNull PaginatedResult<?> result,
-                                                   @NotNull PaginationConfig config,
-                                                   @NotNull MessageProvider messages) {
+    public static @NotNull String renderFooter(@NotNull PaginatedResult<?> result,
+                                               @NotNull PaginationConfig config,
+                                               @NotNull MessageProvider messages) {
         Preconditions.checkNotNull(result, "result");
-        return renderPageWindow(result.getNavigationWindow(), config, messages);
+        return renderFooter(result.getNavigationWindow(), config, messages);
     }
 
     /**
@@ -643,32 +726,34 @@ public final class PaginationHelper {
                 lines.add(footer);
             }
 
-            // Build the footer line with page info and optional navigation/overview
-            StringBuilder footerLine = new StringBuilder();
-            footerLine.append(formatPageInfo(result.getPageInfo()));
-
-            if (showPageOverview) {
-                // Add compact page window overview: (1 ... 4 | _5_ | 6 ... 10)
-                String pageOverview = renderPageWindow(result, navConfig);
-                footerLine.append(" ").append(pageOverview);
-            }
-
+            // Build the footer line with page info and page window combined
             if (showNavigation) {
                 if (commandBase != null) {
                     // Use command-based navigation hints
                     lines.add(formatPageInfoWithNavigation(result.getPageInfo(), commandBase));
                     if (showPageOverview) {
                         // Add page overview on separate line if using command navigation
-                        lines.add("§7" + renderPageWindow(result, navConfig));
+                        lines.add("§7" + renderFooter(result, navConfig));
                     }
                 } else {
-                    // Add navigation bar
+                    // Add combined footer with navigation bar
+                    StringBuilder footerLine = new StringBuilder();
+                    if (showPageOverview) {
+                        footerLine.append(renderFooter(result, navConfig));
+                    } else {
+                        footerLine.append(formatPageInfo(result.getPageInfo()));
+                    }
                     String navBar = createNavigationBar(result.getCurrentPage(), result.getTotalPages(), navConfig);
                     footerLine.append(" ").append(navBar);
                     lines.add(footerLine.toString());
                 }
             } else {
-                lines.add(footerLine.toString());
+                // No navigation - just show footer with page info and optional page window
+                if (showPageOverview) {
+                    lines.add(renderFooter(result, navConfig));
+                } else {
+                    lines.add(formatPageInfo(result.getPageInfo()));
+                }
             }
 
             return lines;

@@ -71,3 +71,29 @@ SlashCommand listHomes = SlashCommand.create("listhomes")
 #### Utilities
 
 - `PaginationUtils` — Helpers for clamping pages, computing navigation windows, and formatting labels.
+- `PaginationHelper.renderFooter(...)` — Renders a combined footer with page info and page window overview (e.g., `§7Page §f3§7/§f10 (1 ... 2 | _3_ | 4 ... 10)`).
+
+#### Customizing Messages
+
+The `MessageProvider` interface allows full customization of pagination messages. The `paginationFooter(...)` method combines page info and page window navigation into a single formatted output:
+
+```java
+// In your custom MessageProvider implementation:
+@Override
+public String paginationFooter(
+    List<Integer> visiblePages,
+    int currentPage,
+    int totalPages,
+    boolean showStartEllipsis,
+    boolean showEndEllipsis,
+    String ellipsis,
+    String pageSeparator,
+    String currentPagePrefix,
+    String currentPageSuffix
+) {
+    // Return combined footer like: "Page 3/10 (1 ... 2 | [3] | 4 ... 10)"
+    return "Page " + currentPage + "/" + totalPages + " " + buildPageWindow(...);
+}
+```
+
+This unified method replaces the previous separate `paginationFooter` and `paginationPageWindow` methods.
