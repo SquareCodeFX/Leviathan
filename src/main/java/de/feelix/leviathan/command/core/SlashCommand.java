@@ -1080,6 +1080,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                 .page(pageNumber)
                 .pageSize(helpPageSize)
                 .config(config)
+                .messageProvider(messages)
                 .header(messages.helpSubCommandsHeader(formattedName, commandPath).trim())
                 .formatter(sub -> {
                     StringBuilder line = new StringBuilder();
