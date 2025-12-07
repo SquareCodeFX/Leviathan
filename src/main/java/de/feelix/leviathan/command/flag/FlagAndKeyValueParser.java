@@ -285,14 +285,11 @@ public final class FlagAndKeyValueParser {
             int eqIdx = arg.indexOf('=');
             int colonIdx = arg.indexOf(':');
             int separatorIdx = -1;
-            char separator = '=';
-            
+
             if (eqIdx > 0 && (colonIdx < 0 || eqIdx < colonIdx)) {
                 separatorIdx = eqIdx;
-                separator = '=';
             } else if (colonIdx > 0) {
                 separatorIdx = colonIdx;
-                separator = ':';
             }
             
             if (separatorIdx > 0) {

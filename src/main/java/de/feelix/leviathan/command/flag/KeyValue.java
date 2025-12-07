@@ -7,8 +7,6 @@ import de.feelix.leviathan.command.argument.ArgParsers;
 import de.feelix.leviathan.exceptions.CommandConfigurationException;
 import de.feelix.leviathan.util.Preconditions;
 
-import java.util.List;
-
 /**
  * Describes a key-value pair parameter for commands.
  * <p>

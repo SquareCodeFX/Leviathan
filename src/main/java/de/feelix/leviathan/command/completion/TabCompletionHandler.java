@@ -6,7 +6,6 @@ import de.feelix.leviathan.command.argument.ArgContext;
 import de.feelix.leviathan.command.argument.ParseResult;
 import de.feelix.leviathan.command.core.SlashCommand;
 import de.feelix.leviathan.command.flag.Flag;
-import de.feelix.leviathan.command.flag.FlagAndKeyValueParser;
 import de.feelix.leviathan.command.flag.KeyValue;
 import de.feelix.leviathan.command.guard.Guard;
 import de.feelix.leviathan.command.message.MessageProvider;
@@ -86,7 +85,7 @@ public final class TabCompletionHandler {
         if (index < 0) return Collections.emptyList();
         
         // Get the current token being typed
-        String currentToken = providedArgs.length > 0 ? providedArgs[providedArgs.length - 1] : "";
+        String currentToken = providedArgs[providedArgs.length - 1];
         
         // Check if current token looks like a flag or key-value
         boolean hasFlags = !command.flags().isEmpty();
@@ -111,8 +110,7 @@ public final class TabCompletionHandler {
                     currentToken, providedArgs, command, sender);
                 if (!flagKvCompletions.isEmpty()) {
                     // If we have positional args to complete too, merge them
-                    if (index < argCount && command.args().size() > 0) {
-                        List<String> merged = new ArrayList<>(flagKvCompletions);
+                    if (index < argCount && !command.args().isEmpty()) {
                         // Continue to get argument completions below
                     } else {
                         return flagKvCompletions;
@@ -635,13 +633,13 @@ public final class TabCompletionHandler {
                 // Don't suggest if already used (unless multipleValues is enabled)
                 if (!kv.multipleValues() && usedKeyValues.contains(keyLower)) continue;
                 
-                if (keyLower.startsWith(tokenLower) || tokenLower.isEmpty()) {
+                if (keyLower.startsWith(tokenLower)) {
                     completions.add(key + "=");
                 }
             }
             
             // Also suggest -- prefix for flags/key-values when typing empty or partial
-            if (tokenLower.isEmpty() || "-".startsWith(tokenLower)) {
+            if ("-".startsWith(tokenLower)) {
                 // Add -- as a completion hint if there are flags or key-values
                 if (!flags.isEmpty() || !keyValues.isEmpty()) {
                     completions.add("--");
