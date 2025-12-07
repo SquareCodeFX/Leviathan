@@ -342,8 +342,8 @@ public final class PaginationConfig {
         /**
          * Set the symbols for previous and next page navigation.
          *
-         * @param previous the previous page symbol (e.g., "<-" or "←")
-         * @param next     the next page symbol (e.g., "->" or "→")
+         * @param previous the previous page symbol (e.g., "&lt;-" or "←")
+         * @param next     the next page symbol (e.g., "-&gt;" or "→")
          * @return this builder for method chaining
          * @throws NullPointerException if previous or next is null
          */

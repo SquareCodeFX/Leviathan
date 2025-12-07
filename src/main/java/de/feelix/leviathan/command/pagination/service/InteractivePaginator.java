@@ -246,7 +246,7 @@ public final class InteractivePaginator<T> {
 
     /**
      * Prefetch surrounding pages for faster navigation.
-     * Uses {@link PaginationConfig#getSidePages()} to determine prefetch radius.
+     * Uses the {@code sidePages} configuration value to determine prefetch radius.
      */
     public void prefetch() {
         if (currentResult != null) {
