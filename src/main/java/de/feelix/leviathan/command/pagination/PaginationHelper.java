@@ -540,6 +540,7 @@ public final class PaginationHelper {
         private boolean showPageOverview = false;
         private @Nullable String commandBase = null;
         private @Nullable PaginationConfig config = null;
+        private @Nullable MessageProvider messageProvider = null;
 
         PaginatedOutputBuilder(@NotNull Collection<T> items) {
             this.items = items;
@@ -670,6 +671,18 @@ public final class PaginationHelper {
         }
 
         /**
+         * Set custom message provider for pagination footer formatting.
+         * This allows customization of the pagination footer display through a custom MessageProvider.
+         *
+         * @param messageProvider custom message provider, or null to use default formatting
+         * @return this builder for method chaining
+         */
+        public @NotNull PaginatedOutputBuilder<T> messageProvider(@Nullable MessageProvider messageProvider) {
+            this.messageProvider = messageProvider;
+            return this;
+        }
+
+        /**
          * Build and return the paginated result containing items for the current page.
          * The page number is automatically clamped to valid range.
          *
@@ -733,13 +746,21 @@ public final class PaginationHelper {
                     lines.add(formatPageInfoWithNavigation(result.getPageInfo(), commandBase));
                     if (showPageOverview) {
                         // Add page overview on separate line if using command navigation
-                        lines.add("§7" + renderFooter(result, navConfig));
+                        if (messageProvider != null) {
+                            lines.add("§7" + renderFooter(result, navConfig, messageProvider));
+                        } else {
+                            lines.add("§7" + renderFooter(result, navConfig));
+                        }
                     }
                 } else {
                     // Add combined footer with navigation bar
                     StringBuilder footerLine = new StringBuilder();
                     if (showPageOverview) {
-                        footerLine.append(renderFooter(result, navConfig));
+                        if (messageProvider != null) {
+                            footerLine.append(renderFooter(result, navConfig, messageProvider));
+                        } else {
+                            footerLine.append(renderFooter(result, navConfig));
+                        }
                     } else {
                         footerLine.append(formatPageInfo(result.getPageInfo()));
                     }
@@ -750,7 +771,11 @@ public final class PaginationHelper {
             } else {
                 // No navigation - just show footer with page info and optional page window
                 if (showPageOverview) {
-                    lines.add(renderFooter(result, navConfig));
+                    if (messageProvider != null) {
+                        lines.add(renderFooter(result, navConfig, messageProvider));
+                    } else {
+                        lines.add(renderFooter(result, navConfig));
+                    }
                 } else {
                     lines.add(formatPageInfo(result.getPageInfo()));
                 }
