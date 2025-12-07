@@ -8,9 +8,7 @@ import de.feelix.leviathan.exceptions.ApiMisuseException;
 import de.feelix.leviathan.util.Preconditions;
 import org.bukkit.entity.Player;
 
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.function.Function;
 
 /**
@@ -19,11 +17,17 @@ import java.util.function.Function;
  * The context is immutable and contains:
  * <ul>
  *   <li>A map of argument name to parsed value (only provided arguments are present)</li>
+ *   <li>A map of flag name to boolean value</li>
+ *   <li>A map of key-value name to parsed value</li>
+ *   <li>A map of multi-value key-value name to list of parsed values</li>
  *   <li>The raw argument array as received from Bukkit</li>
  * </ul>
  */
 public final class CommandContext {
     private final Map<String, Object> values;
+    private final Map<String, Boolean> flagValues;
+    private final Map<String, Object> keyValuePairs;
+    private final Map<String, List<Object>> multiValuePairs;
     private final String[] rawArgs;
 
     /**
@@ -33,7 +37,27 @@ public final class CommandContext {
      * @param rawArgs raw argument tokens provided by Bukkit
      */
     public CommandContext(@NotNull Map<String, Object> values, @NotNull String[] rawArgs) {
+        this(values, Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap(), rawArgs);
+    }
+
+    /**
+     * Create a new command context with flags and key-value pairs.
+     *
+     * @param values          parsed argument name-to-value mapping
+     * @param flagValues      parsed flag name-to-boolean mapping
+     * @param keyValuePairs   parsed key-value name-to-value mapping (single values)
+     * @param multiValuePairs parsed key-value name-to-list mapping (multiple values)
+     * @param rawArgs         raw argument tokens provided by Bukkit
+     */
+    public CommandContext(@NotNull Map<String, Object> values,
+                          @NotNull Map<String, Boolean> flagValues,
+                          @NotNull Map<String, Object> keyValuePairs,
+                          @NotNull Map<String, List<Object>> multiValuePairs,
+                          @NotNull String[] rawArgs) {
         this.values = Map.copyOf(Preconditions.checkNotNull(values, "values"));
+        this.flagValues = Map.copyOf(Preconditions.checkNotNull(flagValues, "flagValues"));
+        this.keyValuePairs = Map.copyOf(Preconditions.checkNotNull(keyValuePairs, "keyValuePairs"));
+        this.multiValuePairs = Map.copyOf(Preconditions.checkNotNull(multiValuePairs, "multiValuePairs"));
         this.rawArgs = Preconditions.checkNotNull(rawArgs, "rawArgs").clone();
     }
 
@@ -304,5 +328,260 @@ public final class CommandContext {
         if (o instanceof Boolean) return OptionType.BOOLEAN;
         if (o instanceof Player) return OptionType.PLAYER;
         return (o == null) ? OptionType.UNKNOWN : OptionType.CHOICE;
+    }
+
+    // ================================
+    // FLAG ACCESSOR METHODS
+    // ================================
+
+    /**
+     * Get a flag value by name.
+     * <p>
+     * Flags are boolean switches that can be enabled via command-line style arguments:
+     * <ul>
+     *   <li>Short form: {@code -s}</li>
+     *   <li>Long form: {@code --silent}</li>
+     *   <li>Combined: {@code -sf}</li>
+     *   <li>Negated: {@code --no-confirm}</li>
+     * </ul>
+     *
+     * @param name the flag name
+     * @return the flag value, or false if not present
+     */
+    public boolean getFlag(@NotNull String name) {
+        Preconditions.checkNotNull(name, "name");
+        return flagValues.getOrDefault(name, false);
+    }
+
+    /**
+     * Get a flag value by name with a specified default.
+     *
+     * @param name         the flag name
+     * @param defaultValue value to return if flag is not defined
+     * @return the flag value or default
+     */
+    public boolean getFlag(@NotNull String name, boolean defaultValue) {
+        Preconditions.checkNotNull(name, "name");
+        return flagValues.getOrDefault(name, defaultValue);
+    }
+
+    /**
+     * Check if a flag is defined in this context.
+     *
+     * @param name the flag name
+     * @return true if the flag exists in the context
+     */
+    public boolean hasFlag(@NotNull String name) {
+        Preconditions.checkNotNull(name, "name");
+        return flagValues.containsKey(name);
+    }
+
+    /**
+     * @return unmodifiable view of all flag values
+     */
+    public @NotNull Map<String, Boolean> allFlags() {
+        return flagValues;
+    }
+
+    // ================================
+    // KEY-VALUE ACCESSOR METHODS
+    // ================================
+
+    /**
+     * Get a key-value pair by name.
+     * <p>
+     * Key-value pairs support multiple input formats:
+     * <ul>
+     *   <li>{@code key=value}</li>
+     *   <li>{@code key:value}</li>
+     *   <li>{@code --key value}</li>
+     *   <li>{@code --key=value}</li>
+     * </ul>
+     *
+     * @param name the key-value name
+     * @param type the expected type class
+     * @param <T>  the type
+     * @return the value or null if not present or wrong type
+     */
+    @SuppressWarnings("unchecked")
+    public @Nullable <T> T getKeyValue(@NotNull String name, @NotNull Class<T> type) {
+        Preconditions.checkNotNull(name, "name");
+        Preconditions.checkNotNull(type, "type");
+        Object value = keyValuePairs.get(name);
+        if (value == null) return null;
+        if (!type.isInstance(value)) return null;
+        return (T) value;
+    }
+
+    /**
+     * Get a key-value pair by name with a default value.
+     *
+     * @param name         the key-value name
+     * @param type         the expected type class
+     * @param defaultValue value to return if not present or wrong type
+     * @param <T>          the type
+     * @return the value or default
+     */
+    public @NotNull <T> T getKeyValue(@NotNull String name, @NotNull Class<T> type, @NotNull T defaultValue) {
+        Preconditions.checkNotNull(defaultValue, "defaultValue");
+        T value = getKeyValue(name, type);
+        return value != null ? value : defaultValue;
+    }
+
+    /**
+     * Get a key-value pair as Optional.
+     *
+     * @param name the key-value name
+     * @param type the expected type class
+     * @param <T>  the type
+     * @return Optional containing the value, or empty
+     */
+    public @NotNull <T> Optional<T> optionalKeyValue(@NotNull String name, @NotNull Class<T> type) {
+        return Optional.ofNullable(getKeyValue(name, type));
+    }
+
+    /**
+     * Check if a key-value pair exists in this context.
+     *
+     * @param name the key-value name
+     * @return true if the key-value exists
+     */
+    public boolean hasKeyValue(@NotNull String name) {
+        Preconditions.checkNotNull(name, "name");
+        return keyValuePairs.containsKey(name);
+    }
+
+    /**
+     * Get a string key-value pair.
+     *
+     * @param name the key-value name
+     * @return the string value or null
+     */
+    public @Nullable String getKeyValueString(@NotNull String name) {
+        return getKeyValue(name, String.class);
+    }
+
+    /**
+     * Get a string key-value pair with a default.
+     *
+     * @param name         the key-value name
+     * @param defaultValue default value
+     * @return the string value or default
+     */
+    public @NotNull String getKeyValueString(@NotNull String name, @NotNull String defaultValue) {
+        return getKeyValue(name, String.class, defaultValue);
+    }
+
+    /**
+     * Get an integer key-value pair.
+     *
+     * @param name the key-value name
+     * @return the integer value or null
+     */
+    public @Nullable Integer getKeyValueInt(@NotNull String name) {
+        return getKeyValue(name, Integer.class);
+    }
+
+    /**
+     * Get an integer key-value pair with a default.
+     *
+     * @param name         the key-value name
+     * @param defaultValue default value
+     * @return the integer value or default
+     */
+    public int getKeyValueInt(@NotNull String name, int defaultValue) {
+        Integer value = getKeyValueInt(name);
+        return value != null ? value : defaultValue;
+    }
+
+    /**
+     * Get a boolean key-value pair.
+     *
+     * @param name the key-value name
+     * @return the boolean value or null
+     */
+    public @Nullable Boolean getKeyValueBoolean(@NotNull String name) {
+        return getKeyValue(name, Boolean.class);
+    }
+
+    /**
+     * Get a boolean key-value pair with a default.
+     *
+     * @param name         the key-value name
+     * @param defaultValue default value
+     * @return the boolean value or default
+     */
+    public boolean getKeyValueBoolean(@NotNull String name, boolean defaultValue) {
+        Boolean value = getKeyValueBoolean(name);
+        return value != null ? value : defaultValue;
+    }
+
+    /**
+     * @return unmodifiable view of all key-value pairs (single values)
+     */
+    public @NotNull Map<String, Object> allKeyValues() {
+        return keyValuePairs;
+    }
+
+    // ================================
+    // MULTI-VALUE ACCESSOR METHODS
+    // ================================
+
+    /**
+     * Get multiple values for a key-value pair.
+     * <p>
+     * Multiple values are specified like: {@code tags=pvp,survival,hardcore}
+     *
+     * @param name the key-value name
+     * @param <T>  the element type
+     * @return list of values, or empty list if not present
+     */
+    @SuppressWarnings("unchecked")
+    public @NotNull <T> List<T> getMultiValue(@NotNull String name) {
+        Preconditions.checkNotNull(name, "name");
+        List<Object> values = multiValuePairs.get(name);
+        if (values == null) return Collections.emptyList();
+        return (List<T>) Collections.unmodifiableList(values);
+    }
+
+    /**
+     * Get multiple values for a key-value pair with type checking.
+     *
+     * @param name        the key-value name
+     * @param elementType the expected element type class
+     * @param <T>         the element type
+     * @return list of values matching the type, or empty list
+     */
+    @SuppressWarnings("unchecked")
+    public @NotNull <T> List<T> getMultiValue(@NotNull String name, @NotNull Class<T> elementType) {
+        Preconditions.checkNotNull(name, "name");
+        Preconditions.checkNotNull(elementType, "elementType");
+        List<Object> values = multiValuePairs.get(name);
+        if (values == null) return Collections.emptyList();
+        List<T> result = new ArrayList<>();
+        for (Object value : values) {
+            if (elementType.isInstance(value)) {
+                result.add((T) value);
+            }
+        }
+        return Collections.unmodifiableList(result);
+    }
+
+    /**
+     * Check if a multi-value key-value pair exists.
+     *
+     * @param name the key-value name
+     * @return true if multi-values exist for this key
+     */
+    public boolean hasMultiValue(@NotNull String name) {
+        Preconditions.checkNotNull(name, "name");
+        return multiValuePairs.containsKey(name) && !multiValuePairs.get(name).isEmpty();
+    }
+
+    /**
+     * @return unmodifiable view of all multi-value pairs
+     */
+    public @NotNull Map<String, List<Object>> allMultiValues() {
+        return multiValuePairs;
     }
 }

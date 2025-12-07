@@ -6,6 +6,8 @@ import de.feelix.leviathan.command.argument.Arg;
 import de.feelix.leviathan.command.argument.ArgContext;
 import de.feelix.leviathan.command.error.DetailedExceptionHandler;
 import de.feelix.leviathan.command.error.ExceptionHandler;
+import de.feelix.leviathan.command.flag.Flag;
+import de.feelix.leviathan.command.flag.KeyValue;
 import de.feelix.leviathan.command.guard.Guard;
 import de.feelix.leviathan.command.message.MessageProvider;
 import de.feelix.leviathan.command.validation.CrossArgumentValidator;
@@ -58,6 +60,9 @@ public final class SlashCommandBuilder {
     private boolean sanitizeInputs = false;
     // Fuzzy subcommand matching
     private boolean fuzzySubcommandMatching = false;
+    // Flags and Key-Value pairs
+    private final List<Flag> flags = new ArrayList<>();
+    private final List<KeyValue<?>> keyValues = new ArrayList<>();
 
     SlashCommandBuilder(String name) {
         this.name = Preconditions.checkNotNull(name, "name");
@@ -892,6 +897,278 @@ public final class SlashCommandBuilder {
         return arg(new Arg<>(name, parser, argContext).withCondition(condition));
     }
 
+    // ================================
+    // FLAG AND KEY-VALUE METHODS
+    // ================================
+
+    /**
+     * Add a flag (switch/option) to this command.
+     * <p>
+     * Flags support multiple formats:
+     * <ul>
+     *   <li>Short form: {@code -s}</li>
+     *   <li>Long form: {@code --silent}</li>
+     *   <li>Combined: {@code -sf} (equivalent to {@code -s -f})</li>
+     *   <li>Negation: {@code --no-confirm} (sets flag to false)</li>
+     * </ul>
+     * <p>
+     * Example:
+     * <pre>{@code
+     * SlashCommand.create("ban")
+     *     .flag(Flag.of("silent", 's', "silent")
+     *         .description("Don't broadcast the ban"))
+     *     .flag(Flag.of("permanent", 'p', "permanent"))
+     *     .executes((sender, ctx) -> {
+     *         boolean silent = ctx.getFlag("silent");
+     *         boolean permanent = ctx.getFlag("permanent");
+     *         // ...
+     *     })
+     *     .register(plugin);
+     * }</pre>
+     *
+     * @param flag the flag definition
+     * @return this builder
+     * @throws CommandConfigurationException if flag name conflicts with existing flags
+     */
+    public @NotNull SlashCommandBuilder flag(@NotNull Flag flag) {
+        Preconditions.checkNotNull(flag, "flag");
+        // Check for duplicate names
+        for (Flag existing : flags) {
+            if (existing.name().equalsIgnoreCase(flag.name())) {
+                throw new CommandConfigurationException("Duplicate flag name: '" + flag.name() + "'");
+            }
+            // Check for conflicting short forms
+            if (flag.shortForm() != null && existing.shortForm() != null 
+                && flag.shortForm().equals(existing.shortForm())) {
+                throw new CommandConfigurationException("Duplicate flag short form: '-" + flag.shortForm() + "'");
+            }
+            // Check for conflicting long forms
+            if (flag.longForm() != null && existing.longForm() != null 
+                && flag.longForm().equalsIgnoreCase(existing.longForm())) {
+                throw new CommandConfigurationException("Duplicate flag long form: '--" + flag.longForm() + "'");
+            }
+        }
+        flags.add(flag);
+        return this;
+    }
+
+    /**
+     * Add a flag with both short and long forms.
+     * <p>
+     * Convenience method equivalent to:
+     * <pre>{@code flag(Flag.of(name, shortForm, longForm))}</pre>
+     *
+     * @param name      the flag name used in context
+     * @param shortForm single character for short form (e.g., 's' for -s)
+     * @param longForm  long form without dashes (e.g., "silent" for --silent)
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder flag(@NotNull String name, char shortForm, @NotNull String longForm) {
+        return flag(Flag.of(name, shortForm, longForm));
+    }
+
+    /**
+     * Add a flag with short form only.
+     *
+     * @param name      the flag name used in context
+     * @param shortForm single character for short form
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder flagShort(@NotNull String name, char shortForm) {
+        return flag(Flag.ofShort(name, shortForm));
+    }
+
+    /**
+     * Add a flag with long form only.
+     *
+     * @param name     the flag name used in context
+     * @param longForm long form without dashes
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder flagLong(@NotNull String name, @NotNull String longForm) {
+        return flag(Flag.ofLong(name, longForm));
+    }
+
+    /**
+     * Fluent alias for {@link #flag(Flag)}.
+     * Makes the API read more naturally: {@code withFlag(myFlag)}
+     *
+     * @param flag the flag definition
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder withFlag(@NotNull Flag flag) {
+        return flag(flag);
+    }
+
+    /**
+     * Add a key-value pair parameter to this command.
+     * <p>
+     * Key-value pairs support multiple formats:
+     * <ul>
+     *   <li>{@code key=value}</li>
+     *   <li>{@code key:value}</li>
+     *   <li>{@code --key value}</li>
+     *   <li>{@code --key=value}</li>
+     * </ul>
+     * <p>
+     * Additional features:
+     * <ul>
+     *   <li>Type parsing: String, Integer, Boolean, Enum, etc.</li>
+     *   <li>Default values</li>
+     *   <li>Required/optional support</li>
+     *   <li>Multiple values: {@code tags=pvp,survival,hardcore}</li>
+     *   <li>Quoted values: {@code reason="This is the reason"}</li>
+     * </ul>
+     * <p>
+     * Example:
+     * <pre>{@code
+     * SlashCommand.create("ban")
+     *     .keyValue(KeyValue.ofString("reason", "No reason given"))
+     *     .keyValue(KeyValue.ofInt("duration").required(true))
+     *     .executes((sender, ctx) -> {
+     *         String reason = ctx.getKeyValue("reason", String.class);
+     *         Integer duration = ctx.getKeyValue("duration", Integer.class);
+     *         // ...
+     *     })
+     *     .register(plugin);
+     * }</pre>
+     *
+     * @param keyValue the key-value definition
+     * @return this builder
+     * @throws CommandConfigurationException if key-value name conflicts with existing key-values
+     */
+    public @NotNull SlashCommandBuilder keyValue(@NotNull KeyValue<?> keyValue) {
+        Preconditions.checkNotNull(keyValue, "keyValue");
+        // Check for duplicate names
+        for (KeyValue<?> existing : keyValues) {
+            if (existing.name().equalsIgnoreCase(keyValue.name())) {
+                throw new CommandConfigurationException("Duplicate key-value name: '" + keyValue.name() + "'");
+            }
+            // Check for conflicting keys
+            if (existing.key().equalsIgnoreCase(keyValue.key())) {
+                throw new CommandConfigurationException("Duplicate key-value key: '" + keyValue.key() + "'");
+            }
+        }
+        keyValues.add(keyValue);
+        return this;
+    }
+
+    /**
+     * Add a required string key-value pair.
+     *
+     * @param name the key name
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder keyValueString(@NotNull String name) {
+        return keyValue(KeyValue.ofString(name));
+    }
+
+    /**
+     * Add an optional string key-value pair with a default value.
+     *
+     * @param name         the key name
+     * @param defaultValue the default value
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder keyValueString(@NotNull String name, @NotNull String defaultValue) {
+        return keyValue(KeyValue.ofString(name, defaultValue));
+    }
+
+    /**
+     * Add a required integer key-value pair.
+     *
+     * @param name the key name
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder keyValueInt(@NotNull String name) {
+        return keyValue(KeyValue.ofInt(name));
+    }
+
+    /**
+     * Add an optional integer key-value pair with a default value.
+     *
+     * @param name         the key name
+     * @param defaultValue the default value
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder keyValueInt(@NotNull String name, int defaultValue) {
+        return keyValue(KeyValue.ofInt(name, defaultValue));
+    }
+
+    /**
+     * Add a required boolean key-value pair.
+     *
+     * @param name the key name
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder keyValueBoolean(@NotNull String name) {
+        return keyValue(KeyValue.ofBoolean(name));
+    }
+
+    /**
+     * Add an optional boolean key-value pair with a default value.
+     *
+     * @param name         the key name
+     * @param defaultValue the default value
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder keyValueBoolean(@NotNull String name, boolean defaultValue) {
+        return keyValue(KeyValue.ofBoolean(name, defaultValue));
+    }
+
+    /**
+     * Add a required enum key-value pair.
+     *
+     * @param name      the key name
+     * @param enumClass the enum class
+     * @param <E>       the enum type
+     * @return this builder
+     */
+    public <E extends Enum<E>> @NotNull SlashCommandBuilder keyValueEnum(@NotNull String name, 
+                                                                          @NotNull Class<E> enumClass) {
+        return keyValue(KeyValue.ofEnum(name, enumClass));
+    }
+
+    /**
+     * Add an optional enum key-value pair with a default value.
+     *
+     * @param name         the key name
+     * @param enumClass    the enum class
+     * @param defaultValue the default value
+     * @param <E>          the enum type
+     * @return this builder
+     */
+    public <E extends Enum<E>> @NotNull SlashCommandBuilder keyValueEnum(@NotNull String name,
+                                                                          @NotNull Class<E> enumClass,
+                                                                          @NotNull E defaultValue) {
+        return keyValue(KeyValue.ofEnum(name, enumClass, defaultValue));
+    }
+
+    /**
+     * Fluent alias for {@link #keyValue(KeyValue)}.
+     * Makes the API read more naturally: {@code withKeyValue(myKV)}
+     *
+     * @param keyValue the key-value definition
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder withKeyValue(@NotNull KeyValue<?> keyValue) {
+        return keyValue(keyValue);
+    }
+
+    /**
+     * @return unmodifiable view of the configured flags
+     */
+    @NotNull List<Flag> getFlags() {
+        return Collections.unmodifiableList(flags);
+    }
+
+    /**
+     * @return unmodifiable view of the configured key-values
+     */
+    @NotNull List<KeyValue<?>> getKeyValues() {
+        return Collections.unmodifiableList(keyValues);
+    }
+
     /**
      * Define the action to execute when the command is successfully invoked with valid arguments.
      *
@@ -1208,7 +1485,7 @@ public final class SlashCommandBuilder {
             asyncAction, (asyncTimeoutMillis == null ? 0L : asyncTimeoutMillis),
             guards, crossArgumentValidators, exceptionHandler,
             perUserCooldownMillis, perServerCooldownMillis, enableHelp, helpPageSize, messages, sanitizeInputs,
-            fuzzySubcommandMatching
+            fuzzySubcommandMatching, flags, keyValues
         );
 
         // Set parent reference for all subcommands

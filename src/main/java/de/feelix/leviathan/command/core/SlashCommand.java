@@ -15,6 +15,9 @@ import de.feelix.leviathan.command.pagination.PaginationHelper;
 import de.feelix.leviathan.command.pagination.config.PaginationConfig;
 import de.feelix.leviathan.command.error.ErrorType;
 import de.feelix.leviathan.command.error.ExceptionHandler;
+import de.feelix.leviathan.command.flag.Flag;
+import de.feelix.leviathan.command.flag.FlagAndKeyValueParser;
+import de.feelix.leviathan.command.flag.KeyValue;
 import de.feelix.leviathan.command.guard.Guard;
 import de.feelix.leviathan.command.message.DefaultMessageProvider;
 import de.feelix.leviathan.command.message.MessageProvider;
@@ -109,6 +112,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
     private final MessageProvider messages;
     private final boolean sanitizeInputs;
     private final boolean fuzzySubcommandMatching;
+    final List<Flag> flags;
+    final List<KeyValue<?>> keyValues;
     JavaPlugin plugin;
     private boolean subOnly = false;
     @Nullable
@@ -268,6 +273,20 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
     }
 
     /**
+     * @return an immutable list of flag definitions
+     */
+    public @NotNull List<Flag> flags() {
+        return List.copyOf(flags);
+    }
+
+    /**
+     * @return an immutable list of key-value definitions
+     */
+    public @NotNull List<KeyValue<?>> keyValues() {
+        return List.copyOf(keyValues);
+    }
+
+    /**
      * @return the plugin instance this command is registered with, or null if not yet registered
      */
     public @Nullable JavaPlugin plugin() {
@@ -283,7 +302,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                  @Nullable ExceptionHandler exceptionHandler,
                  long perUserCooldownMillis, long perServerCooldownMillis, boolean enableHelp,
                  int helpPageSize, @Nullable MessageProvider messages, boolean sanitizeInputs,
-                 boolean fuzzySubcommandMatching) {
+                 boolean fuzzySubcommandMatching,
+                 List<Flag> flags, List<KeyValue<?>> keyValues) {
         this.name = Preconditions.checkNotNull(name, "name");
         this.aliases = List.copyOf(aliases == null ? List.of() : aliases);
         this.description = (description == null) ? "" : description;
@@ -308,6 +328,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         this.messages = (messages != null) ? messages : new DefaultMessageProvider();
         this.sanitizeInputs = sanitizeInputs;
         this.fuzzySubcommandMatching = fuzzySubcommandMatching;
+        this.flags = List.copyOf(flags == null ? List.of() : flags);
+        this.keyValues = List.copyOf(keyValues == null ? List.of() : keyValues);
         // Pre-compute usage string for performance
         this.cachedUsage = computeUsageString();
     }
@@ -829,7 +851,29 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         }
 
         // Optional arguments not provided: simply absent from context
-        CommandContext ctx = new CommandContext(values, providedArgs);
+        
+        // Parse flags and key-value pairs from provided arguments
+        Map<String, Boolean> flagValues = Collections.emptyMap();
+        Map<String, Object> keyValuePairs = Collections.emptyMap();
+        Map<String, List<Object>> multiValuePairs = Collections.emptyMap();
+        
+        if (!flags.isEmpty() || !keyValues.isEmpty()) {
+            FlagAndKeyValueParser flagKvParser = new FlagAndKeyValueParser(flags, keyValues);
+            FlagAndKeyValueParser.ParsedResult flagKvResult = flagKvParser.parse(providedArgs, sender);
+            
+            if (!flagKvResult.isSuccess()) {
+                // Report first error from flag/key-value parsing
+                String firstError = flagKvResult.errors().get(0);
+                sendErrorMessage(sender, ErrorType.PARSING, messages.invalidArgumentValue("flags/options", "flag", firstError), null);
+                return true;
+            }
+            
+            flagValues = flagKvResult.flagValues();
+            keyValuePairs = flagKvResult.keyValuePairs();
+            multiValuePairs = flagKvResult.multiValuePairs();
+        }
+        
+        CommandContext ctx = new CommandContext(values, flagValues, keyValuePairs, multiValuePairs, providedArgs);
         if (async) {
             if (asyncActionAdv != null) {
                 // Advanced async with cancellation, progress, and timeout

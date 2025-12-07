@@ -5,6 +5,9 @@ import de.feelix.leviathan.command.argument.Arg;
 import de.feelix.leviathan.command.argument.ArgContext;
 import de.feelix.leviathan.command.argument.ParseResult;
 import de.feelix.leviathan.command.core.SlashCommand;
+import de.feelix.leviathan.command.flag.Flag;
+import de.feelix.leviathan.command.flag.FlagAndKeyValueParser;
+import de.feelix.leviathan.command.flag.KeyValue;
 import de.feelix.leviathan.command.guard.Guard;
 import de.feelix.leviathan.command.message.MessageProvider;
 import de.feelix.leviathan.command.validation.ValidationHelper;
@@ -81,6 +84,43 @@ public final class TabCompletionHandler {
 
         int index = providedArgs.length - 1; // current token index
         if (index < 0) return Collections.emptyList();
+        
+        // Get the current token being typed
+        String currentToken = providedArgs.length > 0 ? providedArgs[providedArgs.length - 1] : "";
+        
+        // Check if current token looks like a flag or key-value
+        boolean hasFlags = !command.flags().isEmpty();
+        boolean hasKeyValues = !command.keyValues().isEmpty();
+        
+        if (hasFlags || hasKeyValues) {
+            // Check if current token is a flag or key-value pattern
+            if (currentToken.startsWith("-") || currentToken.startsWith("--") ||
+                currentToken.contains("=") || currentToken.contains(":")) {
+                List<String> flagKvCompletions = generateFlagAndKeyValueCompletions(
+                    currentToken, providedArgs, command, sender);
+                if (!flagKvCompletions.isEmpty()) {
+                    return flagKvCompletions;
+                }
+            }
+            
+            // Also suggest flags/key-values when user hasn't typed anything yet for this token
+            // or when they're past all positional arguments
+            int argCount = command.args().isEmpty() ? 0 : command.args().size();
+            if (index >= argCount || currentToken.isEmpty()) {
+                List<String> flagKvCompletions = generateFlagAndKeyValueCompletions(
+                    currentToken, providedArgs, command, sender);
+                if (!flagKvCompletions.isEmpty()) {
+                    // If we have positional args to complete too, merge them
+                    if (index < argCount && command.args().size() > 0) {
+                        List<String> merged = new ArrayList<>(flagKvCompletions);
+                        // Continue to get argument completions below
+                    } else {
+                        return flagKvCompletions;
+                    }
+                }
+            }
+        }
+        
         if (command.args().isEmpty()) return Collections.emptyList();
 
         boolean lastIsGreedy = command.args().get(command.args().size() - 1).greedy();
@@ -414,5 +454,202 @@ public final class TabCompletionHandler {
         result.addAll(substringMatches);
 
         return result;
+    }
+
+    /**
+     * Generate tab completions for flags and key-value pairs.
+     *
+     * @param currentToken  the current token being typed
+     * @param providedArgs  all arguments provided so far
+     * @param command       the SlashCommand instance
+     * @param sender        the command sender
+     * @return list of flag and key-value completion suggestions
+     */
+    private static @NotNull List<String> generateFlagAndKeyValueCompletions(
+        @NotNull String currentToken,
+        @NotNull String[] providedArgs,
+        @NotNull SlashCommand command,
+        @NotNull CommandSender sender) {
+
+        List<String> completions = new ArrayList<>();
+        List<Flag> flags = command.flags();
+        List<KeyValue<?>> keyValues = command.keyValues();
+
+        // Track which flags and key-values have already been used
+        Set<String> usedFlags = new HashSet<>();
+        Set<String> usedKeyValues = new HashSet<>();
+
+        // Parse already provided arguments to find used flags/key-values
+        for (int i = 0; i < providedArgs.length - 1; i++) {
+            String arg = providedArgs[i];
+            
+            // Check for long form flags (--xxx or --no-xxx)
+            if (arg.startsWith("--")) {
+                String content = arg.substring(2);
+                int eqIdx = content.indexOf('=');
+                if (eqIdx > 0) {
+                    // --key=value format - mark key-value as used
+                    String key = content.substring(0, eqIdx);
+                    usedKeyValues.add(key.toLowerCase(Locale.ROOT));
+                } else if (content.startsWith("no-")) {
+                    // Negated flag --no-xxx
+                    String flagName = content.substring(3);
+                    usedFlags.add(flagName.toLowerCase(Locale.ROOT));
+                } else {
+                    // Could be flag or key-value needing next arg
+                    usedFlags.add(content.toLowerCase(Locale.ROOT));
+                    usedKeyValues.add(content.toLowerCase(Locale.ROOT));
+                }
+            }
+            // Check for short form flags (-x or -xyz)
+            else if (arg.startsWith("-") && arg.length() > 1 && !Character.isDigit(arg.charAt(1))) {
+                String content = arg.substring(1);
+                int eqIdx = content.indexOf('=');
+                if (eqIdx > 0) {
+                    String key = content.substring(0, eqIdx);
+                    usedKeyValues.add(key.toLowerCase(Locale.ROOT));
+                } else {
+                    // Mark each character as a used short flag
+                    for (char c : content.toCharArray()) {
+                        for (Flag flag : flags) {
+                            if (flag.shortForm() != null && flag.shortForm() == c) {
+                                if (flag.longForm() != null) {
+                                    usedFlags.add(flag.longForm().toLowerCase(Locale.ROOT));
+                                }
+                                usedFlags.add(flag.name().toLowerCase(Locale.ROOT));
+                            }
+                        }
+                    }
+                }
+            }
+            // Check for key=value or key:value format
+            else {
+                int eqIdx = arg.indexOf('=');
+                int colonIdx = arg.indexOf(':');
+                int separatorIdx = -1;
+                if (eqIdx > 0 && (colonIdx < 0 || eqIdx < colonIdx)) {
+                    separatorIdx = eqIdx;
+                } else if (colonIdx > 0) {
+                    separatorIdx = colonIdx;
+                }
+                if (separatorIdx > 0) {
+                    String key = arg.substring(0, separatorIdx);
+                    usedKeyValues.add(key.toLowerCase(Locale.ROOT));
+                }
+            }
+        }
+
+        String tokenLower = currentToken.toLowerCase(Locale.ROOT);
+
+        // Generate completions based on current token pattern
+        if (currentToken.startsWith("--")) {
+            String prefix = currentToken.substring(2).toLowerCase(Locale.ROOT);
+            
+            // Suggest long form flags
+            for (Flag flag : flags) {
+                // Check permission
+                if (flag.permission() != null && !flag.permission().isEmpty() 
+                    && !sender.hasPermission(flag.permission())) {
+                    continue;
+                }
+                
+                if (flag.longForm() != null) {
+                    String longForm = flag.longForm();
+                    String longFormLower = longForm.toLowerCase(Locale.ROOT);
+                    
+                    // Don't suggest if already used
+                    if (usedFlags.contains(longFormLower)) continue;
+                    
+                    if (longFormLower.startsWith(prefix)) {
+                        completions.add("--" + longForm);
+                    }
+                    
+                    // Suggest negation form if supported
+                    if (flag.supportsNegation()) {
+                        String negated = "no-" + longForm;
+                        if (negated.toLowerCase(Locale.ROOT).startsWith(prefix)) {
+                            completions.add("--" + negated);
+                        }
+                    }
+                }
+            }
+            
+            // Suggest key-value keys with --key= format
+            for (KeyValue<?> kv : keyValues) {
+                // Check permission
+                if (kv.permission() != null && !kv.permission().isEmpty() 
+                    && !sender.hasPermission(kv.permission())) {
+                    continue;
+                }
+                
+                String key = kv.key();
+                String keyLower = key.toLowerCase(Locale.ROOT);
+                
+                // Don't suggest if already used (unless multipleValues is enabled)
+                if (!kv.multipleValues() && usedKeyValues.contains(keyLower)) continue;
+                
+                if (keyLower.startsWith(prefix)) {
+                    completions.add("--" + key + "=");
+                }
+            }
+        }
+        else if (currentToken.startsWith("-") && !currentToken.startsWith("--")) {
+            String prefix = currentToken.substring(1).toLowerCase(Locale.ROOT);
+            
+            // Suggest short form flags
+            for (Flag flag : flags) {
+                // Check permission
+                if (flag.permission() != null && !flag.permission().isEmpty() 
+                    && !sender.hasPermission(flag.permission())) {
+                    continue;
+                }
+                
+                if (flag.shortForm() != null) {
+                    String shortForm = String.valueOf(flag.shortForm());
+                    
+                    // Check if this flag is already used
+                    boolean alreadyUsed = false;
+                    if (flag.longForm() != null) {
+                        alreadyUsed = usedFlags.contains(flag.longForm().toLowerCase(Locale.ROOT));
+                    }
+                    if (alreadyUsed) continue;
+                    
+                    if (shortForm.toLowerCase(Locale.ROOT).startsWith(prefix) || prefix.isEmpty()) {
+                        completions.add("-" + shortForm);
+                    }
+                }
+            }
+        }
+        else {
+            // Suggest key= or key: formats for key-value pairs
+            for (KeyValue<?> kv : keyValues) {
+                // Check permission
+                if (kv.permission() != null && !kv.permission().isEmpty() 
+                    && !sender.hasPermission(kv.permission())) {
+                    continue;
+                }
+                
+                String key = kv.key();
+                String keyLower = key.toLowerCase(Locale.ROOT);
+                
+                // Don't suggest if already used (unless multipleValues is enabled)
+                if (!kv.multipleValues() && usedKeyValues.contains(keyLower)) continue;
+                
+                if (keyLower.startsWith(tokenLower) || tokenLower.isEmpty()) {
+                    completions.add(key + "=");
+                }
+            }
+            
+            // Also suggest -- prefix for flags/key-values when typing empty or partial
+            if (tokenLower.isEmpty() || "-".startsWith(tokenLower)) {
+                // Add -- as a completion hint if there are flags or key-values
+                if (!flags.isEmpty() || !keyValues.isEmpty()) {
+                    completions.add("--");
+                }
+            }
+        }
+
+        Collections.sort(completions);
+        return completions;
     }
 }
