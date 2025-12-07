@@ -6,8 +6,8 @@ import de.feelix.leviathan.command.message.MessageProvider;
 import de.feelix.leviathan.command.pagination.config.PaginationConfig;
 import de.feelix.leviathan.command.pagination.datasource.ListDataSource;
 import de.feelix.leviathan.command.pagination.domain.NavigationWindow;
-import de.feelix.leviathan.command.pagination.domain.PaginatedResult;
 import de.feelix.leviathan.command.pagination.domain.PageInfo;
+import de.feelix.leviathan.command.pagination.domain.PaginatedResult;
 import de.feelix.leviathan.command.pagination.service.PaginationService;
 import de.feelix.leviathan.command.pagination.util.PaginationUtils;
 import de.feelix.leviathan.util.Preconditions;
@@ -214,7 +214,8 @@ public final class PaginationHelper {
      * @param pageInfo    the page info
      * @param commandBase the base command for navigation hints (e.g., "/list")
      * @return formatted string with navigation hints
-     * @deprecated Use {@link #formatPageInfoWithNavigation(PageInfo, String, MessageProvider)} for customizable messages.
+     * @deprecated Use {@link #formatPageInfoWithNavigation(PageInfo, String, MessageProvider)} for customizable
+     * messages.
      */
     @Deprecated
     public static @NotNull String formatPageInfoWithNavigation(@NotNull PageInfo pageInfo,
@@ -270,7 +271,8 @@ public final class PaginationHelper {
      * @param currentPage the current page number
      * @param totalPages  the total number of pages
      * @return navigation bar like {@literal "<< [1] 2 3 ... 10 >>"}
-     * @deprecated Use {@link #createNavigationBar(int, int, PaginationConfig, MessageProvider)} for customizable messages.
+     * @deprecated Use {@link #createNavigationBar(int, int, PaginationConfig, MessageProvider)} for customizable
+     * messages.
      */
     @Deprecated
     public static @NotNull String createNavigationBar(int currentPage, int totalPages) {
@@ -284,7 +286,8 @@ public final class PaginationHelper {
      * @param totalPages  the total number of pages
      * @param config      pagination config for styling
      * @return navigation bar string
-     * @deprecated Use {@link #createNavigationBar(int, int, PaginationConfig, MessageProvider)} for customizable messages.
+     * @deprecated Use {@link #createNavigationBar(int, int, PaginationConfig, MessageProvider)} for customizable
+     * messages.
      */
     @Deprecated
     public static @NotNull String createNavigationBar(int currentPage, int totalPages,
@@ -376,7 +379,8 @@ public final class PaginationHelper {
      * @param window the navigation window containing visible pages
      * @param config pagination config for styling
      * @return formatted page window string
-     * @deprecated Use {@link #renderFooter(NavigationWindow, PaginationConfig)} instead for combined page info and window
+     * @deprecated Use {@link #renderFooter(NavigationWindow, PaginationConfig)} instead for combined page info and
+     * window
      */
     @Deprecated
     public static @NotNull String renderPageWindow(@NotNull NavigationWindow window, @NotNull PaginationConfig config) {
@@ -424,7 +428,8 @@ public final class PaginationHelper {
      * @param result the paginated result
      * @param config pagination config for styling
      * @return formatted page window string
-     * @deprecated Use {@link #renderFooter(PaginatedResult, PaginationConfig)} instead for combined page info and window
+     * @deprecated Use {@link #renderFooter(PaginatedResult, PaginationConfig)} instead for combined page info and
+     * window
      */
     @Deprecated
     public static @NotNull String renderPageWindow(@NotNull PaginatedResult<?> result,
@@ -448,7 +453,7 @@ public final class PaginationHelper {
     /**
      * Render pagination footer with page info and page window using NavigationWindow.
      * <p>
-     * This produces output like: {@code §7Page §f3§7/§f10 (1 ... 2 | _3_ | 4 ... 10)} where 
+     * This produces output like: {@code §7Page §f3§7/§f10 (1 ... 2 | _3_ | 4 ... 10)} where
      * the current page is highlighted with the configured prefix/suffix, and ellipses indicate more pages.
      *
      * @param window the navigation window containing visible pages
@@ -460,10 +465,10 @@ public final class PaginationHelper {
         Preconditions.checkNotNull(config, "config");
 
         StringBuilder sb = new StringBuilder();
-        
+
         // Page info part
         sb.append("§7Page §f").append(window.getCurrentPage()).append("§7/§f").append(window.getTotalPages());
-        
+
         // Page window part
         sb.append(" (");
 
@@ -795,8 +800,7 @@ public final class PaginationHelper {
             if (items.isEmpty()) {
                 java.util.ArrayList<String> lines = new java.util.ArrayList<>();
                 if (header != null) lines.add(header);
-                // Use MessageProvider.paginationEmpty() if messageProvider is set, otherwise use emptyMessage
-                String emptyMsg = messageProvider != null ? messageProvider.paginationEmpty() : emptyMessage;
+                String emptyMsg = emptyMessage != null ? emptyMessage : messageProvider.paginationEmpty();
                 if (emptyMsg != null) lines.add(emptyMsg);
                 return lines;
             }
@@ -825,7 +829,8 @@ public final class PaginationHelper {
             if (showNavigation) {
                 if (commandBase != null) {
                     // Use command-based navigation hints
-                    // When messageProvider is set with showPageOverview, only show the custom footer (no extra page info line)
+                    // When messageProvider is set with showPageOverview, only show the custom footer (no extra page
+                    // info line)
                     if (showPageOverview && messageProvider != null) {
                         lines.add(renderFooter(result, navConfig, messageProvider));
                     } else {
