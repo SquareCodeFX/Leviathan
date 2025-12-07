@@ -743,12 +743,13 @@ public final class PaginationHelper {
             if (showNavigation) {
                 if (commandBase != null) {
                     // Use command-based navigation hints
-                    lines.add(formatPageInfoWithNavigation(result.getPageInfo(), commandBase));
-                    if (showPageOverview) {
-                        // Add page overview on separate line if using command navigation
-                        if (messageProvider != null) {
-                            lines.add("§7" + renderFooter(result, navConfig, messageProvider));
-                        } else {
+                    // When messageProvider is set with showPageOverview, only show the custom footer (no extra page info line)
+                    if (showPageOverview && messageProvider != null) {
+                        lines.add(renderFooter(result, navConfig, messageProvider));
+                    } else {
+                        lines.add(formatPageInfoWithNavigation(result.getPageInfo(), commandBase));
+                        if (showPageOverview) {
+                            // Add page overview on separate line if using command navigation
                             lines.add("§7" + renderFooter(result, navConfig));
                         }
                     }
