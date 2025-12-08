@@ -143,9 +143,11 @@ public class DetailedExceptionHandler implements ExceptionHandler {
 
         appendFooter(report);
 
-        // Log the complete report
-        for (String line : report.toString().split("\n")) {
-            logger.severe(line);
+        // Log the complete report (handle all newline types)
+        for (String line : report.toString().split("\\r?\\n|\\r")) {
+            if (!line.isEmpty()) {
+                logger.severe(line);
+            }
         }
 
         // Return false to allow default error message to be sent to user
@@ -188,8 +190,11 @@ public class DetailedExceptionHandler implements ExceptionHandler {
         report.append("\n  Stack Trace:\n");
         StringWriter sw = new StringWriter();
         exception.printStackTrace(new PrintWriter(sw));
-        for (String line : sw.toString().split("\n")) {
-            report.append("    ").append(line).append("\n");
+        // Handle all newline types (\n, \r\n, \r)
+        for (String line : sw.toString().split("\\r?\\n|\\r")) {
+            if (!line.isEmpty()) {
+                report.append("    ").append(line).append("\n");
+            }
         }
     }
 
