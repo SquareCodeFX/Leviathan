@@ -1222,6 +1222,70 @@ public final class SlashCommandBuilder {
     }
 
     /**
+     * Register this command as a subcommand to the specified parent builder.
+     * This is the reverse operation of {@link #sub(SlashCommand...)}, allowing a subcommand
+     * to register itself to its parent instead of the parent registering its children.
+     * <p>
+     * This method must be called with a parent builder before either builder is finalized
+     * with {@link #build()}. The parent builder will then include this command as a subcommand
+     * when it is built.
+     * <p>
+     * <b>Example usage:</b>
+     * <pre>{@code
+     * SlashCommandBuilder parentBuilder = SlashCommand.builder("parent")
+     *     .executes((sender, ctx) -> { ... });
+     *
+     * SlashCommand childCmd = SlashCommand.builder("child")
+     *     .executes((sender, ctx) -> { ... })
+     *     .parent(parentBuilder)  // Register as child of parent
+     *     .build();
+     *
+     * // Now build and register parent (child is already included)
+     * parentBuilder.build().register(plugin);
+     * }</pre>
+     *
+     * @param parentBuilder the parent command builder to register this command under
+     * @return this builder
+     * @throws CommandConfigurationException if parentBuilder is null or duplicate aliases are detected
+     */
+    public @NotNull SlashCommandBuilder parent(@NotNull SlashCommandBuilder parentBuilder) {
+        Preconditions.checkNotNull(parentBuilder, "parentBuilder");
+
+        // Build this command first
+        SlashCommand thisCmd = build();
+
+        // Check for duplicate aliases in parent's subcommands
+        String alias = thisCmd.name();
+        if (alias == null || alias.trim().isEmpty()) {
+            throw new CommandConfigurationException("Subcommand has a blank name");
+        }
+        String key = alias.toLowerCase(Locale.ROOT);
+        if (parentBuilder.subcommands.containsKey(key)) {
+            throw new CommandConfigurationException("Duplicate subcommand alias: '" + alias + "'");
+        }
+
+        // Mark this command as a subcommand
+        thisCmd.markAsSubcommand();
+
+        // Add to parent's subcommands map
+        parentBuilder.subcommands.put(key, thisCmd);
+
+        // Register all aliases for this subcommand
+        for (String subAlias : thisCmd.aliases()) {
+            if (subAlias == null || subAlias.trim().isEmpty()) {
+                continue;
+            }
+            String aliasLow = subAlias.toLowerCase(Locale.ROOT);
+            if (parentBuilder.subcommands.containsKey(aliasLow)) {
+                throw new CommandConfigurationException("Duplicate subcommand alias: '" + subAlias + "'");
+            }
+            parentBuilder.subcommands.put(aliasLow, thisCmd);
+        }
+
+        return this;
+    }
+
+    /**
      * Convenience method to mark the command as player-only in one call.
      * Equivalent to {@code playerOnly(true)}.
      *
