@@ -1,6 +1,7 @@
 package de.feelix.leviathan.command.completion;
 
 import de.feelix.leviathan.annotations.NotNull;
+import de.feelix.leviathan.annotations.Nullable;
 import de.feelix.leviathan.command.argument.Arg;
 import de.feelix.leviathan.command.argument.ArgContext;
 import de.feelix.leviathan.command.argument.ParseResult;
@@ -83,15 +84,35 @@ public final class TabCompletionHandler {
 
         int index = providedArgs.length - 1; // current token index
         if (index < 0) return Collections.emptyList();
-        
+
         // Get the current token being typed
         String currentToken = providedArgs[providedArgs.length - 1];
-        
+
         // Check if current token looks like a flag or key-value
         boolean hasFlags = !command.flags().isEmpty();
         boolean hasKeyValues = !command.keyValues().isEmpty();
-        
+
+        // CRITICAL: Parse flags/key-values FIRST to get actual positional args
+        // This ensures tab completion matches execution behavior
+        String[] positionalArgs = providedArgs;
+        de.feelix.leviathan.command.flag.FlagAndKeyValueParser.ParsedResult parsedFlagsKv = null;
+
         if (hasFlags || hasKeyValues) {
+            try {
+                de.feelix.leviathan.command.flag.FlagAndKeyValueParser flagKvParser =
+                    new de.feelix.leviathan.command.flag.FlagAndKeyValueParser(command.flags(), command.keyValues());
+                parsedFlagsKv = flagKvParser.parse(providedArgs, sender);
+                positionalArgs = parsedFlagsKv.remainingArgs().toArray(new String[0]);
+            } catch (Throwable t) {
+                // If parsing fails, fall back to treating all as positional
+                if (command.plugin() != null) {
+                    command.plugin().getLogger().log(
+                        Level.WARNING,
+                        "Failed to parse flags/key-values during tab completion", t
+                    );
+                }
+            }
+
             // Check if current token is a flag or key-value pattern
             if (currentToken.startsWith("-") || currentToken.startsWith("--") ||
                 currentToken.contains("=") || currentToken.contains(":")) {
@@ -101,38 +122,64 @@ public final class TabCompletionHandler {
                     return flagKvCompletions;
                 }
             }
-            
-            // Also suggest flags/key-values when user hasn't typed anything yet for this token
-            // or when they're past all positional arguments
-            int argCount = command.args().isEmpty() ? 0 : command.args().size();
-            if (index >= argCount || currentToken.isEmpty()) {
-                List<String> flagKvCompletions = generateFlagAndKeyValueCompletions(
-                    currentToken, providedArgs, command, sender);
-                if (!flagKvCompletions.isEmpty()) {
-                    // If we have positional args to complete too, merge them
-                    if (index < argCount && !command.args().isEmpty()) {
-                        // Continue to get argument completions below
-                    } else {
-                        return flagKvCompletions;
+
+            // Check if previous token was a key-value key waiting for a value
+            if (providedArgs.length >= 2) {
+                String prevArg = providedArgs[providedArgs.length - 2];
+                if (prevArg.startsWith("--") && !prevArg.contains("=")) {
+                    String prevContent = prevArg.substring(2);
+                    for (de.feelix.leviathan.command.flag.KeyValue<?> kv : command.keyValues()) {
+                        if (kv.matchesKey(prevContent)) {
+                            // Previous token was a key, current is the value
+                            List<String> flagKvCompletions = generateFlagAndKeyValueCompletions(
+                                currentToken, providedArgs, command, sender);
+                            if (!flagKvCompletions.isEmpty()) {
+                                return flagKvCompletions;
+                            }
+                        }
                     }
                 }
             }
         }
-        
-        if (command.args().isEmpty()) return Collections.emptyList();
+
+        // Use positional args count for determining current position
+        int positionalIndex = positionalArgs.length - 1;
+        if (positionalIndex < 0 && !command.args().isEmpty()) {
+            // No positional args yet, but current token might be start of one
+            positionalIndex = 0;
+            positionalArgs = new String[]{currentToken};
+        }
+
+        if (command.args().isEmpty()) {
+            // No positional args defined, suggest flags/key-values
+            if (hasFlags || hasKeyValues) {
+                List<String> flagKvCompletions = generateFlagAndKeyValueCompletions(
+                    currentToken, providedArgs, command, sender);
+                return flagKvCompletions;
+            }
+            return Collections.emptyList();
+        }
 
         boolean lastIsGreedy = command.args().get(command.args().size() - 1).greedy();
         int argCount = command.args().size();
 
-        // Determine current argument index
+        // Determine current argument index based on positional args only
         int currentArgIndex = determineCurrentArgIndex(
-            index, argCount, lastIsGreedy, command, alias, sender, providedArgs, messages);
-        if (currentArgIndex < 0) return Collections.emptyList();
+            positionalIndex, argCount, lastIsGreedy, command, alias, sender, positionalArgs, messages);
+        if (currentArgIndex < 0) {
+            // Past all positional args, suggest flags/key-values
+            if (hasFlags || hasKeyValues) {
+                List<String> flagKvCompletions = generateFlagAndKeyValueCompletions(
+                    currentToken, providedArgs, command, sender);
+                return flagKvCompletions;
+            }
+            return Collections.emptyList();
+        }
 
         // Validate previously entered arguments if enabled
         Map<String, Object> parsedSoFar = new LinkedHashMap<>();
         if (command.validateOnTab() && currentArgIndex > 0) {
-            if (!validatePreviousArguments(currentArgIndex, providedArgs, sender, command, parsedSoFar, messages)) {
+            if (!validatePreviousArguments(currentArgIndex, positionalArgs, sender, command, parsedSoFar, messages)) {
                 return Collections.emptyList();
             }
         }
@@ -145,14 +192,30 @@ public final class TabCompletionHandler {
             return Collections.emptyList();
         }
 
-        // Determine prefix for greedy arguments
-        String prefix = determinePrefix(providedArgs, index, currentArgIndex, argCount, lastIsGreedy);
+        // Determine prefix for greedy arguments using positional args
+        String prefix = determinePrefix(positionalArgs, positionalIndex, currentArgIndex, argCount, lastIsGreedy);
 
-        // Generate suggestions
-        return generateSuggestions(
-            current, prefix, sender, alias, providedArgs,
+        // Generate suggestions - merge with flag/key-value completions
+        List<String> argCompletions = generateSuggestions(
+            current, prefix, sender, alias, positionalArgs,
             currentArgIndex, command, parsedSoFar
         );
+
+        // If we have both positional arg completions and flags/key-values available, merge them
+        if (hasFlags || hasKeyValues) {
+            List<String> flagKvCompletions = generateFlagAndKeyValueCompletions(
+                currentToken, providedArgs, command, sender);
+            if (!flagKvCompletions.isEmpty()) {
+                // Merge both lists
+                Set<String> combined = new LinkedHashSet<>(argCompletions);
+                combined.addAll(flagKvCompletions);
+                List<String> result = new ArrayList<>(combined);
+                Collections.sort(result);
+                return result;
+            }
+        }
+
+        return argCompletions;
     }
 
     /**
@@ -476,11 +539,12 @@ public final class TabCompletionHandler {
         // Track which flags and key-values have already been used
         Set<String> usedFlags = new HashSet<>();
         Set<String> usedKeyValues = new HashSet<>();
+        String pendingKeyValueKey = null; // Track if previous arg was --key needing a value
 
         // Parse already provided arguments to find used flags/key-values
         for (int i = 0; i < providedArgs.length - 1; i++) {
             String arg = providedArgs[i];
-            
+
             // Check for long form flags (--xxx or --no-xxx)
             if (arg.startsWith("--")) {
                 String content = arg.substring(2);
@@ -494,9 +558,15 @@ public final class TabCompletionHandler {
                     String flagName = content.substring(3);
                     usedFlags.add(flagName.toLowerCase(Locale.ROOT));
                 } else {
-                    // Could be flag or key-value needing next arg
-                    usedFlags.add(content.toLowerCase(Locale.ROOT));
-                    usedKeyValues.add(content.toLowerCase(Locale.ROOT));
+                    // Check if it's a key-value waiting for next arg (--key value format)
+                    KeyValue<?> kv = findKeyValueByKey(keyValues, content);
+                    if (kv != null) {
+                        // This is a key-value in --key value format, mark as used
+                        usedKeyValues.add(content.toLowerCase(Locale.ROOT));
+                    } else {
+                        // It's a flag
+                        usedFlags.add(content.toLowerCase(Locale.ROOT));
+                    }
                 }
             }
             // Check for short form flags (-x or -xyz)
@@ -537,31 +607,98 @@ public final class TabCompletionHandler {
             }
         }
 
+        // Check if the previous argument was a key-value key waiting for a value (--key value format)
+        if (providedArgs.length >= 2) {
+            String prevArg = providedArgs[providedArgs.length - 2];
+            if (prevArg.startsWith("--")) {
+                String prevContent = prevArg.substring(2);
+                if (!prevContent.contains("=")) {
+                    KeyValue<?> kv = findKeyValueByKey(keyValues, prevContent);
+                    if (kv != null) {
+                        pendingKeyValueKey = prevContent;
+                    }
+                }
+            }
+        }
+
         String tokenLower = currentToken.toLowerCase(Locale.ROOT);
+
+        // If completing a value for --key value format
+        if (pendingKeyValueKey != null) {
+            KeyValue<?> kv = findKeyValueByKey(keyValues, pendingKeyValueKey);
+            if (kv != null) {
+                return generateKeyValueCompletions(kv, currentToken, sender);
+            }
+        }
+
+        // Check if current token contains = or : for value completion
+        int eqIdx = currentToken.indexOf('=');
+        int colonIdx = currentToken.indexOf(':');
+        int separatorIdx = -1;
+        char separator;
+
+        if (eqIdx > 0 && (colonIdx < 0 || eqIdx < colonIdx)) {
+            separatorIdx = eqIdx;
+            separator = '=';
+        } else if (colonIdx > 0) {
+            separatorIdx = colonIdx;
+            separator = ':';
+        } else {
+            separator = '=';
+        }
+
+        if (separatorIdx > 0) {
+            // Extract key and partial value
+            String keyPart = currentToken.substring(0, separatorIdx);
+            String valuePart = currentToken.substring(separatorIdx + 1);
+
+            // Remove -- or - prefix if present
+            String keyOnly = keyPart;
+            if (keyOnly.startsWith("--")) {
+                keyOnly = keyOnly.substring(2);
+            } else if (keyOnly.startsWith("-")) {
+                keyOnly = keyOnly.substring(1);
+            }
+
+            // Find matching key-value
+            KeyValue<?> kv = findKeyValueByKey(keyValues, keyOnly);
+            if (kv != null) {
+                List<String> valueCompletions = generateKeyValueCompletions(kv, valuePart, sender);
+                // Prepend the key and separator to each value completion
+                return valueCompletions.stream()
+                    .map(v -> keyPart + separator + v)
+                    .collect(java.util.stream.Collectors.toList());
+            }
+        }
 
         // Generate completions based on current token pattern
         if (currentToken.startsWith("--")) {
             String prefix = currentToken.substring(2).toLowerCase(Locale.ROOT);
-            
+
             // Suggest long form flags
             for (Flag flag : flags) {
                 // Check permission
-                if (flag.permission() != null && !flag.permission().isEmpty() 
+                if (flag.permission() != null && !flag.permission().isEmpty()
                     && !sender.hasPermission(flag.permission())) {
                     continue;
                 }
-                
+
                 if (flag.longForm() != null) {
                     String longForm = flag.longForm();
                     String longFormLower = longForm.toLowerCase(Locale.ROOT);
-                    
+
                     // Don't suggest if already used
                     if (usedFlags.contains(longFormLower)) continue;
-                    
+
                     if (longFormLower.startsWith(prefix)) {
-                        completions.add("--" + longForm);
+                        String suggestion = "--" + longForm;
+                        // Add description as hint if available
+                        if (flag.description() != null && !flag.description().isEmpty()) {
+                            suggestion += " §7(" + flag.description() + ")";
+                        }
+                        completions.add(suggestion);
                     }
-                    
+
                     // Suggest negation form if supported
                     if (flag.supportsNegation()) {
                         String negated = "no-" + longForm;
@@ -571,49 +708,70 @@ public final class TabCompletionHandler {
                     }
                 }
             }
-            
+
             // Suggest key-value keys with --key= format
             for (KeyValue<?> kv : keyValues) {
                 // Check permission
-                if (kv.permission() != null && !kv.permission().isEmpty() 
+                if (kv.permission() != null && !kv.permission().isEmpty()
                     && !sender.hasPermission(kv.permission())) {
                     continue;
                 }
-                
+
                 String key = kv.key();
                 String keyLower = key.toLowerCase(Locale.ROOT);
-                
+
                 // Don't suggest if already used (unless multipleValues is enabled)
                 if (!kv.multipleValues() && usedKeyValues.contains(keyLower)) continue;
-                
+
                 if (keyLower.startsWith(prefix)) {
-                    completions.add("--" + key + "=");
+                    String suggestion = "--" + key + "=";
+
+                    // Build info hint
+                    List<String> hints = new ArrayList<>();
+                    hints.add(kv.parser().getTypeName());
+                    if (kv.required()) {
+                        hints.add("required");
+                    }
+                    if (kv.defaultValue() != null) {
+                        hints.add("default=" + kv.defaultValue());
+                    }
+                    if (kv.multipleValues()) {
+                        hints.add("multi");
+                    }
+
+                    suggestion += " §7(" + String.join(", ", hints) + ")";
+                    completions.add(suggestion);
                 }
             }
         }
         else if (currentToken.startsWith("-") && !currentToken.startsWith("--")) {
             String prefix = currentToken.substring(1).toLowerCase(Locale.ROOT);
-            
+
             // Suggest short form flags
             for (Flag flag : flags) {
                 // Check permission
-                if (flag.permission() != null && !flag.permission().isEmpty() 
+                if (flag.permission() != null && !flag.permission().isEmpty()
                     && !sender.hasPermission(flag.permission())) {
                     continue;
                 }
-                
+
                 if (flag.shortForm() != null) {
                     String shortForm = String.valueOf(flag.shortForm());
-                    
+
                     // Check if this flag is already used
                     boolean alreadyUsed = false;
                     if (flag.longForm() != null) {
                         alreadyUsed = usedFlags.contains(flag.longForm().toLowerCase(Locale.ROOT));
                     }
                     if (alreadyUsed) continue;
-                    
+
                     if (shortForm.toLowerCase(Locale.ROOT).startsWith(prefix) || prefix.isEmpty()) {
-                        completions.add("-" + shortForm);
+                        String suggestion = "-" + shortForm;
+                        // Add description as hint if available
+                        if (flag.description() != null && !flag.description().isEmpty()) {
+                            suggestion += " §7(" + flag.description() + ")";
+                        }
+                        completions.add(suggestion);
                     }
                 }
             }
@@ -622,24 +780,40 @@ public final class TabCompletionHandler {
             // Suggest key= or key: formats for key-value pairs
             for (KeyValue<?> kv : keyValues) {
                 // Check permission
-                if (kv.permission() != null && !kv.permission().isEmpty() 
+                if (kv.permission() != null && !kv.permission().isEmpty()
                     && !sender.hasPermission(kv.permission())) {
                     continue;
                 }
-                
+
                 String key = kv.key();
                 String keyLower = key.toLowerCase(Locale.ROOT);
-                
+
                 // Don't suggest if already used (unless multipleValues is enabled)
                 if (!kv.multipleValues() && usedKeyValues.contains(keyLower)) continue;
-                
+
                 if (keyLower.startsWith(tokenLower)) {
-                    completions.add(key + "=");
+                    String suggestion = key + "=";
+
+                    // Build info hint
+                    List<String> hints = new ArrayList<>();
+                    hints.add(kv.parser().getTypeName());
+                    if (kv.required()) {
+                        hints.add("required");
+                    }
+                    if (kv.defaultValue() != null) {
+                        hints.add("default=" + kv.defaultValue());
+                    }
+                    if (kv.multipleValues()) {
+                        hints.add("multi");
+                    }
+
+                    suggestion += " §7(" + String.join(", ", hints) + ")";
+                    completions.add(suggestion);
                 }
             }
-            
+
             // Also suggest -- prefix for flags/key-values when typing empty or partial
-            if ("-".startsWith(tokenLower)) {
+            if ("-".startsWith(tokenLower) || tokenLower.isEmpty()) {
                 // Add -- as a completion hint if there are flags or key-values
                 if (!flags.isEmpty() || !keyValues.isEmpty()) {
                     completions.add("--");
@@ -649,5 +823,56 @@ public final class TabCompletionHandler {
 
         Collections.sort(completions);
         return completions;
+    }
+
+    /**
+     * Generate value completions for a specific key-value pair.
+     *
+     * @param kv           the key-value definition
+     * @param partialValue the partial value typed so far
+     * @param sender       the command sender
+     * @return list of value completions
+     */
+    private static @NotNull List<String> generateKeyValueCompletions(
+        @NotNull KeyValue<?> kv,
+        @NotNull String partialValue,
+        @NotNull CommandSender sender) {
+
+        List<String> completions = new ArrayList<>();
+
+        // Get completions from parser
+        List<String> parserCompletions = kv.parser().complete(partialValue, sender);
+        if (parserCompletions != null && !parserCompletions.isEmpty()) {
+            completions.addAll(parserCompletions);
+        }
+
+        // Add default value if it matches and is not already typed
+        if (kv.defaultValue() != null) {
+            String defaultStr = kv.defaultValue().toString();
+            if (defaultStr.toLowerCase(Locale.ROOT).startsWith(partialValue.toLowerCase(Locale.ROOT))) {
+                if (!completions.contains(defaultStr)) {
+                    completions.add(defaultStr + " §7(default)");
+                }
+            }
+        }
+
+        Collections.sort(completions);
+        return completions;
+    }
+
+    /**
+     * Find a key-value by its key string.
+     *
+     * @param keyValues the list of key-value definitions
+     * @param key       the key to find
+     * @return the matching KeyValue or null
+     */
+    private static @Nullable KeyValue<?> findKeyValueByKey(@NotNull List<KeyValue<?>> keyValues, @NotNull String key) {
+        for (KeyValue<?> kv : keyValues) {
+            if (kv.matchesKey(key)) {
+                return kv;
+            }
+        }
+        return null;
     }
 }
