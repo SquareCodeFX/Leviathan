@@ -626,11 +626,35 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
             }
         }
 
+        // Parse flags and key-value pairs from provided arguments FIRST
+        Map<String, Boolean> flagValues = Collections.emptyMap();
+        Map<String, Object> keyValuePairs = Collections.emptyMap();
+        Map<String, List<Object>> multiValuePairs = Collections.emptyMap();
+        String[] positionalArgs = providedArgs;
+        
+        if (!flags.isEmpty() || !keyValues.isEmpty()) {
+            FlagAndKeyValueParser flagKvParser = new FlagAndKeyValueParser(flags, keyValues);
+            FlagAndKeyValueParser.ParsedResult flagKvResult = flagKvParser.parse(providedArgs, sender);
+            
+            if (!flagKvResult.isSuccess()) {
+                // Report first error from flag/key-value parsing
+                String firstError = flagKvResult.errors().get(0);
+                sendErrorMessage(sender, ErrorType.PARSING, messages.invalidArgumentValue("flags/options", "flag", firstError), null);
+                return true;
+            }
+            
+            flagValues = flagKvResult.flagValues();
+            keyValuePairs = flagKvResult.keyValuePairs();
+            multiValuePairs = flagKvResult.multiValuePairs();
+            // Use remaining args (after extracting flags/key-values) for positional argument parsing
+            positionalArgs = flagKvResult.remainingArgs().toArray(new String[0]);
+        }
+
         Map<String, Object> values = new LinkedHashMap<>();
         // Validate required arg count first
         int required = (int) args.stream().filter(a -> !a.optional()).count();
         boolean lastIsGreedy = !args.isEmpty() && args.get(args.size() - 1).greedy();
-        if (providedArgs.length < required) {
+        if (positionalArgs.length < required) {
             sendErrorMessage(
                 sender, ErrorType.USAGE, messages.insufficientArguments(fullCommandPath(label), usage()), null);
             return true;
@@ -639,7 +663,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         // Parse arguments using arg index and token index (support greedy last argument)
         int argIndex = 0;
         int tokenIndex = 0;
-        while (argIndex < args.size() && tokenIndex < providedArgs.length) {
+        while (argIndex < args.size() && tokenIndex < positionalArgs.length) {
             Arg<?> arg = args.get(argIndex);
 
             // Evaluate conditional argument
@@ -674,10 +698,10 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
             ArgumentParser<?> parser = arg.parser();
             String token;
             if (argIndex == args.size() - 1 && arg.greedy()) {
-                token = String.join(" ", Arrays.asList(providedArgs).subList(tokenIndex, providedArgs.length));
-                tokenIndex = providedArgs.length; // consume all remaining tokens
+                token = String.join(" ", Arrays.asList(positionalArgs).subList(tokenIndex, positionalArgs.length));
+                tokenIndex = positionalArgs.length; // consume all remaining tokens
             } else {
-                token = providedArgs[tokenIndex++];
+                token = positionalArgs[tokenIndex++];
             }
             ParseResult<?> res;
             try {
@@ -793,7 +817,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         }
 
         // Check for extra arguments after parsing (handles optional args case)
-        if (!lastIsGreedy && tokenIndex < providedArgs.length) {
+        if (!lastIsGreedy && tokenIndex < positionalArgs.length) {
             sendErrorMessage(sender, ErrorType.USAGE, messages.tooManyArguments(fullCommandPath(label), usage()), null);
             return true;
         }
@@ -851,27 +875,6 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         }
 
         // Optional arguments not provided: simply absent from context
-        
-        // Parse flags and key-value pairs from provided arguments
-        Map<String, Boolean> flagValues = Collections.emptyMap();
-        Map<String, Object> keyValuePairs = Collections.emptyMap();
-        Map<String, List<Object>> multiValuePairs = Collections.emptyMap();
-        
-        if (!flags.isEmpty() || !keyValues.isEmpty()) {
-            FlagAndKeyValueParser flagKvParser = new FlagAndKeyValueParser(flags, keyValues);
-            FlagAndKeyValueParser.ParsedResult flagKvResult = flagKvParser.parse(providedArgs, sender);
-            
-            if (!flagKvResult.isSuccess()) {
-                // Report first error from flag/key-value parsing
-                String firstError = flagKvResult.errors().get(0);
-                sendErrorMessage(sender, ErrorType.PARSING, messages.invalidArgumentValue("flags/options", "flag", firstError), null);
-                return true;
-            }
-            
-            flagValues = flagKvResult.flagValues();
-            keyValuePairs = flagKvResult.keyValuePairs();
-            multiValuePairs = flagKvResult.multiValuePairs();
-        }
         
         CommandContext ctx = new CommandContext(values, flagValues, keyValuePairs, multiValuePairs, providedArgs);
         if (async) {
