@@ -674,7 +674,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
 
             // Evaluate conditional argument
             if (arg.condition() != null) {
-                CommandContext tempCtx = new CommandContext(values, providedArgs);
+                // Include flags and key-values in the context for condition evaluation
+                CommandContext tempCtx = new CommandContext(values, flagValues, keyValuePairs, multiValuePairs, providedArgs);
                 try {
                     if (!arg.condition().test(tempCtx)) {
                         // Condition is false, skip this argument entirely (don't consume token)
@@ -719,7 +720,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                 boolean willBeSkippedByCondition = false;
                 if (futureArg.condition() != null) {
                     try {
-                        CommandContext tempCtx = new CommandContext(values, providedArgs);
+                        CommandContext tempCtx = new CommandContext(values, flagValues, keyValuePairs, multiValuePairs, providedArgs);
                         willBeSkippedByCondition = !futureArg.condition().test(tempCtx);
                     } catch (Throwable ignored) {
                         // If we can't evaluate, assume it won't be skipped
@@ -863,7 +864,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                 boolean skippedByCondition = false;
                 if (arg.condition() != null) {
                     try {
-                        CommandContext tempCtx = new CommandContext(values, providedArgs);
+                        CommandContext tempCtx = new CommandContext(values, flagValues, keyValuePairs, multiValuePairs, providedArgs);
                         skippedByCondition = !arg.condition().test(tempCtx);
                     } catch (Throwable ignored) {
                         // If condition evaluation fails here, we already handled it during parsing
@@ -871,8 +872,13 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                 }
 
                 // Check if this arg was skipped due to permission
-                boolean skippedByPermission = arg.permission() != null && !arg.permission().isEmpty()
-                    && !sender.hasPermission(arg.permission());
+                // Note: Required args with missing permission should have already failed during parsing (line 699-704)
+                // This should never be true for required args, but we check for safety
+                boolean skippedByPermission = false;
+                if (arg.optional() && arg.permission() != null && !arg.permission().isEmpty()
+                    && !sender.hasPermission(arg.permission())) {
+                    skippedByPermission = true;
+                }
 
                 // If not skipped by condition or permission, it's truly missing
                 if (!skippedByCondition && !skippedByPermission) {
@@ -899,7 +905,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
 
         // Cross-argument validation: validate relationships between multiple arguments
         if (!crossArgumentValidators.isEmpty()) {
-            CommandContext tempCtx = new CommandContext(values, providedArgs);
+            CommandContext tempCtx = new CommandContext(values, flagValues, keyValuePairs, multiValuePairs, providedArgs);
             for (CrossArgumentValidator validator : crossArgumentValidators) {
                 String error;
                 try {
