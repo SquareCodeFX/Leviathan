@@ -225,7 +225,8 @@ public final class FlagAndKeyValueParser {
                     if (i + 1 < args.length) {
                         String nextArg = args[i + 1];
                         // Make sure next arg isn't another flag/key-value
-                        if (nextArg.startsWith("-") || nextArg.contains("=") || nextArg.contains(":")) {
+                        // Only check if it starts with - (don't check for = or : which could be in the value)
+                        if (nextArg.startsWith("-")) {
                             errors.add("Key-value '--" + content + "' requires a value");
                             i++;
                             continue;
