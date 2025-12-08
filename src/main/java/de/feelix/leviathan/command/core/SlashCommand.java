@@ -508,8 +508,11 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         StringWriter sw = new StringWriter();
         PrintWriter pw = new PrintWriter(sw);
         throwable.printStackTrace(pw);
-        for (String line : sw.toString().split("\\R")) {
-            plugin.getLogger().log(Level.SEVERE, line);
+        // Split by newlines (handles \n, \r\n, and \r)
+        for (String line : sw.toString().split("\\r?\\n|\\r")) {
+            if (!line.isEmpty()) {
+                plugin.getLogger().log(Level.SEVERE, line);
+            }
         }
     }
 
@@ -604,7 +607,10 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
             }
 
             if (sub != null) {
-                String[] remaining = Arrays.copyOfRange(providedArgs, 1, providedArgs.length);
+                // Safety check: ensure we have arguments to pass
+                String[] remaining = providedArgs.length > 1
+                    ? Arrays.copyOfRange(providedArgs, 1, providedArgs.length)
+                    : new String[0];
                 try {
                     return sub.execute(sender, sub.name(), remaining);
                 } catch (Throwable t) {
@@ -638,7 +644,9 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
             
             if (!flagKvResult.isSuccess()) {
                 // Report first error from flag/key-value parsing
-                String firstError = flagKvResult.errors().get(0);
+                String firstError = !flagKvResult.errors().isEmpty()
+                    ? flagKvResult.errors().get(0)
+                    : "Unknown parsing error";
                 sendErrorMessage(sender, ErrorType.PARSING, messages.invalidArgumentValue("flags/options", "flag", firstError), null);
                 return true;
             }
@@ -698,7 +706,12 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
             ArgumentParser<?> parser = arg.parser();
             String token;
             if (argIndex == args.size() - 1 && arg.greedy()) {
-                token = String.join(" ", Arrays.asList(positionalArgs).subList(tokenIndex, positionalArgs.length));
+                // Safety check for greedy argument token index
+                if (tokenIndex >= positionalArgs.length) {
+                    token = "";
+                } else {
+                    token = String.join(" ", Arrays.asList(positionalArgs).subList(tokenIndex, positionalArgs.length));
+                }
                 tokenIndex = positionalArgs.length; // consume all remaining tokens
             } else {
                 token = positionalArgs[tokenIndex++];

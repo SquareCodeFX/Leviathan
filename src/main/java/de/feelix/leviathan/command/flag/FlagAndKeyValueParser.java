@@ -223,7 +223,14 @@ public final class FlagAndKeyValueParser {
                 KeyValue<?> kv = findKeyValueByKey(content);
                 if (kv != null) {
                     if (i + 1 < args.length) {
-                        String value = unquote(args[i + 1]);
+                        String nextArg = args[i + 1];
+                        // Make sure next arg isn't another flag/key-value
+                        if (nextArg.startsWith("-") || nextArg.contains("=") || nextArg.contains(":")) {
+                            errors.add("Key-value '--" + content + "' requires a value");
+                            i++;
+                            continue;
+                        }
+                        String value = unquote(nextArg);
                         handleKeyValue(content, value, kvValues, multiValues, errors, sender);
                         i += 2;
                         continue;
@@ -244,16 +251,21 @@ public final class FlagAndKeyValueParser {
             if (arg.startsWith("-") && arg.length() > 1 && !Character.isDigit(arg.charAt(1))) {
                 String content = arg.substring(1);
                 
-                // Check for -k=value format
+                // Check for -k=value format (short form key-value)
                 int eqIdx = content.indexOf('=');
                 if (eqIdx > 0) {
                     String key = content.substring(0, eqIdx);
                     String value = content.substring(eqIdx + 1);
                     value = unquote(value);
-                    
-                    if (!handleKeyValue(key, value, kvValues, multiValues, errors, sender)) {
-                        remaining.add(arg);
+
+                    // Only treat as key-value if key is actually valid
+                    // Otherwise might be a typo like "-abc=xyz" when user meant flags
+                    if (handleKeyValue(key, value, kvValues, multiValues, errors, sender)) {
+                        i++;
+                        continue;
                     }
+                    // Not a valid key-value, treat as regular argument
+                    remaining.add(arg);
                     i++;
                     continue;
                 }
@@ -282,9 +294,9 @@ public final class FlagAndKeyValueParser {
             }
 
             // Check for key=value or key:value format (without dashes)
+            int separatorIdx = -1;
             int eqIdx = arg.indexOf('=');
             int colonIdx = arg.indexOf(':');
-            int separatorIdx = -1;
 
             if (eqIdx > 0 && (colonIdx < 0 || eqIdx < colonIdx)) {
                 separatorIdx = eqIdx;
@@ -382,11 +394,14 @@ public final class FlagAndKeyValueParser {
 
     /**
      * Remove surrounding quotes from a value string.
+     * Only removes matching quote pairs.
      */
     private @NotNull String unquote(@NotNull String value) {
         if (value.length() >= 2) {
-            if ((value.startsWith("\"") && value.endsWith("\"")) ||
-                (value.startsWith("'") && value.endsWith("'"))) {
+            char first = value.charAt(0);
+            char last = value.charAt(value.length() - 1);
+            // Only unquote if quotes match
+            if ((first == '"' && last == '"') || (first == '\'' && last == '\'')) {
                 return value.substring(1, value.length() - 1);
             }
         }

@@ -153,9 +153,8 @@ public final class TabCompletionHandler {
         if (command.args().isEmpty()) {
             // No positional args defined, suggest flags/key-values
             if (hasFlags || hasKeyValues) {
-                List<String> flagKvCompletions = generateFlagAndKeyValueCompletions(
+                return generateFlagAndKeyValueCompletions(
                     currentToken, providedArgs, command, sender);
-                return flagKvCompletions;
             }
             return Collections.emptyList();
         }
@@ -163,15 +162,14 @@ public final class TabCompletionHandler {
         boolean lastIsGreedy = command.args().get(command.args().size() - 1).greedy();
         int argCount = command.args().size();
 
-        // Determine current argument index based on positional args only
+        // Determine the current argument index based on positional args only
         int currentArgIndex = determineCurrentArgIndex(
             positionalIndex, argCount, lastIsGreedy, command, alias, sender, positionalArgs, messages);
         if (currentArgIndex < 0) {
             // Past all positional args, suggest flags/key-values
             if (hasFlags || hasKeyValues) {
-                List<String> flagKvCompletions = generateFlagAndKeyValueCompletions(
+                return generateFlagAndKeyValueCompletions(
                     currentToken, providedArgs, command, sender);
-                return flagKvCompletions;
             }
             return Collections.emptyList();
         }
@@ -261,7 +259,9 @@ public final class TabCompletionHandler {
 
         if (sub != null) {
             // Delegate to the subcommand for the remaining tokens
-            String[] remaining = Arrays.copyOfRange(providedArgs, 1, providedArgs.length);
+            String[] remaining = providedArgs.length > 1
+                ? Arrays.copyOfRange(providedArgs, 1, providedArgs.length)
+                : new String[0];
             return sub.onTabComplete(sender, null, sub.name(), remaining);
         }
 
@@ -365,10 +365,14 @@ public final class TabCompletionHandler {
         if (lastIsGreedy && currentArgIndex == argCount - 1) {
             // Join all tokens that belong to the greedy argument
             int greedyStart = argCount - 1;
-            if (index < greedyStart) {
-                return ""; // safety
+            if (index < greedyStart || index >= providedArgs.length) {
+                return ""; // safety check for invalid indices
             }
-            return String.join(" ", Arrays.asList(providedArgs).subList(greedyStart, index + 1));
+            int endIndex = Math.min(index + 1, providedArgs.length);
+            return String.join(" ", Arrays.asList(providedArgs).subList(greedyStart, endIndex));
+        }
+        if (index < 0 || index >= providedArgs.length) {
+            return ""; // safety check
         }
         return providedArgs[index];
     }
@@ -602,7 +606,10 @@ public final class TabCompletionHandler {
                 }
                 if (separatorIdx > 0) {
                     String key = arg.substring(0, separatorIdx);
-                    usedKeyValues.add(key.toLowerCase(Locale.ROOT));
+                    // Only mark as used if it's actually a valid key-value key
+                    if (findKeyValueByKey(keyValues, key) != null) {
+                        usedKeyValues.add(key.toLowerCase(Locale.ROOT));
+                    }
                 }
             }
         }
@@ -632,10 +639,10 @@ public final class TabCompletionHandler {
         }
 
         // Check if current token contains = or : for value completion
-        int eqIdx = currentToken.indexOf('=');
-        int colonIdx = currentToken.indexOf(':');
         int separatorIdx = -1;
         char separator;
+        int eqIdx = currentToken.indexOf('=');
+        int colonIdx = currentToken.indexOf(':');
 
         if (eqIdx > 0 && (colonIdx < 0 || eqIdx < colonIdx)) {
             separatorIdx = eqIdx;
@@ -765,7 +772,7 @@ public final class TabCompletionHandler {
                     }
                     if (alreadyUsed) continue;
 
-                    if (shortForm.toLowerCase(Locale.ROOT).startsWith(prefix) || prefix.isEmpty()) {
+                    if (shortForm.toLowerCase(Locale.ROOT).startsWith(prefix)) {
                         String suggestion = "-" + shortForm;
                         // Add description as hint if available
                         if (flag.description() != null && !flag.description().isEmpty()) {
@@ -813,7 +820,7 @@ public final class TabCompletionHandler {
             }
 
             // Also suggest -- prefix for flags/key-values when typing empty or partial
-            if ("-".startsWith(tokenLower) || tokenLower.isEmpty()) {
+            if (currentToken.isEmpty() || "-".startsWith(tokenLower)) {
                 // Add -- as a completion hint if there are flags or key-values
                 if (!flags.isEmpty() || !keyValues.isEmpty()) {
                     completions.add("--");
