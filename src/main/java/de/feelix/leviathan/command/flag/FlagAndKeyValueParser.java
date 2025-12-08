@@ -259,12 +259,22 @@ public final class FlagAndKeyValueParser {
                     value = unquote(value);
 
                     // Only treat as key-value if key is actually valid
-                    // Otherwise might be a typo like "-abc=xyz" when user meant flags
                     if (handleKeyValue(key, value, kvValues, multiValues, errors, sender)) {
                         i++;
                         continue;
                     }
-                    // Not a valid key-value, treat as regular argument
+
+                    // Check if it's a short flag (shouldn't have value but user provided one)
+                    if (key.length() == 1) {
+                        Flag flag = findFlagByShortForm(key.charAt(0));
+                        if (flag != null) {
+                            errors.add("Flag '-" + key + "' does not accept a value");
+                            i++;
+                            continue;
+                        }
+                    }
+
+                    // Not a valid key-value or flag, treat as regular argument
                     remaining.add(arg);
                     i++;
                     continue;
@@ -355,13 +365,19 @@ public final class FlagAndKeyValueParser {
 
         if (kv.multipleValues()) {
             // Split by separator and parse each value
-            String[] parts = value.split(kv.valueSeparator());
+            // Use Pattern.quote to handle regex special characters in separator
+            String[] parts = value.split(java.util.regex.Pattern.quote(kv.valueSeparator()));
             List<Object> parsedValues = new ArrayList<>();
-            
+
+            // If this key already has values (e.g., from defaults), append to them
+            if (multiValues.containsKey(kv.name())) {
+                parsedValues.addAll(multiValues.get(kv.name()));
+            }
+
             for (String part : parts) {
                 part = part.trim();
                 if (part.isEmpty()) continue;
-                
+
                 try {
                     ParseResult<?> result = kv.parser().parse(part, sender);
                     if (result.isSuccess()) {
@@ -373,7 +389,7 @@ public final class FlagAndKeyValueParser {
                     errors.add("Error parsing value '" + part + "' for key '" + kv.key() + "': " + e.getMessage());
                 }
             }
-            
+
             multiValues.put(kv.name(), parsedValues);
         } else {
             // Parse single value

@@ -659,14 +659,12 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         }
 
         Map<String, Object> values = new LinkedHashMap<>();
-        // Validate required arg count first
-        int required = (int) args.stream().filter(a -> !a.optional()).count();
         boolean lastIsGreedy = !args.isEmpty() && args.get(args.size() - 1).greedy();
-        if (positionalArgs.length < required) {
-            sendErrorMessage(
-                sender, ErrorType.USAGE, messages.insufficientArguments(fullCommandPath(label), usage()), null);
-            return true;
-        }
+
+        // NOTE: Cannot validate required arg count upfront because:
+        // 1. Conditional arguments might be skipped
+        // 2. Permission-gated arguments might not be accessible
+        // Instead, we validate after parsing and check for missing required args
 
         // Parse arguments using arg index and token index (support greedy last argument)
         int argIndex = 0;
@@ -679,7 +677,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                 CommandContext tempCtx = new CommandContext(values, providedArgs);
                 try {
                     if (!arg.condition().test(tempCtx)) {
-                        // Condition is false, skip this argument
+                        // Condition is false, skip this argument entirely (don't consume token)
                         argIndex++;
                         continue;
                     }
@@ -697,15 +695,51 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
 
             // Per-argument permission check
             if (arg.permission() != null && !arg.permission().isEmpty() && !sender.hasPermission(arg.permission())) {
-                sendErrorMessage(
-                    sender, ErrorType.ARGUMENT_PERMISSION,
-                    messages.argumentPermissionDenied(arg.name()), null
-                );
-                return true;
+                // If a required argument is permission-gated and user lacks permission, fail
+                if (!arg.optional()) {
+                    sendErrorMessage(
+                        sender, ErrorType.ARGUMENT_PERMISSION,
+                        messages.argumentPermissionDenied(arg.name()), null
+                    );
+                    return true;
+                }
+                // Optional arg without permission: skip it
+                argIndex++;
+                continue;
             }
             ArgumentParser<?> parser = arg.parser();
             String token;
-            if (argIndex == args.size() - 1 && arg.greedy()) {
+
+            // Check if this is the last argument to be parsed (accounting for conditionals and permissions after it)
+            boolean isLastArgToBeParsed = true;
+            for (int checkIdx = argIndex + 1; checkIdx < args.size(); checkIdx++) {
+                Arg<?> futureArg = args.get(checkIdx);
+
+                // Check if future arg will be skipped by condition
+                boolean willBeSkippedByCondition = false;
+                if (futureArg.condition() != null) {
+                    try {
+                        CommandContext tempCtx = new CommandContext(values, providedArgs);
+                        willBeSkippedByCondition = !futureArg.condition().test(tempCtx);
+                    } catch (Throwable ignored) {
+                        // If we can't evaluate, assume it won't be skipped
+                    }
+                }
+
+                // Check if future arg will be skipped by permission
+                boolean willBeSkippedByPermission = futureArg.permission() != null
+                    && !futureArg.permission().isEmpty()
+                    && !sender.hasPermission(futureArg.permission())
+                    && futureArg.optional();
+
+                // If this future arg will actually be parsed, current is not the last
+                if (!willBeSkippedByCondition && !willBeSkippedByPermission) {
+                    isLastArgToBeParsed = false;
+                    break;
+                }
+            }
+
+            if (isLastArgToBeParsed && arg.greedy()) {
                 // Safety check for greedy argument token index
                 if (tokenIndex >= positionalArgs.length) {
                     token = "";
@@ -820,6 +854,34 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
 
             values.put(arg.name(), parsedValue);
             argIndex++;
+        }
+
+        // Validate that all required arguments were provided (accounting for conditions and permissions)
+        for (Arg<?> arg : args) {
+            if (!arg.optional() && !values.containsKey(arg.name())) {
+                // Check if this arg was skipped due to condition
+                boolean skippedByCondition = false;
+                if (arg.condition() != null) {
+                    try {
+                        CommandContext tempCtx = new CommandContext(values, providedArgs);
+                        skippedByCondition = !arg.condition().test(tempCtx);
+                    } catch (Throwable ignored) {
+                        // If condition evaluation fails here, we already handled it during parsing
+                    }
+                }
+
+                // Check if this arg was skipped due to permission
+                boolean skippedByPermission = arg.permission() != null && !arg.permission().isEmpty()
+                    && !sender.hasPermission(arg.permission());
+
+                // If not skipped by condition or permission, it's truly missing
+                if (!skippedByCondition && !skippedByPermission) {
+                    sendErrorMessage(
+                        sender, ErrorType.USAGE,
+                        messages.insufficientArguments(fullCommandPath(label), usage()), null);
+                    return true;
+                }
+            }
         }
 
         // Apply default values for missing optional arguments
