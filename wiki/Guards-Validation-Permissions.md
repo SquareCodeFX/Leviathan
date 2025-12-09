@@ -42,6 +42,37 @@ SlashCommand howl = SlashCommand.create("howl")
     .build();
 ```
 
+#### Confirmation Requirement
+
+For destructive or irreversible commands (e.g., delete, reset, ban), you can require the user to execute the command twice within a short timeout period to confirm their intention:
+
+```java
+SlashCommand deleteWorld = SlashCommand.create("deleteworld")
+    .permission("leviathan.admin.deleteworld")
+    .argWorld("world")
+    .awaitConfirmation(true)
+    .executes((sender, ctx) -> {
+        World world = ctx.get("world", World.class);
+        // Delete world...
+        sender.sendMessage("World deleted: " + world.getName());
+    })
+    .build();
+```
+
+**How it works:**
+
+1. When a user first executes the command, they receive a confirmation message
+2. The command will not execute; instead, the system tracks a pending confirmation
+3. If the user executes the exact same command again within 10 seconds, the command executes normally
+4. If the timeout expires, the user must start over
+
+**Use cases:**
+- Destructive operations (delete, reset, purge)
+- Irreversible actions (ban, unban, promotion/demotion)
+- High-impact commands (server restart, economy reset)
+
+The confirmation message can be customized via the `MessageProvider.awaitConfirmation()` method.
+
 #### Cross-Argument Validation
 
 Use `addCrossArgumentValidator(CrossArgumentValidator)` to validate relationships between parsed arguments after parsing succeeds but before execution.

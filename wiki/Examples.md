@@ -111,3 +111,71 @@ SlashCommand give = SlashCommand.create("give")
     })
     .build();
 ```
+
+#### 8) Subcommand registration using parent()
+
+The `parent()` method allows a subcommand to register itself to a parent builder, providing an alternative approach to building command hierarchies:
+
+```java
+// Traditional approach: parent registers children
+SlashCommand add = SlashCommand.create("add")
+    .argInt("a").argInt("b")
+    .executes(ctx -> {
+        int sum = ctx.get("a", Integer.class) + ctx.get("b", Integer.class);
+        ctx.get("sender", CommandSender.class).sendMessage("Sum: " + sum);
+    })
+    .build();
+
+SlashCommand math = SlashCommand.create("math")
+    .enableHelp(true)
+    .sub(add)
+    .build();
+
+// Alternative approach: child registers to parent
+SlashCommandBuilder parentBuilder = SlashCommand.builder("venias")
+    .description("Manage infractions")
+    .enableHelp(true);
+
+SlashCommand history = SlashCommand.builder("history")
+    .description("View infraction history")
+    .argOfflinePlayer("player")
+    .parent(parentBuilder)  // Register as child of parent
+    .executes((sender, ctx) -> {
+        // Show history...
+    })
+    .build();
+
+SlashCommand clear = SlashCommand.builder("clear")
+    .description("Clear infractions")
+    .argOfflinePlayer("player")
+    .parent(parentBuilder)  // Register as child of parent
+    .executes((sender, ctx) -> {
+        // Clear infractions...
+    })
+    .build();
+
+// Now build and register parent (children are already included)
+parentBuilder.build().register(plugin);
+```
+
+**Why use parent()?**
+- Organize subcommands in separate files or classes
+- Allow subcommands to register themselves instead of the parent managing them
+- Simplify complex command hierarchies with many subcommands
+- Enable modular command design where subcommands can be added independently
+
+#### 9) Confirmation for destructive commands
+
+```java
+SlashCommand reset = SlashCommand.create("reseteconomy")
+    .permission("leviathan.admin.economy.reset")
+    .awaitConfirmation(true)
+    .executes((sender, ctx) -> {
+        // Reset entire economy database
+        economyService.reset();
+        sender.sendMessage("Economy has been reset.");
+    })
+    .build();
+```
+
+When a player first runs `/reseteconomy`, they'll receive a confirmation message. They must execute the command again within 10 seconds to confirm. This prevents accidental execution of dangerous commands.

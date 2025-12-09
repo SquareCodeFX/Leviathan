@@ -45,6 +45,7 @@ cmd.register(plugin);
 - `validateOnTab(boolean)` — Validate inputs during tab completion for smarter suggestions.
 - `sanitizeInputs(boolean)` — Normalize/trim user inputs; see Overview.
 - `fuzzySubcommandMatching(boolean)` — Suggest closest subcommand if unknown.
+- `awaitConfirmation(boolean)` — Require the user to execute the command twice within a timeout period to confirm execution. Useful for destructive or irreversible commands.
 
 #### Arguments
 
@@ -87,6 +88,7 @@ Retrieve at runtime via `CommandContext.getKeyValue*(...)` or `getKeyValue(name,
 #### Subcommands
 
 - `sub(SlashCommand... subs)` / `withSubcommands(...)` — Attach subcommands. Subcommands can have their own args/flags/etc. They inherit plugin registration under the parent.
+- `parent(SlashCommandBuilder parentBuilder)` — Register this command as a subcommand to the specified parent builder. This is the reverse operation of `sub()`, allowing a subcommand to register itself to its parent instead of the parent registering its children.
 
 #### Execution
 
