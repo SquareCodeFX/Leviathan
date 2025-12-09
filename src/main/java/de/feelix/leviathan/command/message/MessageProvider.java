@@ -409,6 +409,17 @@ public interface MessageProvider {
     @NotNull
     String guardFlying();
 
+    // Confirmation Messages
+
+    /**
+     * Message requesting the user to repeat the command to confirm execution.
+     * Displayed when awaitConfirmation is enabled and the command is executed for the first time.
+     *
+     * @return the confirmation request message
+     */
+    @NotNull
+    String awaitConfirmation();
+
     // Pagination Messages
 
     /**

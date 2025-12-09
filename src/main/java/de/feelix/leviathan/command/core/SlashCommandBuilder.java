@@ -63,6 +63,8 @@ public final class SlashCommandBuilder {
     // Flags and Key-Value pairs
     private final List<Flag> flags = new ArrayList<>();
     private final List<KeyValue<?>> keyValues = new ArrayList<>();
+    // Confirmation
+    private boolean awaitConfirmation = false;
 
     SlashCommandBuilder(String name) {
         this.name = Preconditions.checkNotNull(name, "name");
@@ -755,6 +757,26 @@ public final class SlashCommandBuilder {
      */
     public @NotNull SlashCommandBuilder fuzzySubcommandMatching(boolean fuzzy) {
         this.fuzzySubcommandMatching = fuzzy;
+        return this;
+    }
+
+    /**
+     * Enable or disable confirmation requirement for this command.
+     * When enabled, the user must execute the command a second time to confirm execution.
+     * On the first execution, a confirmation message will be sent to the user.
+     * <p>
+     * This feature is useful for destructive or irreversible commands (e.g., delete, reset, ban)
+     * to prevent accidental execution.
+     * <p>
+     * The confirmation is tracked per sender and command, and expires after a short duration.
+     * <p>
+     * This is disabled by default.
+     *
+     * @param await true to require confirmation before executing
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder awaitConfirmation(boolean await) {
+        this.awaitConfirmation = await;
         return this;
     }
 
@@ -1549,7 +1571,7 @@ public final class SlashCommandBuilder {
             asyncAction, (asyncTimeoutMillis == null ? 0L : asyncTimeoutMillis),
             guards, crossArgumentValidators, exceptionHandler,
             perUserCooldownMillis, perServerCooldownMillis, enableHelp, helpPageSize, messages, sanitizeInputs,
-            fuzzySubcommandMatching, flags, keyValues
+            fuzzySubcommandMatching, flags, keyValues, awaitConfirmation
         );
 
         // Set parent reference for all subcommands

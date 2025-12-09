@@ -63,6 +63,9 @@ import java.util.stream.Collectors;
  */
 public final class SlashCommand implements CommandExecutor, TabCompleter {
 
+    // Confirmation tracking: maps "commandName:senderName" to expiration time (System.currentTimeMillis())
+    private static final Map<String, Long> pendingConfirmations = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final long CONFIRMATION_TIMEOUT_MILLIS = 10000L; // 10 seconds
 
     /**
      * Create a new builder for a command with the given name.
@@ -114,6 +117,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
     private final boolean fuzzySubcommandMatching;
     final List<Flag> flags;
     final List<KeyValue<?>> keyValues;
+    private final boolean awaitConfirmation;
     JavaPlugin plugin;
     private boolean subOnly = false;
     @Nullable
@@ -303,7 +307,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                  long perUserCooldownMillis, long perServerCooldownMillis, boolean enableHelp,
                  int helpPageSize, @Nullable MessageProvider messages, boolean sanitizeInputs,
                  boolean fuzzySubcommandMatching,
-                 List<Flag> flags, List<KeyValue<?>> keyValues) {
+                 List<Flag> flags, List<KeyValue<?>> keyValues, boolean awaitConfirmation) {
         this.name = Preconditions.checkNotNull(name, "name");
         this.aliases = List.copyOf(aliases == null ? List.of() : aliases);
         this.description = (description == null) ? "" : description;
@@ -330,6 +334,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         this.fuzzySubcommandMatching = fuzzySubcommandMatching;
         this.flags = List.copyOf(flags == null ? List.of() : flags);
         this.keyValues = List.copyOf(keyValues == null ? List.of() : keyValues);
+        this.awaitConfirmation = awaitConfirmation;
         // Pre-compute usage string for performance
         this.cachedUsage = computeUsageString();
     }
@@ -567,6 +572,26 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
             String formattedTime = CooldownManager.formatCooldownMessage("%s", userCooldown.remainingMillis());
             sendErrorMessage(sender, ErrorType.GUARD_FAILED, messages.userCooldown(formattedTime), null);
             return true;
+        }
+
+        // Confirmation check: if awaitConfirmation is enabled, require the user to send the command twice
+        if (awaitConfirmation) {
+            String confirmationKey = name + ":" + sender.getName();
+            long currentTime = System.currentTimeMillis();
+            
+            // Clean up expired confirmations
+            pendingConfirmations.entrySet().removeIf(entry -> entry.getValue() < currentTime);
+            
+            Long confirmationExpiry = pendingConfirmations.get(confirmationKey);
+            if (confirmationExpiry == null || confirmationExpiry < currentTime) {
+                // First execution or expired - register pending confirmation
+                pendingConfirmations.put(confirmationKey, currentTime + CONFIRMATION_TIMEOUT_MILLIS);
+                sendErrorMessage(sender, ErrorType.GUARD_FAILED, messages.awaitConfirmation(), null);
+                return true;
+            } else {
+                // Second execution within timeout - remove confirmation and continue
+                pendingConfirmations.remove(confirmationKey);
+            }
         }
 
         // Auto help: display help message when enabled and no arguments provided

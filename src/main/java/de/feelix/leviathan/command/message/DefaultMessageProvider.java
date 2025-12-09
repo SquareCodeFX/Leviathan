@@ -248,6 +248,13 @@ public class DefaultMessageProvider implements MessageProvider {
         return "§cYou must be flying to use this command.";
     }
 
+    // Confirmation Messages
+
+    @Override
+    public @NotNull String awaitConfirmation() {
+        return "§cPlease repeat the command to confirm it.";
+    }
+
     // Pagination Messages
 
     @Override
