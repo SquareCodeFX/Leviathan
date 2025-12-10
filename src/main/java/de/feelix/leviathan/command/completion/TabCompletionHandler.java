@@ -164,7 +164,7 @@ public final class TabCompletionHandler {
 
         // Determine the current argument index based on positional args only
         int currentArgIndex = determineCurrentArgIndex(
-            positionalIndex, argCount, lastIsGreedy, command, alias, sender, positionalArgs, messages);
+            positionalIndex, argCount, lastIsGreedy, command, alias, sender, positionalArgs, messages, hasFlags, hasKeyValues);
         if (currentArgIndex < 0) {
             // Past all positional args, suggest flags/key-values
             if (hasFlags || hasKeyValues) {
@@ -294,12 +294,15 @@ public final class TabCompletionHandler {
         @NotNull String alias,
         @NotNull CommandSender sender,
         @NotNull String[] providedArgs,
-        @NotNull MessageProvider messages) {
+        @NotNull MessageProvider messages,
+        boolean hasFlags,
+        boolean hasKeyValues) {
 
         if (index >= argCount) {
             if (!lastIsGreedy) {
-                // Too many arguments typed
-                if (command.sendErrors()) {
+                // Past all positional args
+                // Don't show error if flags/key-values exist (user might be typing flags)
+                if (!hasFlags && !hasKeyValues && command.sendErrors()) {
                     sender.sendMessage(messages.tooManyArguments(command.fullCommandPath(alias), command.usage()));
                 }
                 return -1;
