@@ -193,23 +193,37 @@ public final class TabCompletionHandler {
         // Determine prefix for greedy arguments using positional args
         String prefix = determinePrefix(positionalArgs, positionalIndex, currentArgIndex, argCount, lastIsGreedy);
 
-        // Generate suggestions - merge with flag/key-value completions
+        // Generate suggestions for the current positional argument
         List<String> argCompletions = generateSuggestions(
             current, prefix, sender, alias, positionalArgs,
             currentArgIndex, command, parsedSoFar
         );
 
-        // If we have both positional arg completions and flags/key-values available, merge them
+        // Only merge flag/key-value completions if the current token suggests flag/kv input
+        // (i.e., starts with - or is empty and we're not in the middle of required positional args)
         if (hasFlags || hasKeyValues) {
-            List<String> flagKvCompletions = generateFlagAndKeyValueCompletions(
-                currentToken, providedArgs, command, sender);
-            if (!flagKvCompletions.isEmpty()) {
-                // Merge both lists
-                Set<String> combined = new LinkedHashSet<>(argCompletions);
-                combined.addAll(flagKvCompletions);
-                List<String> result = new ArrayList<>(combined);
-                Collections.sort(result);
-                return result;
+            boolean shouldMergeFlags = false;
+
+            // Merge flags if current token explicitly starts flag syntax
+            if (currentToken.startsWith("-")) {
+                shouldMergeFlags = true;
+            }
+            // Or if token is empty AND current argument is optional
+            else if (currentToken.isEmpty() && current.optional()) {
+                shouldMergeFlags = true;
+            }
+
+            if (shouldMergeFlags) {
+                List<String> flagKvCompletions = generateFlagAndKeyValueCompletions(
+                    currentToken, providedArgs, command, sender);
+                if (!flagKvCompletions.isEmpty()) {
+                    // Merge both lists
+                    Set<String> combined = new LinkedHashSet<>(argCompletions);
+                    combined.addAll(flagKvCompletions);
+                    List<String> result = new ArrayList<>(combined);
+                    Collections.sort(result);
+                    return result;
+                }
             }
         }
 
