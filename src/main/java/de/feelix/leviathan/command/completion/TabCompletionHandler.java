@@ -838,8 +838,30 @@ public final class TabCompletionHandler {
 
             // Also suggest -- prefix for flags/key-values when typing empty or partial
             if (currentToken.isEmpty() || "-".startsWith(tokenLower)) {
-                // Add -- as a completion hint if there are flags or key-values
-                if (!flags.isEmpty() || !keyValues.isEmpty()) {
+                // Add -- as a completion hint if there are unused flags or key-values
+                boolean hasAvailableFlags = flags.stream().anyMatch(flag -> {
+                    if (flag.permission() != null && !flag.permission().isEmpty()
+                        && !sender.hasPermission(flag.permission())) {
+                        return false;
+                    }
+                    if (flag.longForm() != null) {
+                        return !usedFlags.contains(flag.longForm().toLowerCase(Locale.ROOT));
+                    }
+                    return !usedFlags.contains(flag.name().toLowerCase(Locale.ROOT));
+                });
+
+                boolean hasAvailableKeyValues = keyValues.stream().anyMatch(kv -> {
+                    if (kv.permission() != null && !kv.permission().isEmpty()
+                        && !sender.hasPermission(kv.permission())) {
+                        return false;
+                    }
+                    if (!kv.multipleValues() && usedKeyValues.contains(kv.key().toLowerCase(Locale.ROOT))) {
+                        return false;
+                    }
+                    return true;
+                });
+
+                if (hasAvailableFlags || hasAvailableKeyValues) {
                     completions.add("--");
                 }
             }
