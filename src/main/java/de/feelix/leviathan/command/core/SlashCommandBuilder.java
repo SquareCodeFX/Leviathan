@@ -783,10 +783,6 @@ public final class SlashCommandBuilder {
         return this;
     }
 
-    // ================================
-    // EXECUTION HOOKS
-    // ================================
-
     /**
      * Add a hook that executes before the command runs.
      * <p>

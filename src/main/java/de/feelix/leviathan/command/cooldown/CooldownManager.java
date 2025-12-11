@@ -6,11 +6,7 @@ import de.feelix.leviathan.util.Preconditions;
 
 import java.util.Iterator;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -223,10 +219,6 @@ public final class CooldownManager {
         userCooldownDurations.clear();
     }
 
-    // ================================
-    // CLEANUP MANAGEMENT
-    // ================================
-
     /**
      * Start the automatic cleanup task with the default interval (5 minutes).
      * The cleanup task removes expired cooldown entries to prevent memory leaks.
@@ -375,10 +367,6 @@ public final class CooldownManager {
         return cleanedCount;
     }
 
-    // ================================
-    // STATISTICS & MONITORING
-    // ================================
-
     /**
      * Get the total number of user cooldown entries currently tracked.
      *
@@ -478,7 +466,7 @@ public final class CooldownManager {
      * @return remaining time in milliseconds, or 0 if not on cooldown
      */
     public static long getRemainingUserCooldown(@NotNull String commandName, @NotNull String userId,
-                                                 long cooldownMillis) {
+                                                long cooldownMillis) {
         CooldownResult result = checkUserCooldown(commandName, userId, cooldownMillis);
         return result.isOnCooldown() ? result.remainingMillis() : 0L;
     }

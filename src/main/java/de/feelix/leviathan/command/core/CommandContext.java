@@ -575,10 +575,6 @@ public final class CommandContext {
         return multiValuePairs;
     }
 
-    // ================================
-    // BULK & STREAM ACCESSOR METHODS
-    // ================================
-
     /**
      * Get all parsed argument values as an unmodifiable map.
      *

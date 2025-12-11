@@ -185,7 +185,7 @@ public final class ExecutionHook {
          * @return an after hook
          */
         static After onFailure(
-            @NotNull java.util.function.TriConsumer<CommandSender, CommandContext, Throwable> action) {
+            @NotNull TriConsumer<CommandSender, CommandContext, Throwable> action) {
             return (sender, context, result) -> {
                 if (!result.isSuccess() && result.exception() != null) {
                     action.accept(sender, context, result.exception());
