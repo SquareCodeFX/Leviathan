@@ -42,6 +42,153 @@ SlashCommand howl = SlashCommand.create("howl")
     .build();
 ```
 
+#### Built-in Guard Factory Methods
+
+Leviathan provides static factory methods for common guard patterns. All factory methods require a `MessageProvider` for localized error messages.
+
+##### Permission Guard
+
+Check if sender has a specific permission:
+
+```java
+MessageProvider messages = new DefaultMessageProvider();
+
+SlashCommand admin = SlashCommand.create("admin")
+    .require(Guard.permission("myplugin.admin", messages))
+    .executes(ctx -> { /* ... */ })
+    .build();
+```
+
+##### World Guard
+
+Restrict command to a specific world:
+
+```java
+SlashCommand spawn = SlashCommand.create("spawn")
+    .require(Guard.inWorld("world_spawn", messages))
+    .executes(ctx -> {
+        // Only works in world_spawn
+    })
+    .build();
+```
+
+##### GameMode Guard
+
+Require a specific game mode:
+
+```java
+SlashCommand creative = SlashCommand.create("fly")
+    .require(Guard.inGameMode(GameMode.CREATIVE, messages))
+    .executes(ctx -> { /* ... */ })
+    .build();
+```
+
+##### Operator Guard
+
+Restrict to server operators:
+
+```java
+SlashCommand op = SlashCommand.create("opcommand")
+    .require(Guard.opOnly(messages))
+    .executes(ctx -> { /* ... */ })
+    .build();
+```
+
+##### Level Guards
+
+Check player experience level:
+
+```java
+// Minimum level required
+SlashCommand enchant = SlashCommand.create("superenchant")
+    .require(Guard.minLevel(30, messages))
+    .executes(ctx -> { /* ... */ })
+    .build();
+
+// Level must be within range
+SlashCommand midgame = SlashCommand.create("midgame")
+    .require(Guard.levelRange(10, 50, messages))
+    .executes(ctx -> { /* ... */ })
+    .build();
+```
+
+##### Health Guard
+
+Check player health:
+
+```java
+SlashCommand risky = SlashCommand.create("risky")
+    .require(Guard.healthAbove(10.0, messages))  // Must have > 10 health
+    .executes(ctx -> { /* ... */ })
+    .build();
+```
+
+##### Food Level Guard
+
+Check player hunger:
+
+```java
+SlashCommand run = SlashCommand.create("sprint")
+    .require(Guard.foodLevelAbove(6, messages))  // Must have > 6 food
+    .executes(ctx -> { /* ... */ })
+    .build();
+```
+
+##### Flying Guard
+
+Check if player is flying:
+
+```java
+SlashCommand aerial = SlashCommand.create("airstrike")
+    .require(Guard.isFlying(messages))
+    .executes(ctx -> { /* ... */ })
+    .build();
+```
+
+##### Custom Predicate Guard
+
+For any custom condition:
+
+```java
+SlashCommand day = SlashCommand.create("sunpower")
+    .require(Guard.custom(
+        sender -> {
+            if (!(sender instanceof Player p)) return false;
+            long time = p.getWorld().getTime();
+            return time < 12000;  // Daytime
+        },
+        "This command only works during daytime!"
+    ))
+    .executes(ctx -> { /* ... */ })
+    .build();
+```
+
+#### Combining Multiple Guards
+
+Guards can be combined for complex requirements:
+
+```java
+SlashCommand elite = SlashCommand.create("elite")
+    .permission("myplugin.elite")
+    .require(
+        Guard.inWorld("world_arena", messages),
+        Guard.inGameMode(GameMode.SURVIVAL, messages),
+        Guard.minLevel(50, messages),
+        Guard.healthAbove(15.0, messages)
+    )
+    .executes(ctx -> {
+        // Player must:
+        // 1. Have myplugin.elite permission
+        // 2. Be in world_arena
+        // 3. Be in survival mode
+        // 4. Have level >= 50
+        // 5. Have health > 15
+    })
+    .build();
+```
+
+All guards are evaluated in order. The first failing guard stops execution and sends its error message to the sender.
+
 #### Confirmation Requirement
 
 For destructive or irreversible commands (e.g., delete, reset, ban), you can require the user to execute the command twice within a short timeout period to confirm their intention:
