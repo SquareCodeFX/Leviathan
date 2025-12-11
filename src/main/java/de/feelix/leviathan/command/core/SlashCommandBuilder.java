@@ -283,6 +283,33 @@ public final class SlashCommandBuilder {
     }
 
     /**
+     * Add a required duration argument that parses time strings to milliseconds.
+     * <p>
+     * Supported formats: {@code 30s}, {@code 5m}, {@code 2h}, {@code 1d}, {@code 1w},
+     * {@code 1mo}, {@code 1y}, and combinations like {@code 2h30m}.
+     *
+     * @param name argument name (no whitespace)
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder argDuration(@NotNull String name) {
+        return arg(new Arg<>(name, false, ArgParsers.durationParser()));
+    }
+
+    /**
+     * Add a duration argument with explicit {@link ArgContext}.
+     * <p>
+     * Supported formats: {@code 30s}, {@code 5m}, {@code 2h}, {@code 1d}, {@code 1w},
+     * {@code 1mo}, {@code 1y}, and combinations like {@code 2h30m}.
+     *
+     * @param name       argument name (no whitespace)
+     * @param argContext per-argument configuration
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder argDuration(@NotNull String name, @NotNull ArgContext argContext) {
+        return arg(new Arg<>(name, ArgParsers.durationParser(), Preconditions.checkNotNull(argContext, "argContext")));
+    }
+
+    /**
      * Add a required string argument (single token).
      *
      * @param name argument name (no whitespace)

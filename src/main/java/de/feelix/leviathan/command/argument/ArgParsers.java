@@ -561,4 +561,252 @@ public final class ArgParsers {
             }
         };
     }
+
+    // ==================== Duration Parser ====================
+
+    /**
+     * Parser for duration strings that converts human-readable time formats to milliseconds.
+     * <p>
+     * Supported formats:
+     * <ul>
+     *   <li>{@code 30s} - 30 seconds</li>
+     *   <li>{@code 5m} - 5 minutes</li>
+     *   <li>{@code 2h} - 2 hours</li>
+     *   <li>{@code 1d} - 1 day</li>
+     *   <li>{@code 1w} - 1 week</li>
+     *   <li>{@code 1mo} - 1 month (30 days)</li>
+     *   <li>{@code 1y} - 1 year (365 days)</li>
+     *   <li>Combinations: {@code 2h30m}, {@code 1d12h30m}</li>
+     *   <li>Pure numbers are treated as seconds</li>
+     * </ul>
+     *
+     * @return an ArgumentParser that parses duration strings to milliseconds
+     */
+    public static @NotNull ArgumentParser<Long> durationParser() {
+        return new DurationParser(false);
+    }
+
+    /**
+     * Parser for duration strings that converts human-readable time formats to seconds.
+     * <p>
+     * Same formats as {@link #durationParser()} but returns seconds instead of milliseconds.
+     *
+     * @return an ArgumentParser that parses duration strings to seconds
+     */
+    public static @NotNull ArgumentParser<Long> durationParserSeconds() {
+        return new DurationParser(true);
+    }
+
+    /**
+     * Internal duration parser implementation.
+     */
+    private static final class DurationParser implements ArgumentParser<Long> {
+        private static final Map<String, Long> UNIT_MILLIS = new LinkedHashMap<>();
+        private static final List<String> EXAMPLE_COMPLETIONS = List.of(
+            "30s", "1m", "5m", "10m", "30m",
+            "1h", "2h", "6h", "12h",
+            "1d", "7d", "30d",
+            "1w", "2w",
+            "1mo", "1y",
+            "1h30m", "2d12h"
+        );
+
+        static {
+            // Order matters for parsing - longer units first
+            UNIT_MILLIS.put("y", 365L * 24 * 60 * 60 * 1000);      // year
+            UNIT_MILLIS.put("mo", 30L * 24 * 60 * 60 * 1000);      // month
+            UNIT_MILLIS.put("w", 7L * 24 * 60 * 60 * 1000);        // week
+            UNIT_MILLIS.put("d", 24L * 60 * 60 * 1000);            // day
+            UNIT_MILLIS.put("h", 60L * 60 * 1000);                 // hour
+            UNIT_MILLIS.put("m", 60L * 1000);                      // minute
+            UNIT_MILLIS.put("s", 1000L);                           // second
+            UNIT_MILLIS.put("ms", 1L);                             // millisecond
+        }
+
+        private final boolean returnSeconds;
+
+        DurationParser(boolean returnSeconds) {
+            this.returnSeconds = returnSeconds;
+        }
+
+        @Override
+        public String getTypeName() {
+            return "duration";
+        }
+
+        @Override
+        public ParseResult<Long> parse(String input, CommandSender sender) {
+            Preconditions.checkNotNull(input, "input");
+            Preconditions.checkNotNull(sender, "sender");
+
+            String trimmed = input.trim().toLowerCase(Locale.ROOT);
+            if (trimmed.isEmpty()) {
+                return ParseResult.error("duration cannot be empty");
+            }
+
+            // Check for special keywords
+            if ("permanent".equals(trimmed) || "forever".equals(trimmed) || "infinite".equals(trimmed)) {
+                return ParseResult.success(-1L); // -1 indicates permanent/infinite
+            }
+
+            // Try to parse as pure number (interpreted as seconds)
+            try {
+                long seconds = Long.parseLong(trimmed);
+                long result = returnSeconds ? seconds : seconds * 1000;
+                return ParseResult.success(result);
+            } catch (NumberFormatException ignored) {
+                // Not a pure number, continue with duration parsing
+            }
+
+            // Parse duration string like "2h30m" or "1d"
+            long totalMillis = 0;
+            String remaining = trimmed;
+
+            while (!remaining.isEmpty()) {
+                // Find the next number
+                int numEnd = 0;
+                while (numEnd < remaining.length() && (Character.isDigit(remaining.charAt(numEnd))
+                       || remaining.charAt(numEnd) == '.')) {
+                    numEnd++;
+                }
+
+                if (numEnd == 0) {
+                    return ParseResult.error("invalid duration format: expected number at '" + remaining + "'");
+                }
+
+                String numStr = remaining.substring(0, numEnd);
+                remaining = remaining.substring(numEnd);
+
+                double value;
+                try {
+                    value = Double.parseDouble(numStr);
+                } catch (NumberFormatException e) {
+                    return ParseResult.error("invalid number '" + numStr + "' in duration");
+                }
+
+                if (value < 0) {
+                    return ParseResult.error("duration values cannot be negative");
+                }
+
+                // Find the unit
+                String matchedUnit = null;
+                for (String unit : UNIT_MILLIS.keySet()) {
+                    if (remaining.startsWith(unit)) {
+                        matchedUnit = unit;
+                        break;
+                    }
+                }
+
+                if (matchedUnit == null) {
+                    if (remaining.isEmpty()) {
+                        // No unit at end - treat as seconds
+                        totalMillis += (long) (value * 1000);
+                    } else {
+                        return ParseResult.error("unknown time unit at '" + remaining + "'. " +
+                            "Valid units: s, m, h, d, w, mo, y");
+                    }
+                } else {
+                    totalMillis += (long) (value * UNIT_MILLIS.get(matchedUnit));
+                    remaining = remaining.substring(matchedUnit.length());
+                }
+            }
+
+            if (totalMillis == 0 && !trimmed.equals("0") && !trimmed.equals("0s")) {
+                return ParseResult.error("invalid duration: '" + input + "'");
+            }
+
+            long result = returnSeconds ? totalMillis / 1000 : totalMillis;
+            return ParseResult.success(result);
+        }
+
+        @Override
+        public List<String> complete(String input, CommandSender sender) {
+            Preconditions.checkNotNull(input, "input");
+            Preconditions.checkNotNull(sender, "sender");
+
+            if (input.isEmpty()) {
+                return new ArrayList<>(EXAMPLE_COMPLETIONS);
+            }
+
+            // Filter completions that start with input
+            String low = input.toLowerCase(Locale.ROOT);
+            List<String> matches = EXAMPLE_COMPLETIONS.stream()
+                .filter(c -> c.startsWith(low))
+                .collect(Collectors.toList());
+
+            // If input ends with a number, suggest units
+            if (!input.isEmpty() && Character.isDigit(input.charAt(input.length() - 1))) {
+                matches.addAll(List.of(
+                    input + "s", input + "m", input + "h",
+                    input + "d", input + "w"
+                ));
+            }
+
+            return matches;
+        }
+    }
+
+    // ==================== Duration Utility Methods ====================
+
+    /**
+     * Format a duration in milliseconds to a human-readable string.
+     * Useful for displaying durations to users.
+     *
+     * @param millis duration in milliseconds
+     * @return formatted string like "2h 30m 15s"
+     */
+    public static @NotNull String formatDuration(long millis) {
+        if (millis < 0) {
+            return "permanent";
+        }
+        if (millis == 0) {
+            return "0s";
+        }
+
+        StringBuilder sb = new StringBuilder();
+        long remaining = millis;
+
+        long years = remaining / (365L * 24 * 60 * 60 * 1000);
+        if (years > 0) {
+            sb.append(years).append("y ");
+            remaining %= (365L * 24 * 60 * 60 * 1000);
+        }
+
+        long months = remaining / (30L * 24 * 60 * 60 * 1000);
+        if (months > 0) {
+            sb.append(months).append("mo ");
+            remaining %= (30L * 24 * 60 * 60 * 1000);
+        }
+
+        long weeks = remaining / (7L * 24 * 60 * 60 * 1000);
+        if (weeks > 0) {
+            sb.append(weeks).append("w ");
+            remaining %= (7L * 24 * 60 * 60 * 1000);
+        }
+
+        long days = remaining / (24L * 60 * 60 * 1000);
+        if (days > 0) {
+            sb.append(days).append("d ");
+            remaining %= (24L * 60 * 60 * 1000);
+        }
+
+        long hours = remaining / (60L * 60 * 1000);
+        if (hours > 0) {
+            sb.append(hours).append("h ");
+            remaining %= (60L * 60 * 1000);
+        }
+
+        long minutes = remaining / (60L * 1000);
+        if (minutes > 0) {
+            sb.append(minutes).append("m ");
+            remaining %= (60L * 1000);
+        }
+
+        long seconds = remaining / 1000;
+        if (seconds > 0 || sb.length() == 0) {
+            sb.append(seconds).append("s");
+        }
+
+        return sb.toString().trim();
+    }
 }

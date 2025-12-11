@@ -1269,6 +1269,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
 
     /**
      * Generates detailed help including arguments, flags, and key-values.
+     * Permission-aware: only shows options the sender has permission to use.
      *
      * @param commandPath the full command path
      * @param sender      the command sender
@@ -1276,8 +1277,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
     private void generateDetailedHelp(@NotNull String commandPath, @NotNull CommandSender sender) {
         StringBuilder help = new StringBuilder();
 
-        // Usage line
-        String usageStr = usage();
+        // Build permission-aware usage line
+        String usageStr = buildPermissionAwareUsage(sender);
         help.append(messages.helpUsage(commandPath, usageStr));
 
         // Description
@@ -1285,10 +1286,17 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
             help.append("\n").append(messages.helpDescriptionSeparator()).append(description);
         }
 
-        // Arguments section
-        if (!args.isEmpty()) {
+        // Arguments section - filter by permission
+        List<Arg<?>> visibleArgs = new ArrayList<>();
+        for (Arg<?> arg : args) {
+            if (arg.permission() == null || sender.hasPermission(arg.permission())) {
+                visibleArgs.add(arg);
+            }
+        }
+
+        if (!visibleArgs.isEmpty()) {
             help.append("\n\n§e§lArguments:");
-            for (Arg<?> arg : args) {
+            for (Arg<?> arg : visibleArgs) {
                 help.append("\n  §7");
                 if (arg.optional()) {
                     help.append("[").append(arg.name()).append("]");
@@ -1299,16 +1307,20 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                 if (arg.description() != null && !arg.description().isEmpty()) {
                     help.append(" §7- ").append(arg.description());
                 }
-                if (arg.permission() != null) {
-                    help.append(" §c(requires: ").append(arg.permission()).append(")");
-                }
             }
         }
 
-        // Flags section
-        if (!flags.isEmpty()) {
+        // Flags section - filter by permission
+        List<Flag> visibleFlags = new ArrayList<>();
+        for (Flag flag : flags) {
+            if (flag.permission() == null || sender.hasPermission(flag.permission())) {
+                visibleFlags.add(flag);
+            }
+        }
+
+        if (!visibleFlags.isEmpty()) {
             help.append("\n\n§e§lFlags:");
-            for (Flag flag : flags) {
+            for (Flag flag : visibleFlags) {
                 help.append("\n  §7");
                 if (flag.shortForm() != null) {
                     help.append("-").append(flag.shortForm());
@@ -1322,16 +1334,20 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                 if (flag.description() != null && !flag.description().isEmpty()) {
                     help.append(" §8- §f").append(flag.description());
                 }
-                if (flag.permission() != null) {
-                    help.append(" §c(requires: ").append(flag.permission()).append(")");
-                }
             }
         }
 
-        // Key-Values section
-        if (!keyValues.isEmpty()) {
+        // Key-Values section - filter by permission
+        List<KeyValue<?>> visibleKeyValues = new ArrayList<>();
+        for (KeyValue<?> kv : keyValues) {
+            if (kv.permission() == null || sender.hasPermission(kv.permission())) {
+                visibleKeyValues.add(kv);
+            }
+        }
+
+        if (!visibleKeyValues.isEmpty()) {
             help.append("\n\n§e§lOptions:");
-            for (KeyValue<?> kv : keyValues) {
+            for (KeyValue<?> kv : visibleKeyValues) {
                 help.append("\n  §7--").append(kv.key()).append("=<value>");
                 if (!kv.required()) {
                     if (kv.defaultValue() != null) {
@@ -1345,13 +1361,68 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                 if (kv.description() != null && !kv.description().isEmpty()) {
                     help.append("\n    §f").append(kv.description());
                 }
-                if (kv.permission() != null) {
-                    help.append(" §c(requires: ").append(kv.permission()).append(")");
-                }
             }
         }
 
         sender.sendMessage(help.toString());
+    }
+
+    /**
+     * Build a permission-aware usage string showing only arguments the sender can use.
+     *
+     * @param sender the command sender
+     * @return usage string filtered by permissions
+     */
+    private @NotNull String buildPermissionAwareUsage(@NotNull CommandSender sender) {
+        if (!subcommands.isEmpty()) {
+            return "<subcommand>";
+        }
+
+        StringBuilder usage = new StringBuilder();
+        for (Arg<?> arg : args) {
+            // Skip args the sender doesn't have permission for
+            if (arg.permission() != null && !sender.hasPermission(arg.permission())) {
+                continue;
+            }
+
+            if (usage.length() > 0) {
+                usage.append(" ");
+            }
+
+            if (arg.optional()) {
+                usage.append("[").append(arg.name()).append("]");
+            } else {
+                usage.append("<").append(arg.name()).append(">");
+            }
+        }
+
+        // Add visible flags hint
+        boolean hasVisibleFlags = false;
+        for (Flag flag : flags) {
+            if (flag.permission() == null || sender.hasPermission(flag.permission())) {
+                hasVisibleFlags = true;
+                break;
+            }
+        }
+        if (hasVisibleFlags) {
+            if (usage.length() > 0) usage.append(" ");
+            usage.append("[flags...]");
+        }
+
+        // Add visible key-values hint
+        boolean hasVisibleKeyValues = false;
+        for (KeyValue<?> kv : keyValues) {
+            if (kv.permission() == null || sender.hasPermission(kv.permission())) {
+                hasVisibleKeyValues = true;
+                break;
+            }
+        }
+        if (hasVisibleKeyValues) {
+            if (usage.length() > 0) usage.append(" ");
+            usage.append("[options...]");
+        }
+
+        return usage.length() > 0 ? usage.toString() : "";
     }
 
     // ==================== Execution Hook Helpers ====================
