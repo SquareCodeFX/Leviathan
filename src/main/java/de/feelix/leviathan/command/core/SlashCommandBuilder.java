@@ -65,6 +65,9 @@ public final class SlashCommandBuilder {
     private final List<KeyValue<?>> keyValues = new ArrayList<>();
     // Confirmation
     private boolean awaitConfirmation = false;
+    // Execution hooks
+    private final List<ExecutionHook.Before> beforeHooks = new ArrayList<>();
+    private final List<ExecutionHook.After> afterHooks = new ArrayList<>();
 
     SlashCommandBuilder(String name) {
         this.name = Preconditions.checkNotNull(name, "name");
@@ -778,6 +781,150 @@ public final class SlashCommandBuilder {
     public @NotNull SlashCommandBuilder awaitConfirmation(boolean await) {
         this.awaitConfirmation = await;
         return this;
+    }
+
+    // ================================
+    // EXECUTION HOOKS
+    // ================================
+
+    /**
+     * Add a hook that executes before the command runs.
+     * <p>
+     * Before hooks can be used for:
+     * <ul>
+     *   <li>Additional validation beyond guards</li>
+     *   <li>Logging command attempts</li>
+     *   <li>Setting up resources</li>
+     *   <li>Transaction-like behavior (acquire locks, etc.)</li>
+     * </ul>
+     * <p>
+     * Multiple before hooks can be added and will be executed in order.
+     * If any hook returns {@code false}, command execution is aborted.
+     * <p>
+     * Example:
+     * <pre>{@code
+     * SlashCommand.create("admin")
+     *     .beforeExecution((sender, ctx) -> {
+     *         if (maintenanceMode) {
+     *             return ExecutionHook.BeforeResult.abort("Server is in maintenance mode");
+     *         }
+     *         return ExecutionHook.BeforeResult.proceed();
+     *     })
+     *     .executes(ctx -> { ... })
+     *     .build();
+     * }</pre>
+     *
+     * @param hook the before execution hook
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder beforeExecution(@NotNull ExecutionHook.Before hook) {
+        Preconditions.checkNotNull(hook, "hook");
+        this.beforeHooks.add(hook);
+        return this;
+    }
+
+    /**
+     * Add a simple before hook that performs an action but always allows execution.
+     * <p>
+     * This is a convenience method for hooks that don't need to abort execution.
+     *
+     * @param action action to perform before execution
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder beforeExecution(
+        @NotNull java.util.function.BiConsumer<org.bukkit.command.CommandSender, CommandContext> action) {
+        Preconditions.checkNotNull(action, "action");
+        return beforeExecution(ExecutionHook.Before.of(action));
+    }
+
+    /**
+     * Add a hook that executes after the command completes.
+     * <p>
+     * After hooks can be used for:
+     * <ul>
+     *   <li>Logging command completion</li>
+     *   <li>Cleanup resources</li>
+     *   <li>Recording metrics</li>
+     *   <li>Audit trail</li>
+     * </ul>
+     * <p>
+     * After hooks are always executed, regardless of whether the command
+     * succeeded or failed. The {@link ExecutionHook.AfterContext} provides
+     * information about the execution result.
+     * <p>
+     * Example:
+     * <pre>{@code
+     * SlashCommand.create("admin")
+     *     .afterExecution((sender, ctx, result) -> {
+     *         if (result.isSuccess()) {
+     *             logger.info("Command completed in " + result.executionTimeMillis() + "ms");
+     *         } else {
+     *             logger.warning("Command failed: " + result.exception());
+     *         }
+     *     })
+     *     .executes(ctx -> { ... })
+     *     .build();
+     * }</pre>
+     *
+     * @param hook the after execution hook
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder afterExecution(@NotNull ExecutionHook.After hook) {
+        Preconditions.checkNotNull(hook, "hook");
+        this.afterHooks.add(hook);
+        return this;
+    }
+
+    /**
+     * Add a simple after hook that performs an action on completion.
+     * <p>
+     * This is a convenience method for simple logging or cleanup hooks.
+     *
+     * @param action action to perform after execution
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder afterExecution(
+        @NotNull java.util.function.BiConsumer<org.bukkit.command.CommandSender, CommandContext> action) {
+        Preconditions.checkNotNull(action, "action");
+        return afterExecution(ExecutionHook.After.of(action));
+    }
+
+    /**
+     * Add an after hook that only runs when the command succeeds.
+     *
+     * @param action action to perform on successful execution
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder onSuccess(
+        @NotNull java.util.function.BiConsumer<org.bukkit.command.CommandSender, CommandContext> action) {
+        Preconditions.checkNotNull(action, "action");
+        return afterExecution(ExecutionHook.After.onSuccess(action));
+    }
+
+    /**
+     * Add an after hook that only runs when the command fails.
+     *
+     * @param action action to perform on failed execution
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder onFailure(
+        @NotNull ExecutionHook.TriConsumer<org.bukkit.command.CommandSender, CommandContext, Throwable> action) {
+        Preconditions.checkNotNull(action, "action");
+        return afterExecution(ExecutionHook.After.onFailure(action));
+    }
+
+    /**
+     * @return unmodifiable view of the configured before hooks
+     */
+    @NotNull List<ExecutionHook.Before> getBeforeHooks() {
+        return Collections.unmodifiableList(beforeHooks);
+    }
+
+    /**
+     * @return unmodifiable view of the configured after hooks
+     */
+    @NotNull List<ExecutionHook.After> getAfterHooks() {
+        return Collections.unmodifiableList(afterHooks);
     }
 
     /**

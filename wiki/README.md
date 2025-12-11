@@ -19,5 +19,7 @@ Advanced Topics:
 
 - [Advanced Completions (async, dynamic, permission-filtered)](Advanced-Completions.md)
 - [Progress Tracking (ProgressBar, ProgressReporter)](Progress-Tracking.md)
+- [CommandContext API (accessors, streaming, type conversion)](CommandContext-API.md)
+- [Execution Hooks (before/after hooks, logging, metrics)](Execution-Hooks.md)
 
 If you're new, read the Overview and then Builder API. The rest are deep dives you can consult as needed.
