@@ -6,7 +6,6 @@ import de.feelix.leviathan.annotations.NotNull;
 
 import de.feelix.leviathan.annotations.Nullable;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.function.BiPredicate;
 import java.util.function.Predicate;

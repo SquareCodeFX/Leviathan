@@ -1513,6 +1513,27 @@ public final class SlashCommandBuilder {
     }
 
     /**
+     * Fluent alias for {@link #addCrossArgumentValidator(CrossArgumentValidator)}.
+     * Add a cross-argument validator to validate relationships between multiple arguments.
+     * <p>
+     * Example usage with factory methods:
+     * <pre>{@code
+     * SlashCommand.create("transfer")
+     *     .argInt("amount").optional(true)
+     *     .flag("all", 'a', "all")
+     *     .crossValidate(CrossArgumentValidator.mutuallyExclusive("amount", "all"))
+     *     .crossValidate(CrossArgumentValidator.requiresAny("amount", "all"))
+     *     .build();
+     * }</pre>
+     *
+     * @param validator the cross-argument validator to add
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder crossValidate(@NotNull CrossArgumentValidator validator) {
+        return addCrossArgumentValidator(validator);
+    }
+
+    /**
      * Set a custom exception handler to intercept and handle errors during command processing.
      * The handler can provide custom error messages and optionally suppress default messages.
      *
