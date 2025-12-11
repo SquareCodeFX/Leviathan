@@ -10,6 +10,8 @@ import org.bukkit.entity.Player;
 
 import java.util.*;
 import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Holds parsed argument values and provides type-safe accessors for command actions.
@@ -571,5 +573,334 @@ public final class CommandContext {
      */
     public @NotNull Map<String, List<Object>> allMultiValues() {
         return multiValuePairs;
+    }
+
+    // ================================
+    // BULK & STREAM ACCESSOR METHODS
+    // ================================
+
+    /**
+     * Get all parsed argument values as an unmodifiable map.
+     *
+     * @return unmodifiable view of all argument name-to-value mappings
+     */
+    public @NotNull Map<String, Object> getAll() {
+        return values;
+    }
+
+    /**
+     * Get a stream of all argument values.
+     *
+     * @return stream of all values
+     */
+    public @NotNull Stream<Object> valueStream() {
+        return values.values().stream();
+    }
+
+    /**
+     * Get a stream of all argument entries (name-value pairs).
+     *
+     * @return stream of all entries
+     */
+    public @NotNull Stream<Map.Entry<String, Object>> entryStream() {
+        return values.entrySet().stream();
+    }
+
+    /**
+     * Get the first value that matches the given type.
+     *
+     * @param type the expected type class
+     * @param <T>  the type
+     * @return Optional containing the first matching value, or empty
+     */
+    @SuppressWarnings("unchecked")
+    public @NotNull <T> Optional<T> getFirstByType(@NotNull Class<T> type) {
+        Preconditions.checkNotNull(type, "type");
+        return values.values().stream()
+            .filter(type::isInstance)
+            .map(o -> (T) o)
+            .findFirst();
+    }
+
+    /**
+     * Get all values that match the given type.
+     *
+     * @param type the expected type class
+     * @param <T>  the type
+     * @return list of all values matching the type
+     */
+    @SuppressWarnings("unchecked")
+    public @NotNull <T> List<T> getAllByType(@NotNull Class<T> type) {
+        Preconditions.checkNotNull(type, "type");
+        return values.values().stream()
+            .filter(type::isInstance)
+            .map(o -> (T) o)
+            .collect(Collectors.toList());
+    }
+
+    /**
+     * Check if the context contains no argument values.
+     *
+     * @return true if no argument values are present
+     */
+    public boolean isEmpty() {
+        return values.isEmpty();
+    }
+
+    /**
+     * Check if the context contains argument values.
+     *
+     * @return true if at least one argument value is present
+     */
+    public boolean isPresent() {
+        return !values.isEmpty();
+    }
+
+    /**
+     * Get the number of argument values in this context.
+     *
+     * @return the number of argument values
+     */
+    public int size() {
+        return values.size();
+    }
+
+    /**
+     * Get all argument names that have values.
+     *
+     * @return unmodifiable set of argument names
+     */
+    public @NotNull Set<String> argumentNames() {
+        return values.keySet();
+    }
+
+    /**
+     * Try to retrieve a value using multiple alternative names.
+     * Returns the first successfully found value.
+     *
+     * @param type         the expected type class
+     * @param defaultValue the default value if none of the names are found
+     * @param names        the argument names to try (in order)
+     * @param <T>          the type
+     * @return the first found value, or the default value
+     */
+    @SafeVarargs
+    public final @NotNull <T> T getWithFallback(@NotNull Class<T> type, @NotNull T defaultValue,
+                                                 @NotNull String... names) {
+        Preconditions.checkNotNull(type, "type");
+        Preconditions.checkNotNull(defaultValue, "defaultValue");
+        Preconditions.checkNotNull(names, "names");
+        for (String name : names) {
+            if (name != null) {
+                T value = get(name, type);
+                if (value != null) {
+                    return value;
+                }
+            }
+        }
+        return defaultValue;
+    }
+
+    /**
+     * Try to retrieve a value using multiple alternative names.
+     * Returns the first successfully found value as an Optional.
+     *
+     * @param type  the expected type class
+     * @param names the argument names to try (in order)
+     * @param <T>   the type
+     * @return Optional containing the first found value, or empty
+     */
+    @SafeVarargs
+    public final @NotNull <T> Optional<T> optionalWithFallback(@NotNull Class<T> type, @NotNull String... names) {
+        Preconditions.checkNotNull(type, "type");
+        Preconditions.checkNotNull(names, "names");
+        for (String name : names) {
+            if (name != null) {
+                T value = get(name, type);
+                if (value != null) {
+                    return Optional.of(value);
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Transform a value using a mapper function if present.
+     *
+     * @param name   the argument name
+     * @param type   the expected type class
+     * @param mapper the transformation function
+     * @param <T>    the input type
+     * @param <R>    the result type
+     * @return Optional containing the transformed value, or empty
+     */
+    public <T, R> @NotNull Optional<R> map(@NotNull String name, @NotNull Class<T> type,
+                                           @NotNull Function<T, R> mapper) {
+        Preconditions.checkNotNull(name, "name");
+        Preconditions.checkNotNull(type, "type");
+        Preconditions.checkNotNull(mapper, "mapper");
+        return optional(name, type).map(mapper);
+    }
+
+    /**
+     * Execute an action if a value is present.
+     *
+     * @param name   the argument name
+     * @param type   the expected type class
+     * @param action the action to execute with the value
+     * @param <T>    the type
+     */
+    public <T> void ifPresent(@NotNull String name, @NotNull Class<T> type,
+                              @NotNull java.util.function.Consumer<T> action) {
+        Preconditions.checkNotNull(name, "name");
+        Preconditions.checkNotNull(type, "type");
+        Preconditions.checkNotNull(action, "action");
+        optional(name, type).ifPresent(action);
+    }
+
+    /**
+     * Get a value as String, converting if necessary.
+     *
+     * @param name the argument name
+     * @return the string representation, or null if not present
+     */
+    public @Nullable String getAsString(@NotNull String name) {
+        Preconditions.checkNotNull(name, "name");
+        Object value = values.get(name);
+        return value != null ? String.valueOf(value) : null;
+    }
+
+    /**
+     * Get a value as Integer, attempting conversion if necessary.
+     *
+     * @param name the argument name
+     * @return the integer value, or null if not present or not convertible
+     */
+    public @Nullable Integer getAsInt(@NotNull String name) {
+        Preconditions.checkNotNull(name, "name");
+        Object value = values.get(name);
+        if (value == null) return null;
+        if (value instanceof Integer) return (Integer) value;
+        if (value instanceof Number) return ((Number) value).intValue();
+        if (value instanceof String) {
+            try {
+                return Integer.parseInt((String) value);
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Get a value as Long, attempting conversion if necessary.
+     *
+     * @param name the argument name
+     * @return the long value, or null if not present or not convertible
+     */
+    public @Nullable Long getAsLong(@NotNull String name) {
+        Preconditions.checkNotNull(name, "name");
+        Object value = values.get(name);
+        if (value == null) return null;
+        if (value instanceof Long) return (Long) value;
+        if (value instanceof Number) return ((Number) value).longValue();
+        if (value instanceof String) {
+            try {
+                return Long.parseLong((String) value);
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Get a value as Double, attempting conversion if necessary.
+     *
+     * @param name the argument name
+     * @return the double value, or null if not present or not convertible
+     */
+    public @Nullable Double getAsDouble(@NotNull String name) {
+        Preconditions.checkNotNull(name, "name");
+        Object value = values.get(name);
+        if (value == null) return null;
+        if (value instanceof Double) return (Double) value;
+        if (value instanceof Number) return ((Number) value).doubleValue();
+        if (value instanceof String) {
+            try {
+                return Double.parseDouble((String) value);
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Get a value as Boolean, attempting conversion if necessary.
+     *
+     * @param name the argument name
+     * @return the boolean value, or null if not present or not convertible
+     */
+    public @Nullable Boolean getAsBoolean(@NotNull String name) {
+        Preconditions.checkNotNull(name, "name");
+        Object value = values.get(name);
+        if (value == null) return null;
+        if (value instanceof Boolean) return (Boolean) value;
+        if (value instanceof String) {
+            String str = ((String) value).toLowerCase();
+            if ("true".equals(str) || "yes".equals(str) || "on".equals(str) || "1".equals(str)) {
+                return true;
+            }
+            if ("false".equals(str) || "no".equals(str) || "off".equals(str) || "0".equals(str)) {
+                return false;
+            }
+        }
+        if (value instanceof Number) {
+            return ((Number) value).intValue() != 0;
+        }
+        return null;
+    }
+
+    /**
+     * Check if all specified arguments are present.
+     *
+     * @param names the argument names to check
+     * @return true if all specified arguments have values
+     */
+    public boolean hasAll(@NotNull String... names) {
+        Preconditions.checkNotNull(names, "names");
+        for (String name : names) {
+            if (name == null || !values.containsKey(name)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Check if any of the specified arguments are present.
+     *
+     * @param names the argument names to check
+     * @return true if at least one of the specified arguments has a value
+     */
+    public boolean hasAny(@NotNull String... names) {
+        Preconditions.checkNotNull(names, "names");
+        for (String name : names) {
+            if (name != null && values.containsKey(name)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Get the total number of all items (arguments + flags + key-values).
+     *
+     * @return total count of all context items
+     */
+    public int totalSize() {
+        return values.size() + flagValues.size() + keyValuePairs.size() + multiValuePairs.size();
     }
 }
