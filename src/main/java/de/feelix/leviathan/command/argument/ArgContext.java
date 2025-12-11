@@ -255,6 +255,9 @@ public final class ArgContext {
     // Default value
     private final @Nullable Object defaultValue;
 
+    // Argument description for help/documentation
+    private final @Nullable String description;
+
     private ArgContext(boolean optional,
                        boolean greedy,
                        @Nullable String permission,
@@ -275,7 +278,8 @@ public final class ArgContext {
                        @Nullable Pattern stringPattern,
                        @Nullable List<Validator<?>> customValidators,
                        boolean didYouMean,
-                       @Nullable Object defaultValue) {
+                       @Nullable Object defaultValue,
+                       @Nullable String description) {
         this.optional = optional;
         this.greedy = greedy;
         this.permission = (permission == null || permission.isBlank()) ? null : permission;
@@ -301,6 +305,7 @@ public final class ArgContext {
         this.customValidators = Collections.unmodifiableList(valList);
         this.didYouMean = didYouMean;
         this.defaultValue = defaultValue;
+        this.description = description;
     }
 
     public static @NotNull Builder builder() {
@@ -396,6 +401,13 @@ public final class ArgContext {
         return defaultValue;
     }
 
+    /**
+     * @return the description for this argument, used in help/documentation, or null if not set
+     */
+    public @Nullable String description() {
+        return description;
+    }
+
     public static final class Builder {
         private boolean optional;
         private boolean greedy;
@@ -420,6 +432,7 @@ public final class ArgContext {
         private final List<Validator<?>> customValidators = new ArrayList<>();
         private boolean didYouMean = false;
         private @Nullable Object defaultValue;
+        private @Nullable String description;
 
         public @NotNull Builder optional(boolean optional) {
             this.optional = optional;
@@ -630,6 +643,30 @@ public final class ArgContext {
             return this;
         }
 
+        // Description for help/documentation
+        /**
+         * Set a description for this argument. The description is displayed in help
+         * messages and documentation.
+         *
+         * @param description the description text
+         * @return this builder
+         */
+        public @NotNull Builder description(@Nullable String description) {
+            this.description = description;
+            return this;
+        }
+
+        /**
+         * Fluent alias for {@link #description(String)}.
+         * Makes the API read more naturally: {@code withDescription("The player to target")}
+         *
+         * @param description the description text
+         * @return this builder
+         */
+        public @NotNull Builder withDescription(@Nullable String description) {
+            return description(description);
+        }
+
         // Convenience methods for common completion patterns
 
         /**
@@ -732,7 +769,7 @@ public final class ArgContext {
                 completionsDynamicAsync, completionsPredefinedAsync,
                 intMin, intMax, longMin, longMax, doubleMin, doubleMax, floatMin, floatMax,
                 stringMinLength, stringMaxLength, stringPattern, customValidators, didYouMean,
-                defaultValue
+                defaultValue, description
             );
         }
     }

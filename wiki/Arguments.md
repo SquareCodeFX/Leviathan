@@ -99,12 +99,57 @@ Most `arg*` methods have an overload with `ArgContext` allowing you to specify p
 
 ```java
 ArgContext ctx = ArgContext.builder()
-    .optional(true)           // Make argument optional
-    .defaultValue(10)         // Default value if not provided
-    .greedy(true)             // Consume all remaining tokens (string only, must be last)
-    .permission("admin.use")  // Per-argument permission
-    .didYouMean(true)         // Enable "did you mean?" suggestions
+    .optional(true)                          // Make argument optional
+    .defaultValue(10)                        // Default value if not provided
+    .greedy(true)                            // Consume all remaining tokens (string only, must be last)
+    .permission("admin.use")                 // Per-argument permission
+    .didYouMean(true)                        // Enable "did you mean?" suggestions
+    .description("The target player name")   // Description shown in help
     .build();
+```
+
+##### Descriptions for Help
+
+Add descriptions to arguments for better help output:
+
+```java
+SlashCommand ban = SlashCommand.create("ban")
+    .description("Ban a player from the server")
+    .arg("target", ArgParsers.PLAYER, ArgContext.builder()
+        .description("The player to ban")
+        .build())
+    .arg("reason", ArgParsers.STRING, ArgContext.builder()
+        .optional(true)
+        .description("Reason for the ban")
+        .build())
+    .arg("duration", ArgParsers.STRING, ArgContext.builder()
+        .optional(true)
+        .description("Ban duration (e.g., 1d, 1w, permanent)")
+        .build())
+    .executes((sender, ctx) -> { /* ... */ })
+    .build();
+```
+
+Or using the fluent Arg API:
+
+```java
+SlashCommand ban = SlashCommand.create("ban")
+    .argPlayer("target").withDescription("The player to ban")
+    .argString("reason").optional(true).withDescription("Reason for the ban")
+    .executes((sender, ctx) -> { /* ... */ })
+    .build();
+```
+
+When `/ban help` is used, the help system will display:
+
+```
+Usage: /ban <target> [reason] [duration]
+Ban a player from the server
+
+Arguments:
+  <target> - Player - The player to ban
+  [reason] - String - Reason for the ban
+  [duration] - String - Ban duration (e.g., 1d, 1w, permanent)
 ```
 
 ##### Validation Constraints

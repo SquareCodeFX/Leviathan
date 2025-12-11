@@ -134,6 +134,13 @@ public final class Arg<T> {
     }
 
     /**
+     * @return the description for this argument, used in help/documentation, or null if not set
+     */
+    public @Nullable String description() {
+        return context.description();
+    }
+
+    /**
      * @return the broad option type for this argument, inferred from its parser
      */
     public @NotNull OptionType optionType() {
@@ -181,7 +188,8 @@ public final class Arg<T> {
             .stringLengthRange(context.stringMinLength(), context.stringMaxLength())
             .stringPattern(context.stringPattern())
             .didYouMean(context.didYouMean())
-            .defaultValue(context.defaultValue());
+            .defaultValue(context.defaultValue())
+            .description(context.description());
         for (ArgContext.Validator<?> validator : context.customValidators()) {
             b.addValidator(validator);
         }
@@ -240,5 +248,15 @@ public final class Arg<T> {
      */
     public @NotNull Arg<T> transform(@Nullable Function<T, T> transformer) {
         return new Arg<>(name, parser, context, condition, transformer);
+    }
+
+    /**
+     * Return a copy of this argument with a description for help/documentation.
+     *
+     * @param description the description text to display in help
+     * @return a new Arg instance with the description set
+     */
+    public @NotNull Arg<T> withDescription(@Nullable String description) {
+        return new Arg<>(name, parser, copyContextToBuilder().description(description).build(), condition, transformer);
     }
 }

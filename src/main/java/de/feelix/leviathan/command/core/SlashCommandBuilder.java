@@ -1718,7 +1718,8 @@ public final class SlashCommandBuilder {
             asyncAction, (asyncTimeoutMillis == null ? 0L : asyncTimeoutMillis),
             guards, crossArgumentValidators, exceptionHandler,
             perUserCooldownMillis, perServerCooldownMillis, enableHelp, helpPageSize, messages, sanitizeInputs,
-            fuzzySubcommandMatching, flags, keyValues, awaitConfirmation
+            fuzzySubcommandMatching, flags, keyValues, awaitConfirmation,
+            beforeHooks, afterHooks
         );
 
         // Set parent reference for all subcommands

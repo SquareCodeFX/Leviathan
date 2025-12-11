@@ -118,6 +118,9 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
     final List<Flag> flags;
     final List<KeyValue<?>> keyValues;
     private final boolean awaitConfirmation;
+    // Execution hooks
+    private final List<ExecutionHook.Before> beforeHooks;
+    private final List<ExecutionHook.After> afterHooks;
     JavaPlugin plugin;
     private boolean subOnly = false;
     @Nullable
@@ -307,7 +310,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                  long perUserCooldownMillis, long perServerCooldownMillis, boolean enableHelp,
                  int helpPageSize, @Nullable MessageProvider messages, boolean sanitizeInputs,
                  boolean fuzzySubcommandMatching,
-                 List<Flag> flags, List<KeyValue<?>> keyValues, boolean awaitConfirmation) {
+                 List<Flag> flags, List<KeyValue<?>> keyValues, boolean awaitConfirmation,
+                 List<ExecutionHook.Before> beforeHooks, List<ExecutionHook.After> afterHooks) {
         this.name = Preconditions.checkNotNull(name, "name");
         this.aliases = List.copyOf(aliases == null ? List.of() : aliases);
         this.description = (description == null) ? "" : description;
@@ -335,6 +339,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         this.flags = List.copyOf(flags == null ? List.of() : flags);
         this.keyValues = List.copyOf(keyValues == null ? List.of() : keyValues);
         this.awaitConfirmation = awaitConfirmation;
+        this.beforeHooks = List.copyOf(beforeHooks == null ? List.of() : beforeHooks);
+        this.afterHooks = List.copyOf(afterHooks == null ? List.of() : afterHooks);
         // Pre-compute usage string for performance
         this.cachedUsage = computeUsageString();
     }
@@ -981,8 +987,22 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         }
 
         // Optional arguments not provided: simply absent from context
-        
+
         CommandContext ctx = new CommandContext(values, flagValues, keyValuePairs, multiValuePairs, providedArgs);
+
+        // Run before-execution hooks
+        ExecutionHook.BeforeResult beforeResult = runBeforeHooks(sender, ctx);
+        if (!beforeResult.shouldProceed()) {
+            // A hook aborted execution - send error message if provided
+            if (beforeResult.errorMessage() != null) {
+                sender.sendMessage(beforeResult.errorMessage());
+            }
+            return true;
+        }
+
+        // Track execution start time for after-hooks
+        final long executionStartTime = System.currentTimeMillis();
+
         if (async) {
             if (asyncActionAdv != null) {
                 // Advanced async with cancellation, progress, and timeout
@@ -1015,55 +1035,68 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                 if (asyncTimeoutMillis > 0L) {
                     future = future.orTimeout(asyncTimeoutMillis, TimeUnit.MILLISECONDS);
                 }
-                future.exceptionally(ex -> {
-                    Throwable cause = (ex.getCause() != null) ? ex.getCause() : ex;
-                    String msg;
-                    ErrorType errorType;
-                    if (cause instanceof TimeoutException) {
-                        msg = messages.commandTimeout(asyncTimeoutMillis);
-                        errorType = ErrorType.TIMEOUT;
-                        token.cancel();
-                    } else {
-                        msg = messages.executionError();
-                        errorType = ErrorType.EXECUTION;
-                    }
-                    boolean suppressDefault = false;
-                    if (exceptionHandler != null) {
-                        try {
-                            suppressDefault = exceptionHandler.handle(sender, errorType, msg, cause);
-                        } catch (Throwable handlerException) {
-                            // Exception handler itself threw an exception - log it and continue with default behavior
-                            String handlerMsg = messages.exceptionHandlerError(handlerException.getMessage());
-                            if (plugin != null) {
-                                plugin.getServer().getScheduler().runTask(plugin, () -> sender.sendMessage(handlerMsg));
-                                plugin.getLogger()
-                                    .severe("Exception handler threw an exception while handling " + errorType + ": "
-                                            + handlerException.getMessage());
-                                logException(handlerException);
-                            } else {
-                                sender.sendMessage(handlerMsg);
+                future.whenComplete((result, ex) -> {
+                    // Run after-hooks regardless of success or failure
+                    long executionTime = System.currentTimeMillis() - executionStartTime;
+                    ExecutionHook.AfterContext afterContext = (ex == null)
+                        ? ExecutionHook.AfterContext.success(executionTime)
+                        : ExecutionHook.AfterContext.failure(ex.getCause() != null ? ex.getCause() : ex, executionTime);
+                    runAfterHooks(sender, ctx, afterContext);
+
+                    // Handle exceptions (similar to previous exceptionally handler)
+                    if (ex != null) {
+                        Throwable cause = (ex.getCause() != null) ? ex.getCause() : ex;
+                        String msg;
+                        ErrorType errorType;
+                        if (cause instanceof TimeoutException) {
+                            msg = messages.commandTimeout(asyncTimeoutMillis);
+                            errorType = ErrorType.TIMEOUT;
+                            token.cancel();
+                        } else {
+                            msg = messages.executionError();
+                            errorType = ErrorType.EXECUTION;
+                        }
+                        boolean suppressDefault = false;
+                        if (exceptionHandler != null) {
+                            try {
+                                suppressDefault = exceptionHandler.handle(sender, errorType, msg, cause);
+                            } catch (Throwable handlerException) {
+                                // Exception handler itself threw an exception - log it and continue with default
+                                // behavior
+                                String handlerMsg = messages.exceptionHandlerError(handlerException.getMessage());
+                                if (plugin != null) {
+                                    plugin.getServer().getScheduler()
+                                        .runTask(plugin, () -> sender.sendMessage(handlerMsg));
+                                    plugin.getLogger()
+                                        .severe("Exception handler threw an exception while handling " + errorType
+                                                + ": " + handlerException.getMessage());
+                                    logException(handlerException);
+                                } else {
+                                    sender.sendMessage(handlerMsg);
+                                }
                             }
                         }
+                        if (sendErrors && !suppressDefault) {
+                            if (plugin != null)
+                                plugin.getServer().getScheduler().runTask(plugin, () -> sender.sendMessage(msg));
+                            else sender.sendMessage(msg);
+                        }
                     }
-                    if (sendErrors && !suppressDefault) {
-                        if (plugin != null)
-                            plugin.getServer().getScheduler().runTask(plugin, () -> sender.sendMessage(msg));
-                        else sender.sendMessage(msg);
-                    }
-                    return null;
                 });
             } else {
                 // Execute asynchronously using CompletableFuture (no Bukkit scheduler).
                 CompletableFuture.runAsync(() -> {
+                    Throwable executionError = null;
                     try {
                         action.execute(sender, ctx);
                     } catch (Throwable t) {
-                        Throwable cause = (t.getCause() != null) ? t.getCause() : t;
+                        executionError = (t.getCause() != null) ? t.getCause() : t;
                         String errorMsg = messages.executionError();
                         boolean suppressDefault = false;
                         if (exceptionHandler != null) {
                             try {
-                                suppressDefault = exceptionHandler.handle(sender, ErrorType.EXECUTION, errorMsg, cause);
+                                suppressDefault = exceptionHandler.handle(sender, ErrorType.EXECUTION, errorMsg,
+                                    executionError);
                             } catch (Throwable handlerException) {
                                 // Exception handler itself threw an exception - log it and continue with default
                                 // behavior
@@ -1082,23 +1115,44 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                         // Log the exception but don't re-throw to prevent unhandled exception in async thread
                         if (plugin != null) {
                             plugin.getLogger()
-                                .severe("Error executing command '" + name + "' asynchronously: " + cause.getMessage());
-                            logException(cause);
+                                .severe("Error executing command '" + name + "' asynchronously: "
+                                        + executionError.getMessage());
+                            logException(executionError);
                         }
+                    } finally {
+                        // Run after-hooks on the async thread
+                        long executionTime = System.currentTimeMillis() - executionStartTime;
+                        ExecutionHook.AfterContext afterContext = (executionError == null)
+                            ? ExecutionHook.AfterContext.success(executionTime)
+                            : ExecutionHook.AfterContext.failure(executionError, executionTime);
+                        runAfterHooks(sender, ctx, afterContext);
                     }
                 });
             }
         } else {
+            // Synchronous execution with after-hooks
+            Throwable executionError = null;
             try {
                 action.execute(sender, ctx);
             } catch (Throwable t) {
-                Throwable cause = (t.getCause() != null) ? t.getCause() : t;
+                executionError = (t.getCause() != null) ? t.getCause() : t;
                 sendErrorMessage(
                     sender, ErrorType.EXECUTION,
-                    messages.executionError(), cause
+                    messages.executionError(), executionError
                 );
+            }
+
+            // Run after-hooks
+            long executionTime = System.currentTimeMillis() - executionStartTime;
+            ExecutionHook.AfterContext afterContext = (executionError == null)
+                ? ExecutionHook.AfterContext.success(executionTime)
+                : ExecutionHook.AfterContext.failure(executionError, executionTime);
+            runAfterHooks(sender, ctx, afterContext);
+
+            // Re-throw if there was an error (after running hooks)
+            if (executionError != null) {
                 throw new CommandExecutionException(
-                    "Error executing command '" + name + "'", cause);
+                    "Error executing command '" + name + "'", executionError);
             }
         }
         return true;
@@ -1208,8 +1262,152 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                 .commandBase("/" + commandPath)
                 .send(sender);
         } else {
-            String usageStr = usage();
-            sender.sendMessage(messages.helpUsage(commandPath, usageStr));
+            // Enhanced help for commands without subcommands
+            generateDetailedHelp(commandPath, sender);
+        }
+    }
+
+    /**
+     * Generates detailed help including arguments, flags, and key-values.
+     *
+     * @param commandPath the full command path
+     * @param sender      the command sender
+     */
+    private void generateDetailedHelp(@NotNull String commandPath, @NotNull CommandSender sender) {
+        StringBuilder help = new StringBuilder();
+
+        // Usage line
+        String usageStr = usage();
+        help.append(messages.helpUsage(commandPath, usageStr));
+
+        // Description
+        if (!description.isEmpty()) {
+            help.append("\n").append(messages.helpDescriptionSeparator()).append(description);
+        }
+
+        // Arguments section
+        if (!args.isEmpty()) {
+            help.append("\n\n§e§lArguments:");
+            for (Arg<?> arg : args) {
+                help.append("\n  §7");
+                if (arg.optional()) {
+                    help.append("[").append(arg.name()).append("]");
+                } else {
+                    help.append("<").append(arg.name()).append(">");
+                }
+                help.append(" §8- §f").append(arg.parser().getTypeName());
+                if (arg.description() != null && !arg.description().isEmpty()) {
+                    help.append(" §7- ").append(arg.description());
+                }
+                if (arg.permission() != null) {
+                    help.append(" §c(requires: ").append(arg.permission()).append(")");
+                }
+            }
+        }
+
+        // Flags section
+        if (!flags.isEmpty()) {
+            help.append("\n\n§e§lFlags:");
+            for (Flag flag : flags) {
+                help.append("\n  §7");
+                if (flag.shortForm() != null) {
+                    help.append("-").append(flag.shortForm());
+                    if (flag.longForm() != null) {
+                        help.append(", ");
+                    }
+                }
+                if (flag.longForm() != null) {
+                    help.append("--").append(flag.longForm());
+                }
+                if (flag.description() != null && !flag.description().isEmpty()) {
+                    help.append(" §8- §f").append(flag.description());
+                }
+                if (flag.permission() != null) {
+                    help.append(" §c(requires: ").append(flag.permission()).append(")");
+                }
+            }
+        }
+
+        // Key-Values section
+        if (!keyValues.isEmpty()) {
+            help.append("\n\n§e§lOptions:");
+            for (KeyValue<?> kv : keyValues) {
+                help.append("\n  §7--").append(kv.key()).append("=<value>");
+                if (!kv.required()) {
+                    if (kv.defaultValue() != null) {
+                        help.append(" §8(default: ").append(kv.defaultValue()).append(")");
+                    } else {
+                        help.append(" §8(optional)");
+                    }
+                } else {
+                    help.append(" §c(required)");
+                }
+                if (kv.description() != null && !kv.description().isEmpty()) {
+                    help.append("\n    §f").append(kv.description());
+                }
+                if (kv.permission() != null) {
+                    help.append(" §c(requires: ").append(kv.permission()).append(")");
+                }
+            }
+        }
+
+        sender.sendMessage(help.toString());
+    }
+
+    // ==================== Execution Hook Helpers ====================
+
+    /**
+     * Runs all registered before-execution hooks.
+     *
+     * @param sender  the command sender
+     * @param context the parsed command context
+     * @return the result from the first hook that aborts, or a "proceed" result if all pass
+     */
+    private @NotNull ExecutionHook.BeforeResult runBeforeHooks(@NotNull CommandSender sender,
+                                                                @NotNull CommandContext context) {
+        if (beforeHooks.isEmpty()) {
+            return ExecutionHook.BeforeResult.proceed();
+        }
+        for (ExecutionHook.Before hook : beforeHooks) {
+            try {
+                ExecutionHook.BeforeResult result = hook.execute(sender, context);
+                if (result == null || !result.shouldProceed()) {
+                    // Hook aborted - return the result (or an abort with no message if null)
+                    return result != null ? result : ExecutionHook.BeforeResult.abort();
+                }
+            } catch (Throwable t) {
+                // Log hook failure but don't abort - hooks shouldn't break commands
+                if (plugin != null) {
+                    plugin.getLogger().warning("Before-execution hook threw exception: " + t.getMessage());
+                    logException(t);
+                }
+            }
+        }
+        return ExecutionHook.BeforeResult.proceed();
+    }
+
+    /**
+     * Runs all registered after-execution hooks.
+     *
+     * @param sender  the command sender
+     * @param context the parsed command context
+     * @param result  the execution result context
+     */
+    private void runAfterHooks(@NotNull CommandSender sender, @NotNull CommandContext context,
+                               @NotNull ExecutionHook.AfterContext result) {
+        if (afterHooks.isEmpty()) {
+            return;
+        }
+        for (ExecutionHook.After hook : afterHooks) {
+            try {
+                hook.execute(sender, context, result);
+            } catch (Throwable t) {
+                // Log hook failure but continue with other hooks
+                if (plugin != null) {
+                    plugin.getLogger().warning("After-execution hook threw exception: " + t.getMessage());
+                    logException(t);
+                }
+            }
         }
     }
 

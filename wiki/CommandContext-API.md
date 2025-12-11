@@ -261,3 +261,103 @@ SlashCommand ban = SlashCommand.create("ban")
     })
     .build();
 ```
+
+#### Dependency Validation
+
+Validate argument dependencies at runtime:
+
+##### Require All
+
+```java
+.executes((sender, ctx) -> {
+    // Throws ApiMisuseException if any argument is missing
+    ctx.requireAll("from", "to", "amount");
+
+    // Now safe to access all three
+    Player from = ctx.require("from", Player.class);
+    Player to = ctx.require("to", Player.class);
+    int amount = ctx.require("amount", Integer.class);
+})
+```
+
+##### Require Any
+
+```java
+.executes((sender, ctx) -> {
+    // At least one must be present
+    ctx.requireAny("player", "all", "world");
+
+    // Now we know at least one exists
+    if (ctx.has("all")) {
+        // Handle all players
+    } else if (ctx.has("player")) {
+        Player p = ctx.require("player", Player.class);
+        // Handle specific player
+    }
+})
+```
+
+##### Conditional Requirements
+
+```java
+.executes((sender, ctx) -> {
+    // If "output" is present, "format" must also be present
+    ctx.requireIfPresent("output", "format");
+
+    // Safe to use output and format together
+    if (ctx.has("output")) {
+        String output = ctx.require("output", String.class);
+        String format = ctx.require("format", String.class);
+    }
+})
+```
+
+##### Mutual Exclusivity
+
+```java
+.executes((sender, ctx) -> {
+    // Only one of these can be present
+    ctx.requireMutuallyExclusive("player", "all", "radius");
+
+    // Process the one that exists
+    if (ctx.has("player")) {
+        // ...
+    } else if (ctx.has("all")) {
+        // ...
+    } else if (ctx.has("radius")) {
+        // ...
+    }
+})
+```
+
+##### Gather Present Arguments
+
+```java
+.executes((sender, ctx) -> {
+    // Collect all present numeric arguments
+    Map<String, Integer> limits = ctx.gatherPresent(Integer.class,
+        "max-players", "max-items", "max-blocks");
+
+    for (var entry : limits.entrySet()) {
+        logger.info(entry.getKey() + " = " + entry.getValue());
+    }
+})
+```
+
+##### Conditional Execution
+
+```java
+.executes((sender, ctx) -> {
+    // Execute only if all present
+    ctx.ifAllPresent(c -> {
+        Player from = c.require("from", Player.class);
+        Player to = c.require("to", Player.class);
+        // Transfer logic
+    }, "from", "to");
+
+    // Execute if any present
+    ctx.ifAnyPresent(c -> {
+        sender.sendMessage("You provided optional filters");
+    }, "filter", "tag", "category");
+})
+```

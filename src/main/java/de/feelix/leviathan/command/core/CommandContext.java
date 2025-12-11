@@ -915,4 +915,142 @@ public final class CommandContext {
     public int totalSize() {
         return values.size() + flagValues.size() + keyValuePairs.size() + multiValuePairs.size();
     }
+
+    // ==================== Dependency Validation Helpers ====================
+
+    /**
+     * Require all specified arguments to be present.
+     * Throws an exception if any are missing.
+     *
+     * @param names the argument names that must all be present
+     * @throws ApiMisuseException if any argument is missing
+     */
+    public void requireAll(@NotNull String... names) {
+        Preconditions.checkNotNull(names, "names");
+        List<String> missing = new ArrayList<>();
+        for (String name : names) {
+            if (name != null && !values.containsKey(name)) {
+                missing.add(name);
+            }
+        }
+        if (!missing.isEmpty()) {
+            throw new ApiMisuseException("Missing required arguments: " + String.join(", ", missing));
+        }
+    }
+
+    /**
+     * Require at least one of the specified arguments to be present.
+     * Throws an exception if none are present.
+     *
+     * @param names the argument names where at least one must be present
+     * @throws ApiMisuseException if no argument is present
+     */
+    public void requireAny(@NotNull String... names) {
+        Preconditions.checkNotNull(names, "names");
+        if (!hasAny(names)) {
+            throw new ApiMisuseException("At least one of these arguments is required: " + String.join(", ", names));
+        }
+    }
+
+    /**
+     * If a trigger argument is present, require all dependent arguments.
+     * This is useful for conditional dependencies.
+     *
+     * @param trigger      the argument that triggers the requirement
+     * @param dependencies arguments required when trigger is present
+     * @throws ApiMisuseException if trigger is present but dependencies are missing
+     */
+    public void requireIfPresent(@NotNull String trigger, @NotNull String... dependencies) {
+        Preconditions.checkNotNull(trigger, "trigger");
+        Preconditions.checkNotNull(dependencies, "dependencies");
+        if (values.containsKey(trigger)) {
+            List<String> missing = new ArrayList<>();
+            for (String dep : dependencies) {
+                if (dep != null && !values.containsKey(dep)) {
+                    missing.add(dep);
+                }
+            }
+            if (!missing.isEmpty()) {
+                throw new ApiMisuseException(
+                    "When '" + trigger + "' is specified, these are also required: " + String.join(", ", missing));
+            }
+        }
+    }
+
+    /**
+     * Require that at most one of the specified arguments is present.
+     * Throws an exception if more than one is present.
+     *
+     * @param names the mutually exclusive argument names
+     * @throws ApiMisuseException if more than one argument is present
+     */
+    public void requireMutuallyExclusive(@NotNull String... names) {
+        Preconditions.checkNotNull(names, "names");
+        List<String> present = new ArrayList<>();
+        for (String name : names) {
+            if (name != null && values.containsKey(name)) {
+                present.add(name);
+            }
+        }
+        if (present.size() > 1) {
+            throw new ApiMisuseException("Arguments are mutually exclusive: " + String.join(", ", present));
+        }
+    }
+
+    /**
+     * Get all values for the specified argument names that are present.
+     * Useful for gathering related optional arguments.
+     *
+     * @param type  the expected type for all values
+     * @param names the argument names to gather
+     * @param <T>   the type
+     * @return a map of name to value for present arguments
+     */
+    @SuppressWarnings("unchecked")
+    public @NotNull <T> Map<String, T> gatherPresent(@NotNull Class<T> type, @NotNull String... names) {
+        Preconditions.checkNotNull(type, "type");
+        Preconditions.checkNotNull(names, "names");
+        Map<String, T> result = new LinkedHashMap<>();
+        for (String name : names) {
+            if (name != null && values.containsKey(name)) {
+                Object value = values.get(name);
+                if (type.isInstance(value)) {
+                    result.put(name, (T) value);
+                }
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Execute an action if all specified arguments are present.
+     *
+     * @param action the action to execute with the context
+     * @param names  the argument names that must all be present
+     * @return true if action was executed, false if arguments were missing
+     */
+    public boolean ifAllPresent(@NotNull java.util.function.Consumer<CommandContext> action, @NotNull String... names) {
+        Preconditions.checkNotNull(action, "action");
+        if (hasAll(names)) {
+            action.accept(this);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Execute an action if any of the specified arguments are present.
+     *
+     * @param action the action to execute with the context
+     * @param names  the argument names where at least one must be present
+     * @return true if action was executed, false if no arguments were present
+     */
+    public boolean ifAnyPresent(@NotNull java.util.function.Consumer<CommandContext> action, @NotNull String... names) {
+        Preconditions.checkNotNull(action, "action");
+        if (hasAny(names)) {
+            action.accept(this);
+            return true;
+        }
+        return false;
+    }
 }
