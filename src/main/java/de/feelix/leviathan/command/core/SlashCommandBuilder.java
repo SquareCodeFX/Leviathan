@@ -919,10 +919,6 @@ public final class SlashCommandBuilder {
         return arg(new Arg<>(name, parser, argContext).withCondition(condition));
     }
 
-    // ================================
-    // FLAG AND KEY-VALUE METHODS
-    // ================================
-
     /**
      * Add a flag (switch/option) to this command.
      * <p>
