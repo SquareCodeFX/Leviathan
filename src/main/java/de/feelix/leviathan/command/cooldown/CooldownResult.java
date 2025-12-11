@@ -32,6 +32,14 @@ public class CooldownResult {
     }
 
     /**
+     * Alias for {@link #onCooldown()}.
+     * @return true if the command is currently on cooldown
+     */
+    public boolean isOnCooldown() {
+        return onCooldown;
+    }
+
+    /**
      * @return remaining cooldown time in milliseconds (0 if not on cooldown)
      */
     public long remainingMillis() {

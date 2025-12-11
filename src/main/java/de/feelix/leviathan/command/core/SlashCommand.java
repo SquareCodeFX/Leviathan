@@ -118,6 +118,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
     final List<Flag> flags;
     final List<KeyValue<?>> keyValues;
     private final boolean awaitConfirmation;
+    private final List<ExecutionHook.Before> beforeHooks;
+    private final List<ExecutionHook.After> afterHooks;
     JavaPlugin plugin;
     private boolean subOnly = false;
     @Nullable
@@ -307,7 +309,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                  long perUserCooldownMillis, long perServerCooldownMillis, boolean enableHelp,
                  int helpPageSize, @Nullable MessageProvider messages, boolean sanitizeInputs,
                  boolean fuzzySubcommandMatching,
-                 List<Flag> flags, List<KeyValue<?>> keyValues, boolean awaitConfirmation) {
+                 List<Flag> flags, List<KeyValue<?>> keyValues, boolean awaitConfirmation,
+                 List<ExecutionHook.Before> beforeHooks, List<ExecutionHook.After> afterHooks) {
         this.name = Preconditions.checkNotNull(name, "name");
         this.aliases = List.copyOf(aliases == null ? List.of() : aliases);
         this.description = (description == null) ? "" : description;
@@ -335,6 +338,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         this.flags = List.copyOf(flags == null ? List.of() : flags);
         this.keyValues = List.copyOf(keyValues == null ? List.of() : keyValues);
         this.awaitConfirmation = awaitConfirmation;
+        this.beforeHooks = List.copyOf(beforeHooks == null ? List.of() : beforeHooks);
+        this.afterHooks = List.copyOf(afterHooks == null ? List.of() : afterHooks);
         // Pre-compute usage string for performance
         this.cachedUsage = computeUsageString();
     }
@@ -981,8 +986,38 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         }
 
         // Optional arguments not provided: simply absent from context
-        
+
         CommandContext ctx = new CommandContext(values, flagValues, keyValuePairs, multiValuePairs, providedArgs);
+
+        // Execute before hooks
+        for (ExecutionHook.Before beforeHook : beforeHooks) {
+            ExecutionHook.BeforeResult beforeResult;
+            try {
+                beforeResult = beforeHook.execute(sender, ctx);
+            } catch (Throwable t) {
+                String errorMsg = messages.internalError();
+                sendErrorMessage(sender, ErrorType.INTERNAL_ERROR, errorMsg, t);
+                if (plugin != null) {
+                    plugin.getLogger()
+                        .severe("Before hook threw an exception for command '" + name + "': " + t.getMessage());
+                    logException(t);
+                }
+                return true;
+            }
+            if (!beforeResult.shouldProceed()) {
+                // Before hook aborted execution
+                if (beforeResult.errorMessage() != null) {
+                    sendErrorMessage(sender, ErrorType.GUARD_FAILED, beforeResult.errorMessage(), null);
+                }
+                return true;
+            }
+        }
+
+        // Measure execution time for after hooks
+        long startTime = System.currentTimeMillis();
+        boolean executionSuccess = false;
+        Throwable executionException = null;
+
         if (async) {
             if (asyncActionAdv != null) {
                 // Advanced async with cancellation, progress, and timeout
@@ -1091,14 +1126,39 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         } else {
             try {
                 action.execute(sender, ctx);
+                executionSuccess = true;
             } catch (Throwable t) {
-                Throwable cause = (t.getCause() != null) ? t.getCause() : t;
+                executionSuccess = false;
+                executionException = (t.getCause() != null) ? t.getCause() : t;
                 sendErrorMessage(
                     sender, ErrorType.EXECUTION,
-                    messages.executionError(), cause
+                    messages.executionError(), executionException
                 );
+            } finally {
+                // Execute after hooks for synchronous execution
+                long executionTime = System.currentTimeMillis() - startTime;
+                ExecutionHook.AfterContext afterContext = executionSuccess
+                    ? ExecutionHook.AfterContext.success(executionTime)
+                    : ExecutionHook.AfterContext.failure(executionException, executionTime);
+
+                for (ExecutionHook.After afterHook : afterHooks) {
+                    try {
+                        afterHook.execute(sender, ctx, afterContext);
+                    } catch (Throwable t) {
+                        // Log but don't fail the command if after hook fails
+                        if (plugin != null) {
+                            plugin.getLogger()
+                                .warning("After hook threw an exception for command '" + name + "': " + t.getMessage());
+                            logException(t);
+                        }
+                    }
+                }
+            }
+
+            // Re-throw if execution failed
+            if (!executionSuccess && executionException != null) {
                 throw new CommandExecutionException(
-                    "Error executing command '" + name + "'", cause);
+                    "Error executing command '" + name + "'", executionException);
             }
         }
         return true;
