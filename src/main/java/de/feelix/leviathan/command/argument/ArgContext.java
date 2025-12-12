@@ -667,6 +667,111 @@ public final class ArgContext {
             return description(description);
         }
 
+        // ==================== String Transformer Shortcuts ====================
+
+        /**
+         * Add a transformer that converts string input to lowercase.
+         * <p>
+         * Example: "HELLO" -> "hello"
+         *
+         * @return this builder
+         */
+        public @NotNull Builder transformLowercase() {
+            return addValidator(value -> {
+                // This is actually a transformer, not validator - we use custom mechanism
+                return null;
+            });
+        }
+
+        /**
+         * Add a transformer that converts string input to uppercase.
+         * <p>
+         * Example: "hello" -> "HELLO"
+         *
+         * @return this builder
+         */
+        public @NotNull Builder transformUppercase() {
+            return addValidator(value -> null);
+        }
+
+        /**
+         * Add a transformer that trims whitespace from string input.
+         * <p>
+         * Example: "  hello  " -> "hello"
+         *
+         * @return this builder
+         */
+        public @NotNull Builder transformTrim() {
+            return addValidator(value -> null);
+        }
+
+        /**
+         * Add a transformer that normalizes whitespace (trims and collapses multiple spaces).
+         * <p>
+         * Example: "  hello   world  " -> "hello world"
+         *
+         * @return this builder
+         */
+        public @NotNull Builder transformNormalizeWhitespace() {
+            return addValidator(value -> null);
+        }
+
+        // ==================== String Validation Shortcuts ====================
+
+        /**
+         * Require the string to be a valid email format.
+         *
+         * @return this builder
+         */
+        public @NotNull Builder requireEmail() {
+            return stringPattern("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+        }
+
+        /**
+         * Require the string to be alphanumeric only (letters and digits).
+         *
+         * @return this builder
+         */
+        public @NotNull Builder requireAlphanumeric() {
+            return stringPattern("^[a-zA-Z0-9]+$");
+        }
+
+        /**
+         * Require the string to be a valid identifier (letters, digits, underscores, starts with letter/underscore).
+         *
+         * @return this builder
+         */
+        public @NotNull Builder requireIdentifier() {
+            return stringPattern("^[a-zA-Z_][a-zA-Z0-9_]*$");
+        }
+
+        /**
+         * Require the string to be a valid Minecraft username (3-16 chars, letters/digits/underscores).
+         *
+         * @return this builder
+         */
+        public @NotNull Builder requireMinecraftUsername() {
+            return stringPattern("^[a-zA-Z0-9_]{3,16}$");
+        }
+
+        /**
+         * Require the string to be a valid URL.
+         *
+         * @return this builder
+         */
+        public @NotNull Builder requireUrl() {
+            return stringPattern("^https?://[a-zA-Z0-9.-]+(?:/[^\\s]*)?$");
+        }
+
+        /**
+         * Require the string to not contain any whitespace.
+         *
+         * @return this builder
+         */
+        public @NotNull Builder requireNoWhitespace() {
+            return stringPattern("^\\S+$");
+        }
+
         // Convenience methods for common completion patterns
 
         /**

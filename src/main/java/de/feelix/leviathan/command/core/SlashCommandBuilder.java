@@ -60,6 +60,9 @@ public final class SlashCommandBuilder {
     private boolean sanitizeInputs = false;
     // Fuzzy subcommand matching
     private boolean fuzzySubcommandMatching = false;
+    private double fuzzyMatchThreshold = 0.6;
+    // Debug mode
+    private boolean debugMode = false;
     // Flags and Key-Value pairs
     private final List<Flag> flags = new ArrayList<>();
     private final List<KeyValue<?>> keyValues = new ArrayList<>();
@@ -791,6 +794,39 @@ public final class SlashCommandBuilder {
     }
 
     /**
+     * Set the similarity threshold for fuzzy subcommand matching.
+     * A higher threshold (closer to 1.0) requires more similar matches.
+     * <p>
+     * Recommended values:
+     * <ul>
+     *   <li>0.8 - Strict: Only very similar matches (e.g., "reload" matches "relod")</li>
+     *   <li>0.6 - Default: Moderate similarity (e.g., "reload" matches "relaod")</li>
+     *   <li>0.4 - Lenient: More permissive matching (may cause false positives)</li>
+     * </ul>
+     *
+     * @param threshold similarity threshold between 0.0 and 1.0 (default: 0.6)
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder fuzzyMatchThreshold(double threshold) {
+        this.fuzzyMatchThreshold = Math.max(0.0, Math.min(1.0, threshold));
+        return this;
+    }
+
+    /**
+     * Enable or disable debug mode for this command.
+     * When enabled, additional diagnostic information is logged, such as fuzzy match results.
+     * <p>
+     * This is disabled by default for production use.
+     *
+     * @param debug true to enable debug mode
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder debugMode(boolean debug) {
+        this.debugMode = debug;
+        return this;
+    }
+
+    /**
      * Enable or disable confirmation requirement for this command.
      * When enabled, the user must execute the command a second time to confirm execution.
      * On the first execution, a confirmation message will be sent to the user.
@@ -1055,6 +1091,49 @@ public final class SlashCommandBuilder {
     public <T> @NotNull SlashCommandBuilder arg(@NotNull String name, @NotNull ArgumentParser<T> parser,
                                                 @NotNull ArgContext argContext) {
         return arg(new Arg<>(name, parser, Preconditions.checkNotNull(argContext, "argContext")));
+    }
+
+    /**
+     * Add multiple arguments at once.
+     * Useful for bulk registration or when arguments are defined elsewhere.
+     * <p>
+     * Example:
+     * <pre>{@code
+     * .arguments(
+     *     new Arg<>("name", ArgParsers.stringParser()),
+     *     new Arg<>("age", ArgParsers.intParser()),
+     *     new Arg<>("active", ArgParsers.boolParser())
+     * )
+     * }</pre>
+     *
+     * @param arguments arguments to add
+     * @return this builder
+     */
+    @SafeVarargs
+    public final @NotNull SlashCommandBuilder arguments(@NotNull Arg<?>... arguments) {
+        Preconditions.checkNotNull(arguments, "arguments");
+        for (Arg<?> argument : arguments) {
+            if (argument != null) {
+                this.args.add(argument);
+            }
+        }
+        return this;
+    }
+
+    /**
+     * Add multiple arguments from a list.
+     *
+     * @param arguments list of arguments to add
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder arguments(@NotNull List<Arg<?>> arguments) {
+        Preconditions.checkNotNull(arguments, "arguments");
+        for (Arg<?> argument : arguments) {
+            if (argument != null) {
+                this.args.add(argument);
+            }
+        }
+        return this;
     }
 
     /**
@@ -1418,6 +1497,50 @@ public final class SlashCommandBuilder {
     }
 
     /**
+     * Conditionally register subcommands based on a predicate.
+     * Useful for feature-flag-based or config-dependent subcommand registration.
+     * <p>
+     * Example:
+     * <pre>{@code
+     * .subIf(() -> config.isFeatureEnabled("advanced"), advancedCommand)
+     * .subIf(plugin::isPremiumEnabled, premiumCommand1, premiumCommand2)
+     * }</pre>
+     *
+     * @param condition predicate that determines if subcommands should be registered
+     * @param subs      subcommands to register if condition is true
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder subIf(@NotNull java.util.function.BooleanSupplier condition,
+                                               @Nullable SlashCommand... subs) {
+        Preconditions.checkNotNull(condition, "condition");
+        if (condition.getAsBoolean()) {
+            return sub(subs);
+        }
+        return this;
+    }
+
+    /**
+     * Conditionally register subcommands based on a predicate with access to the plugin.
+     * <p>
+     * Example:
+     * <pre>{@code
+     * .subIf(plugin -> plugin.getConfig().getBoolean("features.admin"), adminCommand)
+     * }</pre>
+     *
+     * @param condition predicate that receives the plugin instance
+     * @param subs      subcommands to register if condition is true
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder subIf(@NotNull java.util.function.Predicate<org.bukkit.plugin.java.JavaPlugin> condition,
+                                               @Nullable SlashCommand... subs) {
+        Preconditions.checkNotNull(condition, "condition");
+        if (plugin != null && condition.test(plugin)) {
+            return sub(subs);
+        }
+        return this;
+    }
+
+    /**
      * Register this command as a subcommand to the specified parent builder.
      * This is the reverse operation of {@link #sub(SlashCommand...)}, allowing a subcommand
      * to register itself to its parent instead of the parent registering its children.
@@ -1526,6 +1649,80 @@ public final class SlashCommandBuilder {
     }
 
     /**
+     * Shortcut to add a permission-based guard.
+     * Equivalent to {@code require(Guard.permission(permission, messages))}.
+     * <p>
+     * Example:
+     * <pre>{@code
+     * .requirePermission("myplugin.admin")
+     * }</pre>
+     *
+     * @param permission the permission node to require
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder requirePermission(@NotNull String permission) {
+        Preconditions.checkNotNull(permission, "permission");
+        MessageProvider mp = (messages != null) ? messages : new DefaultMessageProvider();
+        return require(Guard.permission(permission, mp));
+    }
+
+    /**
+     * Shortcut to add a guard that requires ANY of the specified permissions.
+     * <p>
+     * Example:
+     * <pre>{@code
+     * .requireAnyPermission("myplugin.admin", "myplugin.moderator")
+     * }</pre>
+     *
+     * @param permissions the permission nodes, at least one must be granted
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder requireAnyPermission(@NotNull String... permissions) {
+        Preconditions.checkNotNull(permissions, "permissions");
+        if (permissions.length == 0) {
+            throw new IllegalArgumentException("At least one permission is required");
+        }
+        MessageProvider mp = (messages != null) ? messages : new DefaultMessageProvider();
+        return require(Guard.custom(
+            sender -> {
+                for (String perm : permissions) {
+                    if (sender.hasPermission(perm)) return true;
+                }
+                return false;
+            },
+            mp.guardPermission(String.join(" or ", permissions))
+        ));
+    }
+
+    /**
+     * Shortcut to add a guard that requires ALL of the specified permissions.
+     * <p>
+     * Example:
+     * <pre>{@code
+     * .requireAllPermissions("myplugin.use", "myplugin.admin")
+     * }</pre>
+     *
+     * @param permissions the permission nodes, all must be granted
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder requireAllPermissions(@NotNull String... permissions) {
+        Preconditions.checkNotNull(permissions, "permissions");
+        if (permissions.length == 0) {
+            throw new IllegalArgumentException("At least one permission is required");
+        }
+        MessageProvider mp = (messages != null) ? messages : new DefaultMessageProvider();
+        return require(Guard.custom(
+            sender -> {
+                for (String perm : permissions) {
+                    if (!sender.hasPermission(perm)) return false;
+                }
+                return true;
+            },
+            mp.guardPermission(String.join(" and ", permissions))
+        ));
+    }
+
+    /**
      * Add a cross-argument validator to enforce constraints between multiple arguments.
      * These validators are invoked after all arguments have been parsed and individually validated.
      * Multiple validators can be added and will form a validation chain.
@@ -1558,6 +1755,31 @@ public final class SlashCommandBuilder {
      */
     public @NotNull SlashCommandBuilder crossValidate(@NotNull CrossArgumentValidator validator) {
         return addCrossArgumentValidator(validator);
+    }
+
+    /**
+     * Add multiple cross-argument validators as a chain.
+     * All validators must pass for the command to execute.
+     * <p>
+     * Example:
+     * <pre>{@code
+     * .crossValidateChain(
+     *     CrossArgumentValidator.mutuallyExclusive("amount", "all"),
+     *     CrossArgumentValidator.requiresAny("amount", "all"),
+     *     CrossArgumentValidator.range("min", "max")
+     * )
+     * }</pre>
+     *
+     * @param validators the validators to add
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder crossValidateChain(@NotNull CrossArgumentValidator... validators) {
+        Preconditions.checkNotNull(validators, "validators");
+        // Add combined validator using CrossArgumentValidator.all()
+        if (validators.length > 0) {
+            return addCrossArgumentValidator(CrossArgumentValidator.all(validators));
+        }
+        return this;
     }
 
     /**
@@ -1729,6 +1951,30 @@ public final class SlashCommandBuilder {
                 }
             }
         }
+        // Validate cross-domain name uniqueness: arg names must not conflict with flag/keyValue names
+        for (Arg<?> arg : args) {
+            String argNameLower = arg.name().toLowerCase(Locale.ROOT);
+            for (Flag flag : flags) {
+                if (flag.name().equalsIgnoreCase(argNameLower)) {
+                    throw new CommandConfigurationException(
+                        "Argument name '" + arg.name() + "' conflicts with flag name '" + flag.name() + "'");
+                }
+                if (flag.longForm() != null && flag.longForm().equalsIgnoreCase(argNameLower)) {
+                    throw new CommandConfigurationException(
+                        "Argument name '" + arg.name() + "' conflicts with flag long form '--" + flag.longForm() + "'");
+                }
+            }
+            for (KeyValue<?> kv : keyValues) {
+                if (kv.name().equalsIgnoreCase(argNameLower)) {
+                    throw new CommandConfigurationException(
+                        "Argument name '" + arg.name() + "' conflicts with key-value name '" + kv.name() + "'");
+                }
+                if (kv.key().equalsIgnoreCase(argNameLower)) {
+                    throw new CommandConfigurationException(
+                        "Argument name '" + arg.name() + "' conflicts with key-value key '" + kv.key() + "'");
+                }
+            }
+        }
         // Validate subcommands and register both primary names and aliases in the routing map
         Map<String, SlashCommand> subs = new LinkedHashMap<>();
         for (Map.Entry<String, SlashCommand> e : subcommands.entrySet()) {
@@ -1766,7 +2012,7 @@ public final class SlashCommandBuilder {
             asyncAction, (asyncTimeoutMillis == null ? 0L : asyncTimeoutMillis),
             guards, crossArgumentValidators, exceptionHandler,
             perUserCooldownMillis, perServerCooldownMillis, enableHelp, helpPageSize, messages, sanitizeInputs,
-            fuzzySubcommandMatching, flags, keyValues, awaitConfirmation,
+            fuzzySubcommandMatching, fuzzyMatchThreshold, debugMode, flags, keyValues, awaitConfirmation,
             beforeHooks, afterHooks
         );
 

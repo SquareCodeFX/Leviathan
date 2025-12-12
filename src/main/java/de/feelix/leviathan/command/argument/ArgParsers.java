@@ -562,6 +562,129 @@ public final class ArgParsers {
         };
     }
 
+    /**
+     * Parser for enum constants with custom aliases support.
+     * <p>
+     * Allows defining shorthand aliases for enum values, making commands more user-friendly.
+     * <p>
+     * Example usage:
+     * <pre>{@code
+     * // Define aliases for GameMode
+     * Map<String, GameMode> aliases = Map.of(
+     *     "0", GameMode.SURVIVAL,
+     *     "1", GameMode.CREATIVE,
+     *     "2", GameMode.ADVENTURE,
+     *     "3", GameMode.SPECTATOR,
+     *     "s", GameMode.SURVIVAL,
+     *     "c", GameMode.CREATIVE,
+     *     "a", GameMode.ADVENTURE,
+     *     "sp", GameMode.SPECTATOR,
+     *     "sv", GameMode.SURVIVAL,
+     *     "cr", GameMode.CREATIVE
+     * );
+     *
+     * .argEnum("gamemode", GameMode.class, ArgParsers.enumParserWithAliases(GameMode.class, aliases))
+     * }</pre>
+     *
+     * @param enumClass the enum class to parse
+     * @param aliases   map of alias -> enum value
+     * @param <E>       enum type
+     * @return an ArgumentParser that parses enum constants with aliases
+     */
+    public static <E extends Enum<E>> @NotNull ArgumentParser<E> enumParserWithAliases(
+        @NotNull Class<E> enumClass,
+        @NotNull Map<String, E> aliases) {
+        if (enumClass == null) {
+            throw new ParsingException("enumParserWithAliases requires a non-null enum class");
+        }
+        if (aliases == null) {
+            throw new ParsingException("enumParserWithAliases requires a non-null aliases map");
+        }
+        E[] constants = enumClass.getEnumConstants();
+        if (constants == null || constants.length == 0) {
+            throw new ParsingException("enumParserWithAliases requires an enum class with at least one constant");
+        }
+
+        // Build combined map: standard enum names (lowercase) + custom aliases (lowercase)
+        Map<String, E> combined = new LinkedHashMap<>();
+        for (E constant : constants) {
+            combined.put(constant.name().toLowerCase(Locale.ROOT), constant);
+        }
+        for (Map.Entry<String, E> entry : aliases.entrySet()) {
+            if (entry.getKey() != null && entry.getValue() != null) {
+                combined.put(entry.getKey().toLowerCase(Locale.ROOT), entry.getValue());
+            }
+        }
+
+        String typeName = enumClass.getSimpleName().toLowerCase(Locale.ROOT);
+        Set<String> completions = new LinkedHashSet<>();
+        for (E constant : constants) {
+            completions.add(constant.name().toLowerCase(Locale.ROOT));
+        }
+
+        return new ArgumentParser<>() {
+            @Override
+            public String getTypeName() {
+                return typeName;
+            }
+
+            @Override
+            public ParseResult<E> parse(String input, CommandSender sender) {
+                Preconditions.checkNotNull(input, "input");
+                Preconditions.checkNotNull(sender, "sender");
+                E value = combined.get(input.toLowerCase(Locale.ROOT));
+                if (value == null) {
+                    return ParseResult.error("unknown " + typeName + " '" + input + "'");
+                }
+                return ParseResult.success(value);
+            }
+
+            @Override
+            public List<String> complete(String input, CommandSender sender) {
+                Preconditions.checkNotNull(input, "input");
+                Preconditions.checkNotNull(sender, "sender");
+                // Only show standard names in completions, not aliases (cleaner UX)
+                return startingWith(input, completions);
+            }
+        };
+    }
+
+    /**
+     * Create common GameMode aliases map.
+     * <p>
+     * Includes numeric (0-3), short forms (s, c, a, sp), and common abbreviations.
+     *
+     * @return map of aliases to GameMode values
+     */
+    public static @NotNull Map<String, org.bukkit.GameMode> gameModeAliases() {
+        Map<String, org.bukkit.GameMode> aliases = new LinkedHashMap<>();
+        // Numeric aliases (like vanilla)
+        aliases.put("0", org.bukkit.GameMode.SURVIVAL);
+        aliases.put("1", org.bukkit.GameMode.CREATIVE);
+        aliases.put("2", org.bukkit.GameMode.ADVENTURE);
+        aliases.put("3", org.bukkit.GameMode.SPECTATOR);
+        // Single-letter aliases
+        aliases.put("s", org.bukkit.GameMode.SURVIVAL);
+        aliases.put("c", org.bukkit.GameMode.CREATIVE);
+        aliases.put("a", org.bukkit.GameMode.ADVENTURE);
+        // Common abbreviations
+        aliases.put("sv", org.bukkit.GameMode.SURVIVAL);
+        aliases.put("cr", org.bukkit.GameMode.CREATIVE);
+        aliases.put("ad", org.bukkit.GameMode.ADVENTURE);
+        aliases.put("sp", org.bukkit.GameMode.SPECTATOR);
+        aliases.put("spec", org.bukkit.GameMode.SPECTATOR);
+        return aliases;
+    }
+
+    /**
+     * Parser for GameMode with common aliases (0-3, s/c/a/sp, etc.).
+     *
+     * @return an ArgumentParser for GameMode with aliases
+     */
+    public static @NotNull ArgumentParser<org.bukkit.GameMode> gameModeParser() {
+        return enumParserWithAliases(org.bukkit.GameMode.class, gameModeAliases());
+    }
+
     // ==================== Duration Parser ====================
 
     /**

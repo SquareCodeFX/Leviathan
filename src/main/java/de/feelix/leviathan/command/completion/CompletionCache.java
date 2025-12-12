@@ -33,6 +33,13 @@ public final class CompletionCache {
     private final Map<String, CacheEntry> cache = new ConcurrentHashMap<>();
     private final long ttlMillis;
     private final int maxSize;
+    private volatile boolean cleanupScheduled = false;
+    private static final java.util.concurrent.ScheduledExecutorService cleanupExecutor =
+        java.util.concurrent.Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "CompletionCache-Cleanup");
+            t.setDaemon(true);
+            return t;
+        });
 
     /**
      * A cached entry with expiration time.
@@ -97,6 +104,62 @@ public final class CompletionCache {
      */
     public static @NotNull CompletionCache createDefault() {
         return new CompletionCache(5 * 60 * 1000L, 100);
+    }
+
+    /**
+     * Create a cache with automatic background cleanup.
+     * Expired entries will be automatically removed at regular intervals.
+     *
+     * @param ttl             time-to-live value
+     * @param unit            time unit for TTL
+     * @param cleanupInterval interval between cleanup runs (in same unit as TTL)
+     * @return a new CompletionCache instance with automatic cleanup
+     */
+    public static @NotNull CompletionCache withAutoCleanup(long ttl, @NotNull TimeUnit unit, long cleanupInterval) {
+        Preconditions.checkNotNull(unit, "unit");
+        if (ttl <= 0) {
+            throw new IllegalArgumentException("TTL must be positive");
+        }
+        if (cleanupInterval <= 0) {
+            throw new IllegalArgumentException("cleanupInterval must be positive");
+        }
+        CompletionCache cache = new CompletionCache(unit.toMillis(ttl), Integer.MAX_VALUE);
+        cache.startAutoCleanup(cleanupInterval, unit);
+        return cache;
+    }
+
+    /**
+     * Start automatic background cleanup at the specified interval.
+     * This method is idempotent - calling it multiple times has no effect.
+     *
+     * @param interval cleanup interval
+     * @param unit     time unit for interval
+     */
+    public void startAutoCleanup(long interval, @NotNull TimeUnit unit) {
+        Preconditions.checkNotNull(unit, "unit");
+        if (cleanupScheduled) {
+            return; // Already scheduled
+        }
+        synchronized (this) {
+            if (cleanupScheduled) {
+                return; // Double-check after acquiring lock
+            }
+            cleanupScheduled = true;
+            cleanupExecutor.scheduleAtFixedRate(
+                this::evictExpired,
+                interval,
+                interval,
+                unit
+            );
+        }
+    }
+
+    /**
+     * Stop automatic cleanup. Note: This affects all caches using the shared executor.
+     * Call only when shutting down the application.
+     */
+    public static void shutdownCleanupExecutor() {
+        cleanupExecutor.shutdown();
     }
 
     /**
