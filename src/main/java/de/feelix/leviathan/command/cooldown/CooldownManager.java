@@ -1,13 +1,11 @@
 package de.feelix.leviathan.command.cooldown;
 
 import de.feelix.leviathan.annotations.NotNull;
-import de.feelix.leviathan.annotations.Nullable;
 import de.feelix.leviathan.util.Preconditions;
 
 import java.util.Iterator;
 import java.util.Map;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -29,17 +27,14 @@ public final class CooldownManager {
     private static final Map<String, Long> userCooldownDurations = new ConcurrentHashMap<>();
     private static final Map<String, Long> serverCooldownDurations = new ConcurrentHashMap<>();
 
-    // Cleanup task management
-    private static final AtomicBoolean cleanupRunning = new AtomicBoolean(false);
-    private static @Nullable ScheduledExecutorService cleanupExecutor = null;
-    private static @Nullable ScheduledFuture<?> cleanupFuture = null;
+    // Lazy cleanup: track operations and clean periodically
+    private static final AtomicLong operationCount = new AtomicLong(0);
+    private static final int CLEANUP_INTERVAL_OPS = 100; // Clean every N operations
 
     // Statistics
     private static final AtomicLong totalCleanedEntries = new AtomicLong(0);
     private static final AtomicLong lastCleanupTime = new AtomicLong(0);
 
-    // Default cleanup interval (5 minutes)
-    private static final long DEFAULT_CLEANUP_INTERVAL_MS = 5 * 60 * 1000L;
     // Grace period after cooldown expires before cleanup (1 minute)
     private static final long CLEANUP_GRACE_PERIOD_MS = 60 * 1000L;
 
@@ -56,6 +51,10 @@ public final class CooldownManager {
      */
     public static @NotNull CooldownResult checkServerCooldown(@NotNull String commandName, long cooldownMillis) {
         Preconditions.checkNotNull(commandName, "commandName");
+
+        // Lazy cleanup on access
+        lazyCleanup();
+
         if (cooldownMillis <= 0) {
             return CooldownResult.notOnCooldown();
         }
@@ -90,6 +89,10 @@ public final class CooldownManager {
                                                             long cooldownMillis) {
         Preconditions.checkNotNull(commandName, "commandName");
         Preconditions.checkNotNull(userId, "userId");
+
+        // Lazy cleanup on access
+        lazyCleanup();
+
         if (cooldownMillis <= 0) {
             return CooldownResult.notOnCooldown();
         }
@@ -220,83 +223,15 @@ public final class CooldownManager {
     }
 
     /**
-     * Start the automatic cleanup task with the default interval (5 minutes).
-     * The cleanup task removes expired cooldown entries to prevent memory leaks.
-     * <p>
-     * This method is thread-safe and will only start the task if it's not already running.
+     * Perform lazy cleanup if the operation count threshold is reached.
+     * This is called automatically on cooldown operations to keep the data clean
+     * without requiring background threads.
      */
-    public static void startCleanupTask() {
-        startCleanupTask(DEFAULT_CLEANUP_INTERVAL_MS);
-    }
-
-    /**
-     * Start the automatic cleanup task with a custom interval.
-     * The cleanup task removes expired cooldown entries to prevent memory leaks.
-     * <p>
-     * This method is thread-safe and will only start the task if it's not already running.
-     *
-     * @param intervalMillis cleanup interval in milliseconds (minimum 1000ms)
-     */
-    public static synchronized void startCleanupTask(long intervalMillis) {
-        if (cleanupRunning.get()) {
-            return; // Already running
+    private static void lazyCleanup() {
+        long ops = operationCount.incrementAndGet();
+        if (ops % CLEANUP_INTERVAL_OPS == 0) {
+            cleanupExpired();
         }
-
-        long interval = Math.max(1000L, intervalMillis);
-        cleanupExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
-            Thread t = new Thread(r, "Leviathan-CooldownCleanup");
-            t.setDaemon(true);
-            return t;
-        });
-
-        cleanupFuture = cleanupExecutor.scheduleAtFixedRate(
-            CooldownManager::cleanupExpired,
-            interval,
-            interval,
-            TimeUnit.MILLISECONDS
-        );
-
-        cleanupRunning.set(true);
-    }
-
-    /**
-     * Stop the automatic cleanup task.
-     * <p>
-     * This method is thread-safe and will properly shut down the cleanup executor.
-     */
-    public static synchronized void stopCleanupTask() {
-        if (!cleanupRunning.get()) {
-            return; // Not running
-        }
-
-        if (cleanupFuture != null) {
-            cleanupFuture.cancel(false);
-            cleanupFuture = null;
-        }
-
-        if (cleanupExecutor != null) {
-            cleanupExecutor.shutdown();
-            try {
-                if (!cleanupExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
-                    cleanupExecutor.shutdownNow();
-                }
-            } catch (InterruptedException e) {
-                cleanupExecutor.shutdownNow();
-                Thread.currentThread().interrupt();
-            }
-            cleanupExecutor = null;
-        }
-
-        cleanupRunning.set(false);
-    }
-
-    /**
-     * Check if the cleanup task is currently running.
-     *
-     * @return true if the cleanup task is active
-     */
-    public static boolean isCleanupRunning() {
-        return cleanupRunning.get();
     }
 
     /**
