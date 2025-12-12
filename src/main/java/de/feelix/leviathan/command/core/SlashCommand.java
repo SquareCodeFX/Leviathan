@@ -120,7 +120,6 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
     final List<Flag> flags;
     final List<KeyValue<?>> keyValues;
     private final boolean awaitConfirmation;
-    // Execution hooks
     private final List<ExecutionHook.Before> beforeHooks;
     private final List<ExecutionHook.After> afterHooks;
     JavaPlugin plugin;
@@ -311,7 +310,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                  @Nullable ExceptionHandler exceptionHandler,
                  long perUserCooldownMillis, long perServerCooldownMillis, boolean enableHelp,
                  int helpPageSize, @Nullable MessageProvider messages, boolean sanitizeInputs,
-                 boolean fuzzySubcommandMatching, double fuzzyMatchThreshold, boolean debugMode,
+                 boolean fuzzySubcommandMatching,
                  List<Flag> flags, List<KeyValue<?>> keyValues, boolean awaitConfirmation,
                  List<ExecutionHook.Before> beforeHooks, List<ExecutionHook.After> afterHooks) {
         this.name = Preconditions.checkNotNull(name, "name");
@@ -1066,18 +1065,34 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
 
         CommandContext ctx = new CommandContext(values, flagValues, keyValuePairs, multiValuePairs, providedArgs);
 
-        // Run before-execution hooks
-        ExecutionHook.BeforeResult beforeResult = runBeforeHooks(sender, ctx);
-        if (!beforeResult.shouldProceed()) {
-            // A hook aborted execution - send error message if provided
-            if (beforeResult.errorMessage() != null) {
-                sender.sendMessage(beforeResult.errorMessage());
+        // Execute before hooks
+        for (ExecutionHook.Before beforeHook : beforeHooks) {
+            ExecutionHook.BeforeResult beforeResult;
+            try {
+                beforeResult = beforeHook.execute(sender, ctx);
+            } catch (Throwable t) {
+                String errorMsg = messages.internalError();
+                sendErrorMessage(sender, ErrorType.INTERNAL_ERROR, errorMsg, t);
+                if (plugin != null) {
+                    plugin.getLogger()
+                        .severe("Before hook threw an exception for command '" + name + "': " + t.getMessage());
+                    logException(t);
+                }
+                return true;
             }
-            return true;
+            if (!beforeResult.shouldProceed()) {
+                // Before hook aborted execution
+                if (beforeResult.errorMessage() != null) {
+                    sendErrorMessage(sender, ErrorType.GUARD_FAILED, beforeResult.errorMessage(), null);
+                }
+                return true;
+            }
         }
 
-        // Track execution start time for after-hooks
-        final long executionStartTime = System.currentTimeMillis();
+        // Measure execution time for after hooks
+        long startTime = System.currentTimeMillis();
+        boolean executionSuccess = false;
+        Throwable executionException = null;
 
         if (async) {
             if (asyncActionAdv != null) {
@@ -1210,25 +1225,39 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
             Throwable executionError = null;
             try {
                 action.execute(sender, ctx);
+                executionSuccess = true;
             } catch (Throwable t) {
-                executionError = (t.getCause() != null) ? t.getCause() : t;
+                executionSuccess = false;
+                executionException = (t.getCause() != null) ? t.getCause() : t;
                 sendErrorMessage(
                     sender, ErrorType.EXECUTION,
-                    messages.executionError(), executionError
+                    messages.executionError(), executionException
                 );
+            } finally {
+                // Execute after hooks for synchronous execution
+                long executionTime = System.currentTimeMillis() - startTime;
+                ExecutionHook.AfterContext afterContext = executionSuccess
+                    ? ExecutionHook.AfterContext.success(executionTime)
+                    : ExecutionHook.AfterContext.failure(executionException, executionTime);
+
+                for (ExecutionHook.After afterHook : afterHooks) {
+                    try {
+                        afterHook.execute(sender, ctx, afterContext);
+                    } catch (Throwable t) {
+                        // Log but don't fail the command if after hook fails
+                        if (plugin != null) {
+                            plugin.getLogger()
+                                .warning("After hook threw an exception for command '" + name + "': " + t.getMessage());
+                            logException(t);
+                        }
+                    }
+                }
             }
 
-            // Run after-hooks
-            long executionTime = System.currentTimeMillis() - executionStartTime;
-            ExecutionHook.AfterContext afterContext = (executionError == null)
-                ? ExecutionHook.AfterContext.success(executionTime)
-                : ExecutionHook.AfterContext.failure(executionError, executionTime);
-            runAfterHooks(sender, ctx, afterContext);
-
-            // Re-throw if there was an error (after running hooks)
-            if (executionError != null) {
+            // Re-throw if execution failed
+            if (!executionSuccess && executionException != null) {
                 throw new CommandExecutionException(
-                    "Error executing command '" + name + "'", executionError);
+                    "Error executing command '" + name + "'", executionException);
             }
         }
         return true;

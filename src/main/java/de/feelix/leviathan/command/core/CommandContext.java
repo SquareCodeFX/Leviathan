@@ -332,10 +332,6 @@ public final class CommandContext {
         return (o == null) ? OptionType.UNKNOWN : OptionType.CHOICE;
     }
 
-    // ================================
-    // FLAG ACCESSOR METHODS
-    // ================================
-
     /**
      * Get a flag value by name.
      * <p>
@@ -384,10 +380,6 @@ public final class CommandContext {
     public @NotNull Map<String, Boolean> allFlags() {
         return flagValues;
     }
-
-    // ================================
-    // KEY-VALUE ACCESSOR METHODS
-    // ================================
 
     /**
      * Get a key-value pair by name.
@@ -525,10 +517,6 @@ public final class CommandContext {
         return keyValuePairs;
     }
 
-    // ================================
-    // MULTI-VALUE ACCESSOR METHODS
-    // ================================
-
     /**
      * Get multiple values for a key-value pair.
      * <p>
@@ -586,10 +574,6 @@ public final class CommandContext {
     public @NotNull Map<String, List<Object>> allMultiValues() {
         return multiValuePairs;
     }
-
-    // ================================
-    // BULK & STREAM ACCESSOR METHODS
-    // ================================
 
     /**
      * Get all parsed argument values as an unmodifiable map.

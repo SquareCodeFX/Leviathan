@@ -846,10 +846,6 @@ public final class SlashCommandBuilder {
         return this;
     }
 
-    // ================================
-    // EXECUTION HOOKS
-    // ================================
-
     /**
      * Add a hook that executes before the command runs.
      * <p>
@@ -1171,10 +1167,6 @@ public final class SlashCommandBuilder {
         Preconditions.checkNotNull(argContext, "argContext");
         return arg(new Arg<>(name, parser, argContext).withCondition(condition));
     }
-
-    // ================================
-    // FLAG AND KEY-VALUE METHODS
-    // ================================
 
     /**
      * Add a flag (switch/option) to this command.
@@ -2012,8 +2004,7 @@ public final class SlashCommandBuilder {
             asyncAction, (asyncTimeoutMillis == null ? 0L : asyncTimeoutMillis),
             guards, crossArgumentValidators, exceptionHandler,
             perUserCooldownMillis, perServerCooldownMillis, enableHelp, helpPageSize, messages, sanitizeInputs,
-            fuzzySubcommandMatching, fuzzyMatchThreshold, debugMode, flags, keyValues, awaitConfirmation,
-            beforeHooks, afterHooks
+            fuzzySubcommandMatching, flags, keyValues, awaitConfirmation, beforeHooks, afterHooks
         );
 
         // Set parent reference for all subcommands
