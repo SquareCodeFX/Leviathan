@@ -47,7 +47,7 @@ public interface HelpFormatter {
      * Format the usage line.
      *
      * @param commandPath  full command path
-     * @param usagePattern usage pattern (e.g., "<player> <amount> [--force]")
+     * @param usagePattern usage pattern (e.g., {@code "<player> <amount> [--force]"})
      * @return formatted usage string
      */
     @NotNull

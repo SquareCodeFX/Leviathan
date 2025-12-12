@@ -15,8 +15,8 @@ import java.util.concurrent.atomic.AtomicLong;
  * across multiple command executions.
  * <p>
  * The manager includes automatic cleanup of expired cooldown entries to prevent memory leaks
- * on long-running servers. Cleanup can be started via {@link #startCleanupTask(long)} and
- * stopped via {@link #stopCleanupTask()}.
+ * on long-running servers. Cleanup is performed lazily via {@link #lazyCleanup()} or can be
+ * triggered manually via {@link #cleanupExpired()}.
  */
 public final class CooldownManager {
     // Cooldown tracking: commandName -> (userId -> lastExecutionTime)
