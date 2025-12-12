@@ -310,7 +310,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                  @Nullable ExceptionHandler exceptionHandler,
                  long perUserCooldownMillis, long perServerCooldownMillis, boolean enableHelp,
                  int helpPageSize, @Nullable MessageProvider messages, boolean sanitizeInputs,
-                 boolean fuzzySubcommandMatching,
+                 boolean fuzzySubcommandMatching, double fuzzyMatchThreshold, boolean debugMode,
                  List<Flag> flags, List<KeyValue<?>> keyValues, boolean awaitConfirmation,
                  List<ExecutionHook.Before> beforeHooks, List<ExecutionHook.After> afterHooks) {
         this.name = Preconditions.checkNotNull(name, "name");
@@ -612,33 +612,32 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         // Uses atomic operations to prevent race conditions in concurrent scenarios
         if (awaitConfirmation) {
             String confirmationKey = name + ":" + sender.getName();
-            long currentTime = System.currentTimeMillis();
-            long newExpiry = currentTime + CONFIRMATION_TIMEOUT_MILLIS;
+            final long currentTime = System.currentTimeMillis();
+            final long newExpiry = currentTime + CONFIRMATION_TIMEOUT_MILLIS;
 
-            // Clean up expired confirmations periodically (not every execution to reduce overhead)
-            if ((currentTime & 0xF) == 0) { // ~6.25% chance per execution
-                pendingConfirmations.entrySet().removeIf(entry -> entry.getValue() < currentTime);
-            }
+            // Clean up expired confirmations on every check (was too infrequent before)
+            pendingConfirmations.entrySet().removeIf(entry -> entry.getValue() < currentTime);
 
-            // Atomic check-and-update: try to remove existing valid confirmation
-            Long existingExpiry = pendingConfirmations.remove(confirmationKey);
-
-            if (existingExpiry != null && existingExpiry >= currentTime) {
-                // Valid confirmation existed and was removed - proceed with execution
-                // This is the second execution within timeout
-            } else {
-                // No valid confirmation - register new pending confirmation atomically
-                // Use putIfAbsent to handle race condition where another thread might have added one
-                Long previous = pendingConfirmations.putIfAbsent(confirmationKey, newExpiry);
-                if (previous != null && previous >= currentTime) {
-                    // Another thread added a valid confirmation - remove it and proceed
-                    pendingConfirmations.remove(confirmationKey);
+            // Use compute for atomic check-and-update to prevent race conditions
+            // Returns null if confirmation was valid and consumed, non-null if new pending was created
+            final boolean[] needsConfirmation = {false};
+            pendingConfirmations.compute(confirmationKey, (key, existingExpiry) -> {
+                if (existingExpiry != null && existingExpiry >= currentTime) {
+                    // Valid confirmation exists - consume it (return null to remove)
+                    return null;
                 } else {
-                    // First execution - ask for confirmation
-                    sendErrorMessage(sender, ErrorType.GUARD_FAILED, messages.awaitConfirmation(), null);
-                    return true;
+                    // No valid confirmation - create new pending confirmation
+                    needsConfirmation[0] = true;
+                    return newExpiry;
                 }
+            });
+
+            if (needsConfirmation[0]) {
+                // First execution - ask for confirmation
+                sendErrorMessage(sender, ErrorType.GUARD_FAILED, messages.awaitConfirmation(), null);
+                return true;
             }
+            // Valid confirmation was consumed - proceed with execution
         }
 
         // Auto help: display help message when enabled and no arguments provided
@@ -1104,7 +1103,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                     executionError = (t.getCause() != null) ? t.getCause() : t;
                     sendErrorMessage(sender, ErrorType.EXECUTION, messages.executionError(), executionError);
                 }
-                long executionTime = System.currentTimeMillis() - executionStartTime;
+                long executionTime = System.currentTimeMillis() - startTime;
                 ExecutionHook.AfterContext afterContext = (executionError == null)
                     ? ExecutionHook.AfterContext.success(executionTime)
                     : ExecutionHook.AfterContext.failure(executionError, executionTime);
@@ -1151,7 +1150,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                     }
 
                     // Run after-hooks
-                    final long executionTime = System.currentTimeMillis() - executionStartTime;
+                    final long executionTime = System.currentTimeMillis() - startTime;
                     final Throwable finalError = executionError;
                     final boolean finalTimedOut = timedOut;
 
@@ -1233,7 +1232,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                     }
 
                     // Run after-hooks
-                    final long executionTime = System.currentTimeMillis() - executionStartTime;
+                    final long executionTime = System.currentTimeMillis() - startTime;
                     final Throwable finalExecutionError = executionError;
                     ExecutionHook.AfterContext afterContext = (finalExecutionError == null)
                         ? ExecutionHook.AfterContext.success(executionTime)

@@ -22,6 +22,13 @@ public final class ArgParsers {
     private ArgParsers() {
     }
 
+    // Cached Material completions for performance (Material enum has ~900 constants)
+    private static final List<String> MATERIAL_COMPLETIONS = Collections.unmodifiableList(
+        Arrays.stream(Material.values())
+            .map(m -> m.name().toLowerCase(Locale.ROOT))
+            .collect(Collectors.toList())
+    );
+
     private static List<String> startingWith(String prefix, Collection<String> options) {
         String low = prefix.toLowerCase(Locale.ROOT);
         return options.stream()
@@ -507,11 +514,8 @@ public final class ArgParsers {
             public List<String> complete(String input, CommandSender sender) {
                 Preconditions.checkNotNull(input, "input");
                 Preconditions.checkNotNull(sender, "sender");
-                return startingWith(
-                    input, Arrays.stream(Material.values())
-                        .map(m -> m.name().toLowerCase(Locale.ROOT))
-                        .collect(Collectors.toList())
-                );
+                // Use cached completions for performance
+                return startingWith(input, MATERIAL_COMPLETIONS);
             }
         };
     }

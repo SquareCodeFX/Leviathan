@@ -198,6 +198,7 @@ public final class LruPaginationCache<K, V> implements PaginationCache<K, V> {
         // Lazy cleanup on access
         lazyCleanup();
 
+        // First, try with read lock only
         lock.readLock().lock();
         try {
             CacheEntry<V> entry = cache.get(key);
@@ -206,26 +207,29 @@ public final class LruPaginationCache<K, V> implements PaginationCache<K, V> {
                 return Optional.empty();
             }
 
-            if (entry.isExpired()) {
-                missCount.incrementAndGet();
-                // Upgrade to write lock for removal
-                lock.readLock().unlock();
-                lock.writeLock().lock();
-                try {
-                    cache.remove(key);
-                    evictionCount.incrementAndGet();
-                    lock.readLock().lock();
-                } finally {
-                    lock.writeLock().unlock();
-                }
-                return Optional.empty();
+            if (!entry.isExpired()) {
+                hitCount.incrementAndGet();
+                return Optional.of(entry.getValue());
             }
-
-            hitCount.incrementAndGet();
-            return Optional.of(entry.getValue());
+            // Entry is expired - need to remove it
+            missCount.incrementAndGet();
         } finally {
             lock.readLock().unlock();
         }
+
+        // Upgrade to write lock for removal (outside read lock to avoid deadlock)
+        lock.writeLock().lock();
+        try {
+            // Re-check in case another thread already removed it
+            CacheEntry<V> entry = cache.get(key);
+            if (entry != null && entry.isExpired()) {
+                cache.remove(key);
+                evictionCount.incrementAndGet();
+            }
+        } finally {
+            lock.writeLock().unlock();
+        }
+        return Optional.empty();
     }
 
     @Override
