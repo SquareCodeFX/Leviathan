@@ -1,7 +1,7 @@
 package de.feelix.leviathan.command.metrics;
 
 import de.feelix.leviathan.annotations.NotNull;
-import de.feelix.leviathan.command.core.ErrorType;
+import de.feelix.leviathan.command.error.ErrorType;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;

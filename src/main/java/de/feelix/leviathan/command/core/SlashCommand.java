@@ -1128,9 +1128,6 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                     Throwable executionError = null;
                     boolean timedOut = false;
 
-                    // Check for timeout using simple time tracking
-                    long startTime = System.currentTimeMillis();
-
                     try {
                         // Periodically check for timeout if configured
                         if (asyncTimeoutMillis > 0L) {

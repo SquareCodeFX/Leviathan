@@ -9,6 +9,7 @@ import de.feelix.leviathan.command.error.ExceptionHandler;
 import de.feelix.leviathan.command.flag.Flag;
 import de.feelix.leviathan.command.flag.KeyValue;
 import de.feelix.leviathan.command.guard.Guard;
+import de.feelix.leviathan.command.message.DefaultMessageProvider;
 import de.feelix.leviathan.command.message.MessageProvider;
 import de.feelix.leviathan.command.validation.CrossArgumentValidator;
 import de.feelix.leviathan.exceptions.CommandConfigurationException;
@@ -1516,14 +1517,16 @@ public final class SlashCommandBuilder {
      * <p>
      * Example:
      * <pre>{@code
-     * .subIf(plugin -> plugin.getConfig().getBoolean("features.admin"), adminCommand)
+     * .subIf(plugin, p -> p.getConfig().getBoolean("features.admin"), adminCommand)
      * }</pre>
      *
+     * @param plugin    the plugin instance to pass to the condition
      * @param condition predicate that receives the plugin instance
      * @param subs      subcommands to register if condition is true
      * @return this builder
      */
-    public @NotNull SlashCommandBuilder subIf(@NotNull java.util.function.Predicate<org.bukkit.plugin.java.JavaPlugin> condition,
+    public @NotNull SlashCommandBuilder subIf(@Nullable JavaPlugin plugin,
+                                               @NotNull Predicate<JavaPlugin> condition,
                                                @Nullable SlashCommand... subs) {
         Preconditions.checkNotNull(condition, "condition");
         if (plugin != null && condition.test(plugin)) {

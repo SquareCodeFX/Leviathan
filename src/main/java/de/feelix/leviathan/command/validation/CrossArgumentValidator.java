@@ -50,7 +50,6 @@ public interface CrossArgumentValidator {
     @Nullable
     String validate(@NotNull CommandContext context);
 
-    // ==================== Factory Methods ====================
 
     /**
      * Creates a validator that ensures at most one of the specified arguments is provided.
@@ -67,7 +66,7 @@ public interface CrossArgumentValidator {
         final List<String> names = List.of(argumentNames);
         return context -> {
             List<String> provided = names.stream()
-                .filter(context::isPresent)
+                .filter(context::has)
                 .collect(Collectors.toList());
             if (provided.size() > 1) {
                 return "Arguments are mutually exclusive: " + String.join(", ", provided);
@@ -92,7 +91,7 @@ public interface CrossArgumentValidator {
         final List<String> names = List.of(argumentNames);
         return context -> {
             long providedCount = names.stream()
-                .filter(context::isPresent)
+                .filter(context::has)
                 .count();
             if (providedCount > 1) {
                 return errorMessage;
@@ -115,11 +114,11 @@ public interface CrossArgumentValidator {
         }
         final List<String> names = List.of(argumentNames);
         return context -> {
-            boolean anyPresent = names.stream().anyMatch(context::isPresent);
-            boolean allPresent = names.stream().allMatch(context::isPresent);
+            boolean anyPresent = names.stream().anyMatch(context::has);
+            boolean allPresent = names.stream().allMatch(context::has);
             if (anyPresent && !allPresent) {
                 List<String> missing = names.stream()
-                    .filter(name -> !context.isPresent(name))
+                    .filter(name -> !context.has(name))
                     .collect(Collectors.toList());
                 return "Missing required arguments: " + String.join(", ", missing);
             }
@@ -142,8 +141,8 @@ public interface CrossArgumentValidator {
         }
         final List<String> names = List.of(argumentNames);
         return context -> {
-            boolean anyPresent = names.stream().anyMatch(context::isPresent);
-            boolean allPresent = names.stream().allMatch(context::isPresent);
+            boolean anyPresent = names.stream().anyMatch(context::has);
+            boolean allPresent = names.stream().allMatch(context::has);
             if (anyPresent && !allPresent) {
                 return errorMessage;
             }
@@ -164,7 +163,7 @@ public interface CrossArgumentValidator {
         }
         final List<String> names = List.of(argumentNames);
         return context -> {
-            boolean anyPresent = names.stream().anyMatch(context::isPresent);
+            boolean anyPresent = names.stream().anyMatch(context::has);
             if (!anyPresent) {
                 return "At least one of these arguments is required: " + String.join(", ", names);
             }
@@ -187,7 +186,7 @@ public interface CrossArgumentValidator {
         }
         final List<String> names = List.of(argumentNames);
         return context -> {
-            boolean anyPresent = names.stream().anyMatch(context::isPresent);
+            boolean anyPresent = names.stream().anyMatch(context::has);
             if (!anyPresent) {
                 return errorMessage;
             }
@@ -210,9 +209,9 @@ public interface CrossArgumentValidator {
         }
         final List<String> required = List.of(requiredArgs);
         return context -> {
-            if (context.isPresent(triggerArgument)) {
+            if (context.has(triggerArgument)) {
                 List<String> missing = required.stream()
-                    .filter(name -> !context.isPresent(name))
+                    .filter(name -> !context.has(name))
                     .collect(Collectors.toList());
                 if (!missing.isEmpty()) {
                     return "When '" + triggerArgument + "' is specified, the following are required: "
@@ -240,8 +239,8 @@ public interface CrossArgumentValidator {
         }
         final List<String> required = List.of(requiredArgs);
         return context -> {
-            if (context.isPresent(triggerArgument)) {
-                boolean allPresent = required.stream().allMatch(context::isPresent);
+            if (context.has(triggerArgument)) {
+                boolean allPresent = required.stream().allMatch(context::has);
                 if (!allPresent) {
                     return errorMessage;
                 }
@@ -269,7 +268,7 @@ public interface CrossArgumentValidator {
         final List<String> required = List.of(requiredArgs);
         return context -> {
             if (condition.test(context)) {
-                boolean allPresent = required.stream().allMatch(context::isPresent);
+                boolean allPresent = required.stream().allMatch(context::has);
                 if (!allPresent) {
                     return errorMessage;
                 }
@@ -297,7 +296,7 @@ public interface CrossArgumentValidator {
         @NotNull String errorMessage,
         @NotNull Class<T> type) {
         return context -> {
-            if (context.isPresent(arg1) && context.isPresent(arg2)) {
+            if (context.has(arg1) && context.has(arg2)) {
                 T val1 = context.get(arg1, type);
                 T val2 = context.get(arg2, type);
                 if (val1 != null && val2 != null && !comparison.test(val1, val2)) {
