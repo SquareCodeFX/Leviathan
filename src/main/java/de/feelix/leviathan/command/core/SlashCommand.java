@@ -1095,129 +1095,150 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         Throwable executionException = null;
 
         if (async) {
-            if (asyncActionAdv != null) {
-                // Advanced async with cancellation, progress, and timeout
+            if (plugin == null) {
+                // Cannot run async without plugin - fall back to sync execution
+                Throwable executionError = null;
+                try {
+                    action.execute(sender, ctx);
+                } catch (Throwable t) {
+                    executionError = (t.getCause() != null) ? t.getCause() : t;
+                    sendErrorMessage(sender, ErrorType.EXECUTION, messages.executionError(), executionError);
+                }
+                long executionTime = System.currentTimeMillis() - executionStartTime;
+                ExecutionHook.AfterContext afterContext = (executionError == null)
+                    ? ExecutionHook.AfterContext.success(executionTime)
+                    : ExecutionHook.AfterContext.failure(executionError, executionTime);
+                runAfterHooks(sender, ctx, afterContext);
+                if (executionError != null) {
+                    throw new CommandExecutionException("Error executing command '" + name + "'", executionError);
+                }
+            } else if (asyncActionAdv != null) {
+                // Advanced async with cancellation, progress, and timeout using Bukkit scheduler
                 final CancellationToken token = new CancellationToken();
                 final Progress progress = (msg) -> {
                     try {
-                        if (plugin != null) {
-                            plugin.getServer().getScheduler().runTask(plugin, () -> sender.sendMessage(msg));
-                        } else {
-                            sender.sendMessage(msg);
-                        }
+                        plugin.getServer().getScheduler().runTask(plugin, () -> sender.sendMessage(msg));
                     } catch (Throwable t) {
-                        // Log progress callback errors instead of silently ignoring
-                        if (plugin != null) {
-                            plugin.getLogger()
-                                .warning(
-                                    "Failed to send progress message for command '" + name + "': " + t.getMessage());
-                        }
+                        plugin.getLogger().warning(
+                            "Failed to send progress message for command '" + name + "': " + t.getMessage());
                     }
                 };
-                CompletableFuture<Void> future = CompletableFuture.runAsync(
-                    () -> {
-                        try {
+
+                // Use Bukkit's async scheduler instead of CompletableFuture
+                plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+                    Throwable executionError = null;
+                    boolean timedOut = false;
+
+                    // Check for timeout using simple time tracking
+                    long startTime = System.currentTimeMillis();
+
+                    try {
+                        // Periodically check for timeout if configured
+                        if (asyncTimeoutMillis > 0L) {
+                            // Execute with timeout awareness - action should check token.isCancelled()
                             asyncActionAdv.execute(sender, ctx, token, progress);
-                        } catch (Throwable t) {
-                            throw new CommandExecutionException(
-                                "Error executing command '" + name + "' asynchronously", t);
+
+                            // Check if we exceeded timeout after execution
+                            if (System.currentTimeMillis() - startTime > asyncTimeoutMillis) {
+                                timedOut = true;
+                                token.cancel();
+                            }
+                        } else {
+                            asyncActionAdv.execute(sender, ctx, token, progress);
                         }
-                    });
-                if (asyncTimeoutMillis > 0L) {
-                    future = future.orTimeout(asyncTimeoutMillis, TimeUnit.MILLISECONDS);
-                }
-                future.whenComplete((result, ex) -> {
-                    // Run after-hooks regardless of success or failure
-                    long executionTime = System.currentTimeMillis() - executionStartTime;
-                    ExecutionHook.AfterContext afterContext = (ex == null)
+                    } catch (Throwable t) {
+                        executionError = (t.getCause() != null) ? t.getCause() : t;
+                    }
+
+                    // Run after-hooks
+                    final long executionTime = System.currentTimeMillis() - executionStartTime;
+                    final Throwable finalError = executionError;
+                    final boolean finalTimedOut = timedOut;
+
+                    ExecutionHook.AfterContext afterContext = (finalError == null && !finalTimedOut)
                         ? ExecutionHook.AfterContext.success(executionTime)
-                        : ExecutionHook.AfterContext.failure(ex.getCause() != null ? ex.getCause() : ex, executionTime);
+                        : ExecutionHook.AfterContext.failure(
+                            finalError != null ? finalError : new TimeoutException("Command timed out"),
+                            executionTime);
                     runAfterHooks(sender, ctx, afterContext);
 
-                    // Handle exceptions (similar to previous exceptionally handler)
-                    if (ex != null) {
-                        Throwable cause = unwrapException(ex);
-                        String msg;
-                        ErrorType errorType;
-                        if (cause instanceof TimeoutException) {
-                            msg = messages.commandTimeout(asyncTimeoutMillis);
-                            errorType = ErrorType.TIMEOUT;
-                            token.cancel();
-                        } else {
-                            msg = messages.executionError();
-                            errorType = ErrorType.EXECUTION;
-                        }
-                        boolean suppressDefault = false;
-                        if (exceptionHandler != null) {
-                            try {
-                                suppressDefault = exceptionHandler.handle(sender, errorType, msg, cause);
-                            } catch (Throwable handlerException) {
-                                // Exception handler itself threw an exception - log it and continue with default
-                                // behavior
-                                String handlerMsg = messages.exceptionHandlerError(handlerException.getMessage());
-                                if (plugin != null) {
-                                    plugin.getServer().getScheduler()
-                                        .runTask(plugin, () -> sender.sendMessage(handlerMsg));
-                                    plugin.getLogger()
-                                        .severe("Exception handler threw an exception while handling " + errorType
-                                                + ": " + handlerException.getMessage());
+                    // Handle errors - send messages on main thread
+                    if (finalTimedOut || finalError != null) {
+                        final String errorMsg = finalTimedOut
+                            ? messages.commandTimeout(asyncTimeoutMillis)
+                            : messages.executionError();
+                        final ErrorType errorType = finalTimedOut ? ErrorType.TIMEOUT : ErrorType.EXECUTION;
+                        final Throwable errorCause = finalTimedOut
+                            ? new TimeoutException("Command timed out")
+                            : finalError;
+
+                        plugin.getServer().getScheduler().runTask(plugin, () -> {
+                            boolean suppressDefault = false;
+                            if (exceptionHandler != null) {
+                                try {
+                                    suppressDefault = exceptionHandler.handle(sender, errorType, errorMsg, errorCause);
+                                } catch (Throwable handlerException) {
+                                    sender.sendMessage(messages.exceptionHandlerError(handlerException.getMessage()));
+                                    plugin.getLogger().severe("Exception handler threw an exception while handling "
+                                        + errorType + ": " + handlerException.getMessage());
                                     logException(handlerException);
-                                } else {
-                                    sender.sendMessage(handlerMsg);
                                 }
                             }
-                        }
-                        if (sendErrors && !suppressDefault) {
-                            if (plugin != null)
-                                plugin.getServer().getScheduler().runTask(plugin, () -> sender.sendMessage(msg));
-                            else sender.sendMessage(msg);
+                            if (sendErrors && !suppressDefault) {
+                                sender.sendMessage(errorMsg);
+                            }
+                        });
+
+                        if (finalError != null) {
+                            plugin.getLogger().severe("Error executing command '" + name + "' asynchronously: "
+                                + finalError.getMessage());
+                            logException(finalError);
                         }
                     }
                 });
             } else {
-                // Execute asynchronously using CompletableFuture (no Bukkit scheduler).
-                CompletableFuture.runAsync(() -> {
+                // Simple async execution using Bukkit scheduler
+                plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
                     Throwable executionError = null;
                     try {
                         action.execute(sender, ctx);
                     } catch (Throwable t) {
                         executionError = (t.getCause() != null) ? t.getCause() : t;
-                        String errorMsg = messages.executionError();
-                        boolean suppressDefault = false;
-                        if (exceptionHandler != null) {
-                            try {
-                                suppressDefault = exceptionHandler.handle(sender, ErrorType.EXECUTION, errorMsg,
-                                    executionError);
-                            } catch (Throwable handlerException) {
-                                // Exception handler itself threw an exception - log it and continue with default
-                                // behavior
-                                sender.sendMessage(messages.exceptionHandlerError(handlerException.getMessage()));
-                                if (plugin != null) {
-                                    plugin.getLogger()
-                                        .severe("Exception handler threw an exception while handling EXECUTION: "
-                                                + handlerException.getMessage());
+                        final Throwable finalError = executionError;
+                        final String errorMsg = messages.executionError();
+
+                        // Send error message on main thread
+                        plugin.getServer().getScheduler().runTask(plugin, () -> {
+                            boolean suppressDefault = false;
+                            if (exceptionHandler != null) {
+                                try {
+                                    suppressDefault = exceptionHandler.handle(sender, ErrorType.EXECUTION, errorMsg,
+                                        finalError);
+                                } catch (Throwable handlerException) {
+                                    sender.sendMessage(messages.exceptionHandlerError(handlerException.getMessage()));
+                                    plugin.getLogger().severe(
+                                        "Exception handler threw an exception while handling EXECUTION: "
+                                            + handlerException.getMessage());
                                     logException(handlerException);
                                 }
                             }
-                        }
-                        if (sendErrors && !suppressDefault) {
-                            sender.sendMessage(errorMsg);
-                        }
-                        // Log the exception but don't re-throw to prevent unhandled exception in async thread
-                        if (plugin != null) {
-                            plugin.getLogger()
-                                .severe("Error executing command '" + name + "' asynchronously: "
-                                        + executionError.getMessage());
-                            logException(executionError);
-                        }
-                    } finally {
-                        // Run after-hooks on the async thread
-                        long executionTime = System.currentTimeMillis() - executionStartTime;
-                        ExecutionHook.AfterContext afterContext = (executionError == null)
-                            ? ExecutionHook.AfterContext.success(executionTime)
-                            : ExecutionHook.AfterContext.failure(executionError, executionTime);
-                        runAfterHooks(sender, ctx, afterContext);
+                            if (sendErrors && !suppressDefault) {
+                                sender.sendMessage(errorMsg);
+                            }
+                        });
+
+                        plugin.getLogger().severe(
+                            "Error executing command '" + name + "' asynchronously: " + finalError.getMessage());
+                        logException(finalError);
                     }
+
+                    // Run after-hooks
+                    final long executionTime = System.currentTimeMillis() - executionStartTime;
+                    final Throwable finalExecutionError = executionError;
+                    ExecutionHook.AfterContext afterContext = (finalExecutionError == null)
+                        ? ExecutionHook.AfterContext.success(executionTime)
+                        : ExecutionHook.AfterContext.failure(finalExecutionError, executionTime);
+                    runAfterHooks(sender, ctx, afterContext);
                 });
             }
         } else {

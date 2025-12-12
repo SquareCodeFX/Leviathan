@@ -6,7 +6,9 @@ import de.feelix.leviathan.command.pagination.exception.CacheException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -78,9 +80,10 @@ public final class LruPaginationCache<K, V> implements PaginationCache<K, V> {
      */
     private final ExecutorService executor;
     /**
-     * Scheduler for periodic cleanup of expired entries
+     * Lazy cleanup: track operations and clean periodically
      */
-    private final ScheduledExecutorService cleanupScheduler;
+    private final AtomicLong operationCount = new AtomicLong(0);
+    private static final int CLEANUP_INTERVAL_OPS = 50;
 
     /**
      * Counter for cache hits (successful lookups)
@@ -107,11 +110,6 @@ public final class LruPaginationCache<K, V> implements PaginationCache<K, V> {
      */
     private final AtomicLong totalLoadTimeNanos;
 
-    /**
-     * Interval between automatic cleanup runs for expired entries
-     */
-    private static final Duration CLEANUP_INTERVAL = Duration.ofMinutes(1);
-
     private LruPaginationCache(Builder<K, V> builder) {
         this.maxSize = builder.maxSize;
         this.defaultTtl = builder.defaultTtl;
@@ -136,14 +134,6 @@ public final class LruPaginationCache<K, V> implements PaginationCache<K, V> {
         this.loadSuccessCount = new AtomicLong(0);
         this.loadFailureCount = new AtomicLong(0);
         this.totalLoadTimeNanos = new AtomicLong(0);
-
-        // Schedule periodic cleanup of expired entries
-        this.cleanupScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
-            Thread t = new Thread(r, "pagination-cache-cleanup");
-            t.setDaemon(true);
-            return t;
-        });
-        scheduleCleanup();
     }
 
     /**
@@ -174,17 +164,15 @@ public final class LruPaginationCache<K, V> implements PaginationCache<K, V> {
     }
 
     /**
-     * Schedule periodic cleanup of expired entries.
-     * Called during cache initialization. Uses a fixed-rate schedule with an interval defined by
-     * {@link #CLEANUP_INTERVAL}. The cleanup removes expired entries and increments eviction count.
+     * Perform lazy cleanup if the operation count threshold is reached.
+     * This is called automatically on cache operations to keep the cache clean
+     * without requiring background threads.
      */
-    private void scheduleCleanup() {
-        cleanupScheduler.scheduleAtFixedRate(
-            this::removeExpiredEntries,
-            CLEANUP_INTERVAL.toMillis(),
-            CLEANUP_INTERVAL.toMillis(),
-            TimeUnit.MILLISECONDS
-        );
+    private void lazyCleanup() {
+        long ops = operationCount.incrementAndGet();
+        if (ops % CLEANUP_INTERVAL_OPS == 0) {
+            removeExpiredEntries();
+        }
     }
 
     private void removeExpiredEntries() {
@@ -206,6 +194,9 @@ public final class LruPaginationCache<K, V> implements PaginationCache<K, V> {
     @Override
     public Optional<V> get(K key) {
         Objects.requireNonNull(key, "Cache key cannot be null");
+
+        // Lazy cleanup on access
+        lazyCleanup();
 
         lock.readLock().lock();
         try {
@@ -252,6 +243,9 @@ public final class LruPaginationCache<K, V> implements PaginationCache<K, V> {
         Objects.requireNonNull(key, "Cache key cannot be null");
         Objects.requireNonNull(value, "Cache value cannot be null");
         Objects.requireNonNull(ttl, "TTL cannot be null");
+
+        // Lazy cleanup on access
+        lazyCleanup();
 
         lock.writeLock().lock();
         try {
@@ -374,21 +368,13 @@ public final class LruPaginationCache<K, V> implements PaginationCache<K, V> {
     }
 
     /**
-     * Shuts down the cache and releases resources.
+     * Clears the cache and releases resources.
      * <p>
-     * Stops the background cleanup scheduler. Cache content remains in-memory until GC.
-     * Safe to call multiple times.
+     * Since this implementation uses lazy cleanup (no background threads),
+     * this method simply clears the cache contents.
      */
     public void shutdown() {
-        cleanupScheduler.shutdown();
-        try {
-            if (!cleanupScheduler.awaitTermination(5, TimeUnit.SECONDS)) {
-                cleanupScheduler.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            cleanupScheduler.shutdownNow();
-            Thread.currentThread().interrupt();
-        }
+        invalidateAll();
     }
 
     /**

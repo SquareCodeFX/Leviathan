@@ -8,6 +8,7 @@ import de.feelix.leviathan.util.Preconditions;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 /**
@@ -33,13 +34,10 @@ public final class CompletionCache {
     private final Map<String, CacheEntry> cache = new ConcurrentHashMap<>();
     private final long ttlMillis;
     private final int maxSize;
-    private volatile boolean cleanupScheduled = false;
-    private static final java.util.concurrent.ScheduledExecutorService cleanupExecutor =
-        java.util.concurrent.Executors.newSingleThreadScheduledExecutor(r -> {
-            Thread t = new Thread(r, "CompletionCache-Cleanup");
-            t.setDaemon(true);
-            return t;
-        });
+
+    // Lazy cleanup: track operations and clean periodically
+    private final AtomicLong operationCount = new AtomicLong(0);
+    private static final int CLEANUP_INTERVAL_OPS = 50; // Clean every N operations
 
     /**
      * A cached entry with expiration time.
@@ -107,59 +105,15 @@ public final class CompletionCache {
     }
 
     /**
-     * Create a cache with automatic background cleanup.
-     * Expired entries will be automatically removed at regular intervals.
-     *
-     * @param ttl             time-to-live value
-     * @param unit            time unit for TTL
-     * @param cleanupInterval interval between cleanup runs (in same unit as TTL)
-     * @return a new CompletionCache instance with automatic cleanup
+     * Perform lazy cleanup if the operation count threshold is reached.
+     * This is called automatically on cache operations to keep the cache clean
+     * without requiring background threads.
      */
-    public static @NotNull CompletionCache withAutoCleanup(long ttl, @NotNull TimeUnit unit, long cleanupInterval) {
-        Preconditions.checkNotNull(unit, "unit");
-        if (ttl <= 0) {
-            throw new IllegalArgumentException("TTL must be positive");
+    private void lazyCleanup() {
+        long ops = operationCount.incrementAndGet();
+        if (ops % CLEANUP_INTERVAL_OPS == 0) {
+            evictExpired();
         }
-        if (cleanupInterval <= 0) {
-            throw new IllegalArgumentException("cleanupInterval must be positive");
-        }
-        CompletionCache cache = new CompletionCache(unit.toMillis(ttl), Integer.MAX_VALUE);
-        cache.startAutoCleanup(cleanupInterval, unit);
-        return cache;
-    }
-
-    /**
-     * Start automatic background cleanup at the specified interval.
-     * This method is idempotent - calling it multiple times has no effect.
-     *
-     * @param interval cleanup interval
-     * @param unit     time unit for interval
-     */
-    public void startAutoCleanup(long interval, @NotNull TimeUnit unit) {
-        Preconditions.checkNotNull(unit, "unit");
-        if (cleanupScheduled) {
-            return; // Already scheduled
-        }
-        synchronized (this) {
-            if (cleanupScheduled) {
-                return; // Double-check after acquiring lock
-            }
-            cleanupScheduled = true;
-            cleanupExecutor.scheduleAtFixedRate(
-                this::evictExpired,
-                interval,
-                interval,
-                unit
-            );
-        }
-    }
-
-    /**
-     * Stop automatic cleanup. Note: This affects all caches using the shared executor.
-     * Call only when shutting down the application.
-     */
-    public static void shutdownCleanupExecutor() {
-        cleanupExecutor.shutdown();
     }
 
     /**
@@ -172,6 +126,9 @@ public final class CompletionCache {
     public @NotNull List<String> getOrCompute(@NotNull String key, @NotNull Supplier<List<String>> supplier) {
         Preconditions.checkNotNull(key, "key");
         Preconditions.checkNotNull(supplier, "supplier");
+
+        // Lazy cleanup on access
+        lazyCleanup();
 
         CacheEntry entry = cache.get(key);
 
@@ -186,8 +143,9 @@ public final class CompletionCache {
             completions = Collections.emptyList();
         }
 
-        // Store in cache
-        put(key, completions);
+        // Store in cache (without triggering another lazyCleanup)
+        long expiresAt = System.currentTimeMillis() + ttlMillis;
+        cache.put(key, new CacheEntry(new ArrayList<>(completions), expiresAt));
 
         return new ArrayList<>(completions);
     }
@@ -200,6 +158,9 @@ public final class CompletionCache {
      */
     public @Nullable List<String> get(@NotNull String key) {
         Preconditions.checkNotNull(key, "key");
+
+        // Lazy cleanup on access
+        lazyCleanup();
 
         CacheEntry entry = cache.get(key);
         if (entry == null || entry.isExpired()) {
@@ -217,6 +178,9 @@ public final class CompletionCache {
     public void put(@NotNull String key, @NotNull List<String> completions) {
         Preconditions.checkNotNull(key, "key");
         Preconditions.checkNotNull(completions, "completions");
+
+        // Lazy cleanup on access
+        lazyCleanup();
 
         // Enforce max size by removing expired entries first
         if (cache.size() >= maxSize) {
