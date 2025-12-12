@@ -246,3 +246,140 @@ SlashCommand range = SlashCommand.create("range")
 ```
 
 If a validator throws, the `ExceptionHandler` transforms it into a user-facing error.
+
+#### Cross-Argument Validator Factory Methods
+
+Leviathan provides static factory methods for common cross-argument validation patterns:
+
+##### Mutually Exclusive Arguments
+
+Ensure at most one of the specified arguments is provided:
+
+```java
+SlashCommand transfer = SlashCommand.create("transfer")
+    .argInt("amount").optional(true)
+    .flag("all", 'a', "all")
+    .crossValidate(CrossArgumentValidator.mutuallyExclusive("amount", "all"))
+    .executes(ctx -> { /* ... */ })
+    .build();
+
+// With custom error message
+SlashCommand cmd = SlashCommand.create("cmd")
+    .crossValidate(CrossArgumentValidator.mutuallyExclusive(
+        "Cannot use both player and all at the same time!",
+        "player", "all"))
+    .build();
+```
+
+##### Require All Together
+
+Ensure all specified arguments are provided together (if any is present, all must be):
+
+```java
+SlashCommand dateRange = SlashCommand.create("daterange")
+    .argString("startDate").optional(true)
+    .argString("endDate").optional(true)
+    .crossValidate(CrossArgumentValidator.requiresAll("startDate", "endDate"))
+    .executes(ctx -> { /* ... */ })
+    .build();
+```
+
+##### Require At Least One
+
+Ensure at least one of the specified arguments is provided:
+
+```java
+SlashCommand target = SlashCommand.create("target")
+    .argPlayer("player").optional(true)
+    .argString("coords").optional(true)
+    .crossValidate(CrossArgumentValidator.requiresAny("player", "coords"))
+    .executes(ctx -> { /* ... */ })
+    .build();
+```
+
+##### Conditional Requirements
+
+If a trigger argument is present, require other arguments:
+
+```java
+SlashCommand export = SlashCommand.create("export")
+    .argString("output").optional(true)
+    .argString("format").optional(true)
+    .crossValidate(CrossArgumentValidator.requiresIfPresent("output", "format"))
+    .executes(ctx -> { /* ... */ })
+    .build();
+
+// With custom message
+SlashCommand cmd = SlashCommand.create("cmd")
+    .crossValidate(CrossArgumentValidator.requiresIfPresent(
+        "output",
+        "When specifying output, you must also provide format",
+        "format"))
+    .build();
+```
+
+##### Range Validation
+
+Ensure min is less than or equal to max:
+
+```java
+SlashCommand range = SlashCommand.create("range")
+    .argInt("min")
+    .argInt("max")
+    .crossValidate(CrossArgumentValidator.range("min", "max"))
+    .executes(ctx -> { /* ... */ })
+    .build();
+
+// With custom message
+SlashCommand cmd = SlashCommand.create("cmd")
+    .crossValidate(CrossArgumentValidator.range("min", "max",
+        "Minimum value must not exceed maximum!"))
+    .build();
+```
+
+##### Custom Comparison
+
+Compare two arguments with a custom predicate:
+
+```java
+SlashCommand dates = SlashCommand.create("dates")
+    .argString("start")
+    .argString("end")
+    .crossValidate(CrossArgumentValidator.comparing(
+        "start", "end",
+        (start, end) -> start.compareTo(end) <= 0,
+        "Start date must be before end date",
+        String.class))
+    .executes(ctx -> { /* ... */ })
+    .build();
+```
+
+##### Conditional Validation
+
+Apply validation based on a custom condition:
+
+```java
+SlashCommand trade = SlashCommand.create("trade")
+    .argInt("amount")
+    .crossValidate(CrossArgumentValidator.conditionalRequires(
+        ctx -> ctx.getFlag("premium"),
+        "Premium members must provide a verification code",
+        "verificationCode"))
+    .executes(ctx -> { /* ... */ })
+    .build();
+```
+
+##### Combining Validators
+
+Combine multiple validators into one:
+
+```java
+SlashCommand complex = SlashCommand.create("complex")
+    .crossValidate(CrossArgumentValidator.all(
+        CrossArgumentValidator.mutuallyExclusive("player", "all"),
+        CrossArgumentValidator.requiresAny("player", "all"),
+        CrossArgumentValidator.range("min", "max")
+    ))
+    .executes(ctx -> { /* ... */ })
+    .build();
+```

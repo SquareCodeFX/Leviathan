@@ -561,4 +561,375 @@ public final class ArgParsers {
             }
         };
     }
+
+    /**
+     * Parser for enum constants with custom aliases support.
+     * <p>
+     * Allows defining shorthand aliases for enum values, making commands more user-friendly.
+     * <p>
+     * Example usage:
+     * <pre>{@code
+     * // Define aliases for GameMode
+     * Map<String, GameMode> aliases = Map.of(
+     *     "0", GameMode.SURVIVAL,
+     *     "1", GameMode.CREATIVE,
+     *     "2", GameMode.ADVENTURE,
+     *     "3", GameMode.SPECTATOR,
+     *     "s", GameMode.SURVIVAL,
+     *     "c", GameMode.CREATIVE,
+     *     "a", GameMode.ADVENTURE,
+     *     "sp", GameMode.SPECTATOR,
+     *     "sv", GameMode.SURVIVAL,
+     *     "cr", GameMode.CREATIVE
+     * );
+     *
+     * .argEnum("gamemode", GameMode.class, ArgParsers.enumParserWithAliases(GameMode.class, aliases))
+     * }</pre>
+     *
+     * @param enumClass the enum class to parse
+     * @param aliases   map of alias -> enum value
+     * @param <E>       enum type
+     * @return an ArgumentParser that parses enum constants with aliases
+     */
+    public static <E extends Enum<E>> @NotNull ArgumentParser<E> enumParserWithAliases(
+        @NotNull Class<E> enumClass,
+        @NotNull Map<String, E> aliases) {
+        if (enumClass == null) {
+            throw new ParsingException("enumParserWithAliases requires a non-null enum class");
+        }
+        if (aliases == null) {
+            throw new ParsingException("enumParserWithAliases requires a non-null aliases map");
+        }
+        E[] constants = enumClass.getEnumConstants();
+        if (constants == null || constants.length == 0) {
+            throw new ParsingException("enumParserWithAliases requires an enum class with at least one constant");
+        }
+
+        // Build combined map: standard enum names (lowercase) + custom aliases (lowercase)
+        Map<String, E> combined = new LinkedHashMap<>();
+        for (E constant : constants) {
+            combined.put(constant.name().toLowerCase(Locale.ROOT), constant);
+        }
+        for (Map.Entry<String, E> entry : aliases.entrySet()) {
+            if (entry.getKey() != null && entry.getValue() != null) {
+                combined.put(entry.getKey().toLowerCase(Locale.ROOT), entry.getValue());
+            }
+        }
+
+        String typeName = enumClass.getSimpleName().toLowerCase(Locale.ROOT);
+        Set<String> completions = new LinkedHashSet<>();
+        for (E constant : constants) {
+            completions.add(constant.name().toLowerCase(Locale.ROOT));
+        }
+
+        return new ArgumentParser<>() {
+            @Override
+            public String getTypeName() {
+                return typeName;
+            }
+
+            @Override
+            public ParseResult<E> parse(String input, CommandSender sender) {
+                Preconditions.checkNotNull(input, "input");
+                Preconditions.checkNotNull(sender, "sender");
+                E value = combined.get(input.toLowerCase(Locale.ROOT));
+                if (value == null) {
+                    return ParseResult.error("unknown " + typeName + " '" + input + "'");
+                }
+                return ParseResult.success(value);
+            }
+
+            @Override
+            public List<String> complete(String input, CommandSender sender) {
+                Preconditions.checkNotNull(input, "input");
+                Preconditions.checkNotNull(sender, "sender");
+                // Only show standard names in completions, not aliases (cleaner UX)
+                return startingWith(input, completions);
+            }
+        };
+    }
+
+    /**
+     * Create common GameMode aliases map.
+     * <p>
+     * Includes numeric (0-3), short forms (s, c, a, sp), and common abbreviations.
+     *
+     * @return map of aliases to GameMode values
+     */
+    public static @NotNull Map<String, org.bukkit.GameMode> gameModeAliases() {
+        Map<String, org.bukkit.GameMode> aliases = new LinkedHashMap<>();
+        // Numeric aliases (like vanilla)
+        aliases.put("0", org.bukkit.GameMode.SURVIVAL);
+        aliases.put("1", org.bukkit.GameMode.CREATIVE);
+        aliases.put("2", org.bukkit.GameMode.ADVENTURE);
+        aliases.put("3", org.bukkit.GameMode.SPECTATOR);
+        // Single-letter aliases
+        aliases.put("s", org.bukkit.GameMode.SURVIVAL);
+        aliases.put("c", org.bukkit.GameMode.CREATIVE);
+        aliases.put("a", org.bukkit.GameMode.ADVENTURE);
+        // Common abbreviations
+        aliases.put("sv", org.bukkit.GameMode.SURVIVAL);
+        aliases.put("cr", org.bukkit.GameMode.CREATIVE);
+        aliases.put("ad", org.bukkit.GameMode.ADVENTURE);
+        aliases.put("sp", org.bukkit.GameMode.SPECTATOR);
+        aliases.put("spec", org.bukkit.GameMode.SPECTATOR);
+        return aliases;
+    }
+
+    /**
+     * Parser for GameMode with common aliases (0-3, s/c/a/sp, etc.).
+     *
+     * @return an ArgumentParser for GameMode with aliases
+     */
+    public static @NotNull ArgumentParser<org.bukkit.GameMode> gameModeParser() {
+        return enumParserWithAliases(org.bukkit.GameMode.class, gameModeAliases());
+    }
+
+    // ==================== Duration Parser ====================
+
+    /**
+     * Parser for duration strings that converts human-readable time formats to milliseconds.
+     * <p>
+     * Supported formats:
+     * <ul>
+     *   <li>{@code 30s} - 30 seconds</li>
+     *   <li>{@code 5m} - 5 minutes</li>
+     *   <li>{@code 2h} - 2 hours</li>
+     *   <li>{@code 1d} - 1 day</li>
+     *   <li>{@code 1w} - 1 week</li>
+     *   <li>{@code 1mo} - 1 month (30 days)</li>
+     *   <li>{@code 1y} - 1 year (365 days)</li>
+     *   <li>Combinations: {@code 2h30m}, {@code 1d12h30m}</li>
+     *   <li>Pure numbers are treated as seconds</li>
+     * </ul>
+     *
+     * @return an ArgumentParser that parses duration strings to milliseconds
+     */
+    public static @NotNull ArgumentParser<Long> durationParser() {
+        return new DurationParser(false);
+    }
+
+    /**
+     * Parser for duration strings that converts human-readable time formats to seconds.
+     * <p>
+     * Same formats as {@link #durationParser()} but returns seconds instead of milliseconds.
+     *
+     * @return an ArgumentParser that parses duration strings to seconds
+     */
+    public static @NotNull ArgumentParser<Long> durationParserSeconds() {
+        return new DurationParser(true);
+    }
+
+    /**
+     * Internal duration parser implementation.
+     */
+    private static final class DurationParser implements ArgumentParser<Long> {
+        private static final Map<String, Long> UNIT_MILLIS = new LinkedHashMap<>();
+        private static final List<String> EXAMPLE_COMPLETIONS = List.of(
+            "30s", "1m", "5m", "10m", "30m",
+            "1h", "2h", "6h", "12h",
+            "1d", "7d", "30d",
+            "1w", "2w",
+            "1mo", "1y",
+            "1h30m", "2d12h"
+        );
+
+        static {
+            // Order matters for parsing - longer units first
+            UNIT_MILLIS.put("y", 365L * 24 * 60 * 60 * 1000);      // year
+            UNIT_MILLIS.put("mo", 30L * 24 * 60 * 60 * 1000);      // month
+            UNIT_MILLIS.put("w", 7L * 24 * 60 * 60 * 1000);        // week
+            UNIT_MILLIS.put("d", 24L * 60 * 60 * 1000);            // day
+            UNIT_MILLIS.put("h", 60L * 60 * 1000);                 // hour
+            UNIT_MILLIS.put("m", 60L * 1000);                      // minute
+            UNIT_MILLIS.put("s", 1000L);                           // second
+            UNIT_MILLIS.put("ms", 1L);                             // millisecond
+        }
+
+        private final boolean returnSeconds;
+
+        DurationParser(boolean returnSeconds) {
+            this.returnSeconds = returnSeconds;
+        }
+
+        @Override
+        public String getTypeName() {
+            return "duration";
+        }
+
+        @Override
+        public ParseResult<Long> parse(String input, CommandSender sender) {
+            Preconditions.checkNotNull(input, "input");
+            Preconditions.checkNotNull(sender, "sender");
+
+            String trimmed = input.trim().toLowerCase(Locale.ROOT);
+            if (trimmed.isEmpty()) {
+                return ParseResult.error("duration cannot be empty");
+            }
+
+            // Check for special keywords
+            if ("permanent".equals(trimmed) || "forever".equals(trimmed) || "infinite".equals(trimmed)) {
+                return ParseResult.success(-1L); // -1 indicates permanent/infinite
+            }
+
+            // Try to parse as pure number (interpreted as seconds)
+            try {
+                long seconds = Long.parseLong(trimmed);
+                long result = returnSeconds ? seconds : seconds * 1000;
+                return ParseResult.success(result);
+            } catch (NumberFormatException ignored) {
+                // Not a pure number, continue with duration parsing
+            }
+
+            // Parse duration string like "2h30m" or "1d"
+            long totalMillis = 0;
+            String remaining = trimmed;
+
+            while (!remaining.isEmpty()) {
+                // Find the next number
+                int numEnd = 0;
+                while (numEnd < remaining.length() && (Character.isDigit(remaining.charAt(numEnd))
+                       || remaining.charAt(numEnd) == '.')) {
+                    numEnd++;
+                }
+
+                if (numEnd == 0) {
+                    return ParseResult.error("invalid duration format: expected number at '" + remaining + "'");
+                }
+
+                String numStr = remaining.substring(0, numEnd);
+                remaining = remaining.substring(numEnd);
+
+                double value;
+                try {
+                    value = Double.parseDouble(numStr);
+                } catch (NumberFormatException e) {
+                    return ParseResult.error("invalid number '" + numStr + "' in duration");
+                }
+
+                if (value < 0) {
+                    return ParseResult.error("duration values cannot be negative");
+                }
+
+                // Find the unit
+                String matchedUnit = null;
+                for (String unit : UNIT_MILLIS.keySet()) {
+                    if (remaining.startsWith(unit)) {
+                        matchedUnit = unit;
+                        break;
+                    }
+                }
+
+                if (matchedUnit == null) {
+                    if (remaining.isEmpty()) {
+                        // No unit at end - treat as seconds
+                        totalMillis += (long) (value * 1000);
+                    } else {
+                        return ParseResult.error("unknown time unit at '" + remaining + "'. " +
+                            "Valid units: s, m, h, d, w, mo, y");
+                    }
+                } else {
+                    totalMillis += (long) (value * UNIT_MILLIS.get(matchedUnit));
+                    remaining = remaining.substring(matchedUnit.length());
+                }
+            }
+
+            if (totalMillis == 0 && !trimmed.equals("0") && !trimmed.equals("0s")) {
+                return ParseResult.error("invalid duration: '" + input + "'");
+            }
+
+            long result = returnSeconds ? totalMillis / 1000 : totalMillis;
+            return ParseResult.success(result);
+        }
+
+        @Override
+        public List<String> complete(String input, CommandSender sender) {
+            Preconditions.checkNotNull(input, "input");
+            Preconditions.checkNotNull(sender, "sender");
+
+            if (input.isEmpty()) {
+                return new ArrayList<>(EXAMPLE_COMPLETIONS);
+            }
+
+            // Filter completions that start with input
+            String low = input.toLowerCase(Locale.ROOT);
+            List<String> matches = EXAMPLE_COMPLETIONS.stream()
+                .filter(c -> c.startsWith(low))
+                .collect(Collectors.toList());
+
+            // If input ends with a number, suggest units
+            if (!input.isEmpty() && Character.isDigit(input.charAt(input.length() - 1))) {
+                matches.addAll(List.of(
+                    input + "s", input + "m", input + "h",
+                    input + "d", input + "w"
+                ));
+            }
+
+            return matches;
+        }
+    }
+
+    // ==================== Duration Utility Methods ====================
+
+    /**
+     * Format a duration in milliseconds to a human-readable string.
+     * Useful for displaying durations to users.
+     *
+     * @param millis duration in milliseconds
+     * @return formatted string like "2h 30m 15s"
+     */
+    public static @NotNull String formatDuration(long millis) {
+        if (millis < 0) {
+            return "permanent";
+        }
+        if (millis == 0) {
+            return "0s";
+        }
+
+        StringBuilder sb = new StringBuilder();
+        long remaining = millis;
+
+        long years = remaining / (365L * 24 * 60 * 60 * 1000);
+        if (years > 0) {
+            sb.append(years).append("y ");
+            remaining %= (365L * 24 * 60 * 60 * 1000);
+        }
+
+        long months = remaining / (30L * 24 * 60 * 60 * 1000);
+        if (months > 0) {
+            sb.append(months).append("mo ");
+            remaining %= (30L * 24 * 60 * 60 * 1000);
+        }
+
+        long weeks = remaining / (7L * 24 * 60 * 60 * 1000);
+        if (weeks > 0) {
+            sb.append(weeks).append("w ");
+            remaining %= (7L * 24 * 60 * 60 * 1000);
+        }
+
+        long days = remaining / (24L * 60 * 60 * 1000);
+        if (days > 0) {
+            sb.append(days).append("d ");
+            remaining %= (24L * 60 * 60 * 1000);
+        }
+
+        long hours = remaining / (60L * 60 * 1000);
+        if (hours > 0) {
+            sb.append(hours).append("h ");
+            remaining %= (60L * 60 * 1000);
+        }
+
+        long minutes = remaining / (60L * 1000);
+        if (minutes > 0) {
+            sb.append(minutes).append("m ");
+            remaining %= (60L * 1000);
+        }
+
+        long seconds = remaining / 1000;
+        if (seconds > 0 || sb.length() == 0) {
+            sb.append(seconds).append("s");
+        }
+
+        return sb.toString().trim();
+    }
 }

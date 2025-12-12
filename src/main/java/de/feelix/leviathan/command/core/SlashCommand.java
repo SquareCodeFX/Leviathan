@@ -115,6 +115,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
     private final MessageProvider messages;
     private final boolean sanitizeInputs;
     private final boolean fuzzySubcommandMatching;
+    private final double fuzzyMatchThreshold;
+    private final boolean debugMode;
     final List<Flag> flags;
     final List<KeyValue<?>> keyValues;
     private final boolean awaitConfirmation;
@@ -335,6 +337,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         this.messages = (messages != null) ? messages : new DefaultMessageProvider();
         this.sanitizeInputs = sanitizeInputs;
         this.fuzzySubcommandMatching = fuzzySubcommandMatching;
+        this.fuzzyMatchThreshold = Math.max(0.0, Math.min(1.0, fuzzyMatchThreshold));
+        this.debugMode = debugMode;
         this.flags = List.copyOf(flags == null ? List.of() : flags);
         this.keyValues = List.copyOf(keyValues == null ? List.of() : keyValues);
         this.awaitConfirmation = awaitConfirmation;
@@ -505,6 +509,31 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
     }
 
     /**
+     * Unwrap an exception to find the root cause, properly traversing the exception chain.
+     * Handles nested ExecutionException, CompletionException, and InvocationTargetException wrappers.
+     *
+     * @param throwable the exception to unwrap
+     * @return the root cause exception
+     */
+    private static @NotNull Throwable unwrapException(@NotNull Throwable throwable) {
+        Throwable current = throwable;
+        java.util.Set<Throwable> seen = new java.util.HashSet<>(); // Prevent infinite loops
+        while (current != null && seen.add(current)) {
+            if (current instanceof java.util.concurrent.ExecutionException
+                || current instanceof java.util.concurrent.CompletionException
+                || current instanceof java.lang.reflect.InvocationTargetException) {
+                Throwable cause = current.getCause();
+                if (cause != null && cause != current) {
+                    current = cause;
+                    continue;
+                }
+            }
+            break;
+        }
+        return current != null ? current : throwable;
+    }
+
+    /**
      * Logs an exception with its full stack trace using the plugin's logger.
      * This method provides robust logging by converting the stack trace to a string
      * and logging it through the plugin's logging system instead of printing to stderr.
@@ -580,22 +609,35 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         }
 
         // Confirmation check: if awaitConfirmation is enabled, require the user to send the command twice
+        // Uses atomic operations to prevent race conditions in concurrent scenarios
         if (awaitConfirmation) {
             String confirmationKey = name + ":" + sender.getName();
             long currentTime = System.currentTimeMillis();
-            
-            // Clean up expired confirmations
-            pendingConfirmations.entrySet().removeIf(entry -> entry.getValue() < currentTime);
-            
-            Long confirmationExpiry = pendingConfirmations.get(confirmationKey);
-            if (confirmationExpiry == null || confirmationExpiry < currentTime) {
-                // First execution or expired - register pending confirmation
-                pendingConfirmations.put(confirmationKey, currentTime + CONFIRMATION_TIMEOUT_MILLIS);
-                sendErrorMessage(sender, ErrorType.GUARD_FAILED, messages.awaitConfirmation(), null);
-                return true;
+            long newExpiry = currentTime + CONFIRMATION_TIMEOUT_MILLIS;
+
+            // Clean up expired confirmations periodically (not every execution to reduce overhead)
+            if ((currentTime & 0xF) == 0) { // ~6.25% chance per execution
+                pendingConfirmations.entrySet().removeIf(entry -> entry.getValue() < currentTime);
+            }
+
+            // Atomic check-and-update: try to remove existing valid confirmation
+            Long existingExpiry = pendingConfirmations.remove(confirmationKey);
+
+            if (existingExpiry != null && existingExpiry >= currentTime) {
+                // Valid confirmation existed and was removed - proceed with execution
+                // This is the second execution within timeout
             } else {
-                // Second execution within timeout - remove confirmation and continue
-                pendingConfirmations.remove(confirmationKey);
+                // No valid confirmation - register new pending confirmation atomically
+                // Use putIfAbsent to handle race condition where another thread might have added one
+                Long previous = pendingConfirmations.putIfAbsent(confirmationKey, newExpiry);
+                if (previous != null && previous >= currentTime) {
+                    // Another thread added a valid confirmation - remove it and proceed
+                    pendingConfirmations.remove(confirmationKey);
+                } else {
+                    // First execution - ask for confirmation
+                    sendErrorMessage(sender, ErrorType.GUARD_FAILED, messages.awaitConfirmation(), null);
+                    return true;
+                }
             }
         }
 
@@ -630,9 +672,13 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
             // Fuzzy matching: if no exact match found and fuzzy matching is enabled, try to find a similar subcommand
             if (sub == null && fuzzySubcommandMatching) {
                 List<String> subcommandNames = new ArrayList<>(subcommands.keySet());
-                List<String> similar = StringSimilarity.findSimilar(first, subcommandNames, 1, 0.6);
+                List<String> similar = StringSimilarity.findSimilar(first, subcommandNames, 1, fuzzyMatchThreshold);
                 if (!similar.isEmpty()) {
                     sub = subcommands.get(similar.get(0));
+                    // Log fuzzy match for audit purposes in debug mode
+                    if (debugMode && plugin != null) {
+                        plugin.getLogger().info("[Fuzzy Match] '" + first + "' matched to '" + similar.get(0) + "'");
+                    }
                 }
             }
 
@@ -671,7 +717,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         if (!flags.isEmpty() || !keyValues.isEmpty()) {
             FlagAndKeyValueParser flagKvParser = new FlagAndKeyValueParser(flags, keyValues);
             FlagAndKeyValueParser.ParsedResult flagKvResult = flagKvParser.parse(providedArgs, sender);
-            
+
             if (!flagKvResult.isSuccess()) {
                 // Report first error from flag/key-value parsing
                 String firstError = !flagKvResult.errors().isEmpty()
@@ -680,10 +726,40 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                 sendErrorMessage(sender, ErrorType.PARSING, messages.invalidArgumentValue("flags/options", "flag", firstError), null);
                 return true;
             }
-            
+
             flagValues = flagKvResult.flagValues();
             keyValuePairs = flagKvResult.keyValuePairs();
             multiValuePairs = flagKvResult.multiValuePairs();
+
+            // Apply input sanitization to string values in key-value pairs if enabled
+            if (sanitizeInputs) {
+                Map<String, Object> sanitizedKvPairs = new LinkedHashMap<>();
+                for (Map.Entry<String, Object> entry : keyValuePairs.entrySet()) {
+                    Object value = entry.getValue();
+                    if (value instanceof String) {
+                        sanitizedKvPairs.put(entry.getKey(), sanitizeString((String) value));
+                    } else {
+                        sanitizedKvPairs.put(entry.getKey(), value);
+                    }
+                }
+                keyValuePairs = sanitizedKvPairs;
+
+                // Also sanitize multi-value pairs
+                Map<String, List<Object>> sanitizedMultiPairs = new LinkedHashMap<>();
+                for (Map.Entry<String, List<Object>> entry : multiValuePairs.entrySet()) {
+                    List<Object> sanitizedList = new ArrayList<>();
+                    for (Object value : entry.getValue()) {
+                        if (value instanceof String) {
+                            sanitizedList.add(sanitizeString((String) value));
+                        } else {
+                            sanitizedList.add(value);
+                        }
+                    }
+                    sanitizedMultiPairs.put(entry.getKey(), sanitizedList);
+                }
+                multiValuePairs = sanitizedMultiPairs;
+            }
+
             // Use remaining args (after extracting flags/key-values) for positional argument parsing
             positionalArgs = flagKvResult.remainingArgs().toArray(new String[0]);
         }
@@ -1050,55 +1126,68 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                 if (asyncTimeoutMillis > 0L) {
                     future = future.orTimeout(asyncTimeoutMillis, TimeUnit.MILLISECONDS);
                 }
-                future.exceptionally(ex -> {
-                    Throwable cause = (ex.getCause() != null) ? ex.getCause() : ex;
-                    String msg;
-                    ErrorType errorType;
-                    if (cause instanceof TimeoutException) {
-                        msg = messages.commandTimeout(asyncTimeoutMillis);
-                        errorType = ErrorType.TIMEOUT;
-                        token.cancel();
-                    } else {
-                        msg = messages.executionError();
-                        errorType = ErrorType.EXECUTION;
-                    }
-                    boolean suppressDefault = false;
-                    if (exceptionHandler != null) {
-                        try {
-                            suppressDefault = exceptionHandler.handle(sender, errorType, msg, cause);
-                        } catch (Throwable handlerException) {
-                            // Exception handler itself threw an exception - log it and continue with default behavior
-                            String handlerMsg = messages.exceptionHandlerError(handlerException.getMessage());
-                            if (plugin != null) {
-                                plugin.getServer().getScheduler().runTask(plugin, () -> sender.sendMessage(handlerMsg));
-                                plugin.getLogger()
-                                    .severe("Exception handler threw an exception while handling " + errorType + ": "
-                                            + handlerException.getMessage());
-                                logException(handlerException);
-                            } else {
-                                sender.sendMessage(handlerMsg);
+                future.whenComplete((result, ex) -> {
+                    // Run after-hooks regardless of success or failure
+                    long executionTime = System.currentTimeMillis() - executionStartTime;
+                    ExecutionHook.AfterContext afterContext = (ex == null)
+                        ? ExecutionHook.AfterContext.success(executionTime)
+                        : ExecutionHook.AfterContext.failure(ex.getCause() != null ? ex.getCause() : ex, executionTime);
+                    runAfterHooks(sender, ctx, afterContext);
+
+                    // Handle exceptions (similar to previous exceptionally handler)
+                    if (ex != null) {
+                        Throwable cause = unwrapException(ex);
+                        String msg;
+                        ErrorType errorType;
+                        if (cause instanceof TimeoutException) {
+                            msg = messages.commandTimeout(asyncTimeoutMillis);
+                            errorType = ErrorType.TIMEOUT;
+                            token.cancel();
+                        } else {
+                            msg = messages.executionError();
+                            errorType = ErrorType.EXECUTION;
+                        }
+                        boolean suppressDefault = false;
+                        if (exceptionHandler != null) {
+                            try {
+                                suppressDefault = exceptionHandler.handle(sender, errorType, msg, cause);
+                            } catch (Throwable handlerException) {
+                                // Exception handler itself threw an exception - log it and continue with default
+                                // behavior
+                                String handlerMsg = messages.exceptionHandlerError(handlerException.getMessage());
+                                if (plugin != null) {
+                                    plugin.getServer().getScheduler()
+                                        .runTask(plugin, () -> sender.sendMessage(handlerMsg));
+                                    plugin.getLogger()
+                                        .severe("Exception handler threw an exception while handling " + errorType
+                                                + ": " + handlerException.getMessage());
+                                    logException(handlerException);
+                                } else {
+                                    sender.sendMessage(handlerMsg);
+                                }
                             }
                         }
+                        if (sendErrors && !suppressDefault) {
+                            if (plugin != null)
+                                plugin.getServer().getScheduler().runTask(plugin, () -> sender.sendMessage(msg));
+                            else sender.sendMessage(msg);
+                        }
                     }
-                    if (sendErrors && !suppressDefault) {
-                        if (plugin != null)
-                            plugin.getServer().getScheduler().runTask(plugin, () -> sender.sendMessage(msg));
-                        else sender.sendMessage(msg);
-                    }
-                    return null;
                 });
             } else {
                 // Execute asynchronously using CompletableFuture (no Bukkit scheduler).
                 CompletableFuture.runAsync(() -> {
+                    Throwable executionError = null;
                     try {
                         action.execute(sender, ctx);
                     } catch (Throwable t) {
-                        Throwable cause = (t.getCause() != null) ? t.getCause() : t;
+                        executionError = (t.getCause() != null) ? t.getCause() : t;
                         String errorMsg = messages.executionError();
                         boolean suppressDefault = false;
                         if (exceptionHandler != null) {
                             try {
-                                suppressDefault = exceptionHandler.handle(sender, ErrorType.EXECUTION, errorMsg, cause);
+                                suppressDefault = exceptionHandler.handle(sender, ErrorType.EXECUTION, errorMsg,
+                                    executionError);
                             } catch (Throwable handlerException) {
                                 // Exception handler itself threw an exception - log it and continue with default
                                 // behavior
@@ -1117,13 +1206,23 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                         // Log the exception but don't re-throw to prevent unhandled exception in async thread
                         if (plugin != null) {
                             plugin.getLogger()
-                                .severe("Error executing command '" + name + "' asynchronously: " + cause.getMessage());
-                            logException(cause);
+                                .severe("Error executing command '" + name + "' asynchronously: "
+                                        + executionError.getMessage());
+                            logException(executionError);
                         }
+                    } finally {
+                        // Run after-hooks on the async thread
+                        long executionTime = System.currentTimeMillis() - executionStartTime;
+                        ExecutionHook.AfterContext afterContext = (executionError == null)
+                            ? ExecutionHook.AfterContext.success(executionTime)
+                            : ExecutionHook.AfterContext.failure(executionError, executionTime);
+                        runAfterHooks(sender, ctx, afterContext);
                     }
                 });
             }
         } else {
+            // Synchronous execution with after-hooks
+            Throwable executionError = null;
             try {
                 action.execute(sender, ctx);
                 executionSuccess = true;
@@ -1268,8 +1367,223 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                 .commandBase("/" + commandPath)
                 .send(sender);
         } else {
-            String usageStr = usage();
-            sender.sendMessage(messages.helpUsage(commandPath, usageStr));
+            // Enhanced help for commands without subcommands
+            generateDetailedHelp(commandPath, sender);
+        }
+    }
+
+    /**
+     * Generates detailed help including arguments, flags, and key-values.
+     * Permission-aware: only shows options the sender has permission to use.
+     *
+     * @param commandPath the full command path
+     * @param sender      the command sender
+     */
+    private void generateDetailedHelp(@NotNull String commandPath, @NotNull CommandSender sender) {
+        StringBuilder help = new StringBuilder();
+
+        // Build permission-aware usage line
+        String usageStr = buildPermissionAwareUsage(sender);
+        help.append(messages.helpUsage(commandPath, usageStr));
+
+        // Description
+        if (!description.isEmpty()) {
+            help.append("\n").append(messages.helpDescriptionSeparator()).append(description);
+        }
+
+        // Arguments section - filter by permission
+        List<Arg<?>> visibleArgs = new ArrayList<>();
+        for (Arg<?> arg : args) {
+            if (arg.permission() == null || sender.hasPermission(arg.permission())) {
+                visibleArgs.add(arg);
+            }
+        }
+
+        if (!visibleArgs.isEmpty()) {
+            help.append("\n\n§e§lArguments:");
+            for (Arg<?> arg : visibleArgs) {
+                help.append("\n  §7");
+                if (arg.optional()) {
+                    help.append("[").append(arg.name()).append("]");
+                } else {
+                    help.append("<").append(arg.name()).append(">");
+                }
+                help.append(" §8- §f").append(arg.parser().getTypeName());
+                if (arg.description() != null && !arg.description().isEmpty()) {
+                    help.append(" §7- ").append(arg.description());
+                }
+            }
+        }
+
+        // Flags section - filter by permission
+        List<Flag> visibleFlags = new ArrayList<>();
+        for (Flag flag : flags) {
+            if (flag.permission() == null || sender.hasPermission(flag.permission())) {
+                visibleFlags.add(flag);
+            }
+        }
+
+        if (!visibleFlags.isEmpty()) {
+            help.append("\n\n§e§lFlags:");
+            for (Flag flag : visibleFlags) {
+                help.append("\n  §7");
+                if (flag.shortForm() != null) {
+                    help.append("-").append(flag.shortForm());
+                    if (flag.longForm() != null) {
+                        help.append(", ");
+                    }
+                }
+                if (flag.longForm() != null) {
+                    help.append("--").append(flag.longForm());
+                }
+                if (flag.description() != null && !flag.description().isEmpty()) {
+                    help.append(" §8- §f").append(flag.description());
+                }
+            }
+        }
+
+        // Key-Values section - filter by permission
+        List<KeyValue<?>> visibleKeyValues = new ArrayList<>();
+        for (KeyValue<?> kv : keyValues) {
+            if (kv.permission() == null || sender.hasPermission(kv.permission())) {
+                visibleKeyValues.add(kv);
+            }
+        }
+
+        if (!visibleKeyValues.isEmpty()) {
+            help.append("\n\n§e§lOptions:");
+            for (KeyValue<?> kv : visibleKeyValues) {
+                help.append("\n  §7--").append(kv.key()).append("=<value>");
+                if (!kv.required()) {
+                    if (kv.defaultValue() != null) {
+                        help.append(" §8(default: ").append(kv.defaultValue()).append(")");
+                    } else {
+                        help.append(" §8(optional)");
+                    }
+                } else {
+                    help.append(" §c(required)");
+                }
+                if (kv.description() != null && !kv.description().isEmpty()) {
+                    help.append("\n    §f").append(kv.description());
+                }
+            }
+        }
+
+        sender.sendMessage(help.toString());
+    }
+
+    /**
+     * Build a permission-aware usage string showing only arguments the sender can use.
+     *
+     * @param sender the command sender
+     * @return usage string filtered by permissions
+     */
+    private @NotNull String buildPermissionAwareUsage(@NotNull CommandSender sender) {
+        if (!subcommands.isEmpty()) {
+            return "<subcommand>";
+        }
+
+        StringBuilder usage = new StringBuilder();
+        for (Arg<?> arg : args) {
+            // Skip args the sender doesn't have permission for
+            if (arg.permission() != null && !sender.hasPermission(arg.permission())) {
+                continue;
+            }
+
+            if (usage.length() > 0) {
+                usage.append(" ");
+            }
+
+            if (arg.optional()) {
+                usage.append("[").append(arg.name()).append("]");
+            } else {
+                usage.append("<").append(arg.name()).append(">");
+            }
+        }
+
+        // Add visible flags hint
+        boolean hasVisibleFlags = false;
+        for (Flag flag : flags) {
+            if (flag.permission() == null || sender.hasPermission(flag.permission())) {
+                hasVisibleFlags = true;
+                break;
+            }
+        }
+        if (hasVisibleFlags) {
+            if (usage.length() > 0) usage.append(" ");
+            usage.append("[flags...]");
+        }
+
+        // Add visible key-values hint
+        boolean hasVisibleKeyValues = false;
+        for (KeyValue<?> kv : keyValues) {
+            if (kv.permission() == null || sender.hasPermission(kv.permission())) {
+                hasVisibleKeyValues = true;
+                break;
+            }
+        }
+        if (hasVisibleKeyValues) {
+            if (usage.length() > 0) usage.append(" ");
+            usage.append("[options...]");
+        }
+
+        return usage.length() > 0 ? usage.toString() : "";
+    }
+
+    // ==================== Execution Hook Helpers ====================
+
+    /**
+     * Runs all registered before-execution hooks.
+     *
+     * @param sender  the command sender
+     * @param context the parsed command context
+     * @return the result from the first hook that aborts, or a "proceed" result if all pass
+     */
+    private @NotNull ExecutionHook.BeforeResult runBeforeHooks(@NotNull CommandSender sender,
+                                                                @NotNull CommandContext context) {
+        if (beforeHooks.isEmpty()) {
+            return ExecutionHook.BeforeResult.proceed();
+        }
+        for (ExecutionHook.Before hook : beforeHooks) {
+            try {
+                ExecutionHook.BeforeResult result = hook.execute(sender, context);
+                if (result == null || !result.shouldProceed()) {
+                    // Hook aborted - return the result (or an abort with no message if null)
+                    return result != null ? result : ExecutionHook.BeforeResult.abort();
+                }
+            } catch (Throwable t) {
+                // Log hook failure but don't abort - hooks shouldn't break commands
+                if (plugin != null) {
+                    plugin.getLogger().warning("Before-execution hook threw exception: " + t.getMessage());
+                    logException(t);
+                }
+            }
+        }
+        return ExecutionHook.BeforeResult.proceed();
+    }
+
+    /**
+     * Runs all registered after-execution hooks.
+     *
+     * @param sender  the command sender
+     * @param context the parsed command context
+     * @param result  the execution result context
+     */
+    private void runAfterHooks(@NotNull CommandSender sender, @NotNull CommandContext context,
+                               @NotNull ExecutionHook.AfterContext result) {
+        if (afterHooks.isEmpty()) {
+            return;
+        }
+        for (ExecutionHook.After hook : afterHooks) {
+            try {
+                hook.execute(sender, context, result);
+            } catch (Throwable t) {
+                // Log hook failure but continue with other hooks
+                if (plugin != null) {
+                    plugin.getLogger().warning("After-execution hook threw exception: " + t.getMessage());
+                    logException(t);
+                }
+            }
         }
     }
 
