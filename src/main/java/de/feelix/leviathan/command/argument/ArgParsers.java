@@ -862,7 +862,7 @@ public final class ArgParsers {
                 .collect(Collectors.toList());
 
             // If input ends with a number, suggest units
-            if (!input.isEmpty() && Character.isDigit(input.charAt(input.length() - 1))) {
+            if (Character.isDigit(input.charAt(input.length() - 1))) {
                 matches.addAll(List.of(
                     input + "s", input + "m", input + "h",
                     input + "d", input + "w"
@@ -930,7 +930,7 @@ public final class ArgParsers {
         }
 
         long seconds = remaining / 1000;
-        if (seconds > 0 || sb.length() == 0) {
+        if (seconds > 0 || sb.isEmpty()) {
             sb.append(seconds).append("s");
         }
 
