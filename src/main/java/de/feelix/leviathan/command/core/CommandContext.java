@@ -813,19 +813,35 @@ public final class CommandContext {
 
     /**
      * Get a value as Double, attempting conversion if necessary.
+     * <p>
+     * Security: This method rejects NaN and Infinity values to prevent
+     * potential issues with special floating-point values.
      *
      * @param name the argument name
-     * @return the double value, or null if not present or not convertible
+     * @return the double value, or null if not present, not convertible, or special value (NaN/Infinity)
      */
     public @Nullable Double getAsDouble(@NotNull String name) {
         Preconditions.checkNotNull(name, "name");
         Object value = values.get(name);
         if (value == null) return null;
-        if (value instanceof Double) return (Double) value;
-        if (value instanceof Number) return ((Number) value).doubleValue();
+        if (value instanceof Double) {
+            Double d = (Double) value;
+            // Security: Reject special values that could cause unexpected behavior
+            if (Double.isNaN(d) || Double.isInfinite(d)) return null;
+            return d;
+        }
+        if (value instanceof Number) {
+            double d = ((Number) value).doubleValue();
+            // Security: Reject special values that could cause unexpected behavior
+            if (Double.isNaN(d) || Double.isInfinite(d)) return null;
+            return d;
+        }
         if (value instanceof String) {
             try {
-                return Double.parseDouble((String) value);
+                double d = Double.parseDouble((String) value);
+                // Security: Reject special values that could cause unexpected behavior
+                if (Double.isNaN(d) || Double.isInfinite(d)) return null;
+                return d;
             } catch (NumberFormatException e) {
                 return null;
             }

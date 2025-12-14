@@ -7,8 +7,8 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -50,7 +50,8 @@ public class DetailedExceptionHandler implements ExceptionHandler {
 
     private static final String SEPARATOR = "═".repeat(70);
     private static final String THIN_SEPARATOR = "─".repeat(70);
-    private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
+    // Thread-safe: DateTimeFormatter is immutable and thread-safe, unlike SimpleDateFormat
+    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
 
     private final Logger logger;
     private final boolean includeThreadDump;
@@ -161,7 +162,8 @@ public class DetailedExceptionHandler implements ExceptionHandler {
     }
 
     private void appendTimestamp(@NotNull StringBuilder report) {
-        report.append("\n Timestamp: ").append(DATE_FORMAT.format(new Date())).append("\n");
+        // Thread-safe: DateTimeFormatter.format() is thread-safe
+        report.append("\n Timestamp: ").append(DATE_FORMAT.format(ZonedDateTime.now())).append("\n");
     }
 
     private void appendErrorDetails(@NotNull StringBuilder report,

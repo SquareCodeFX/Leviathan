@@ -13,6 +13,12 @@ import java.util.List;
  */
 public final class StringSimilarity {
 
+    /**
+     * Maximum string length allowed for Levenshtein distance calculation.
+     * This limit prevents DoS attacks via extremely long strings (O(n*m) complexity).
+     */
+    public static final int MAX_STRING_LENGTH = 256;
+
     private StringSimilarity() {
         throw new AssertionError("Utility class");
     }
@@ -21,6 +27,9 @@ public final class StringSimilarity {
      * Calculate the Levenshtein distance between two strings.
      * The Levenshtein distance is the minimum number of single-character edits
      * (insertions, deletions, or substitutions) required to change one string into another.
+     * <p>
+     * Security: Strings longer than {@link #MAX_STRING_LENGTH} characters are truncated
+     * to prevent DoS attacks, as the algorithm has O(n*m) time complexity.
      *
      * @param s1 first string
      * @param s2 second string
@@ -30,8 +39,12 @@ public final class StringSimilarity {
         Preconditions.checkNotNull(s1, "s1");
         Preconditions.checkNotNull(s2, "s2");
 
-        String lower1 = s1.toLowerCase();
-        String lower2 = s2.toLowerCase();
+        // Security: Limit string length to prevent DoS (O(n*m) complexity)
+        String truncated1 = s1.length() > MAX_STRING_LENGTH ? s1.substring(0, MAX_STRING_LENGTH) : s1;
+        String truncated2 = s2.length() > MAX_STRING_LENGTH ? s2.substring(0, MAX_STRING_LENGTH) : s2;
+
+        String lower1 = truncated1.toLowerCase();
+        String lower2 = truncated2.toLowerCase();
 
         int len1 = lower1.length();
         int len2 = lower2.length();

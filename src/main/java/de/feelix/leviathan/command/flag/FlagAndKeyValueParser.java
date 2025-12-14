@@ -410,8 +410,15 @@ public final class FlagAndKeyValueParser {
     }
 
     /**
-     * Remove surrounding quotes from a value string.
+     * Remove surrounding quotes from a value string and handle escaped quotes.
      * Only removes matching quote pairs.
+     * <p>
+     * Supports escaped quotes within the string:
+     * <ul>
+     *   <li>{@code "He said \"Hello\""} becomes {@code He said "Hello"}</li>
+     *   <li>{@code 'It\'s fine'} becomes {@code It's fine}</li>
+     *   <li>{@code "Path: C:\\Users"} becomes {@code Path: C:\Users}</li>
+     * </ul>
      */
     private @NotNull String unquote(@NotNull String value) {
         if (value.length() >= 2) {
@@ -419,7 +426,23 @@ public final class FlagAndKeyValueParser {
             char last = value.charAt(value.length() - 1);
             // Only unquote if quotes match
             if ((first == '"' && last == '"') || (first == '\'' && last == '\'')) {
-                return value.substring(1, value.length() - 1);
+                String inner = value.substring(1, value.length() - 1);
+                // Handle escaped quotes and backslashes
+                StringBuilder result = new StringBuilder(inner.length());
+                for (int i = 0; i < inner.length(); i++) {
+                    char c = inner.charAt(i);
+                    if (c == '\\' && i + 1 < inner.length()) {
+                        char next = inner.charAt(i + 1);
+                        // Handle escaped quote matching the outer quote type
+                        if (next == first || next == '\\') {
+                            result.append(next);
+                            i++; // Skip the next character
+                            continue;
+                        }
+                    }
+                    result.append(c);
+                }
+                return result.toString();
             }
         }
         return value;
