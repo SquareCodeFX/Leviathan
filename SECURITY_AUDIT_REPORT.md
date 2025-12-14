@@ -1,7 +1,7 @@
 # Leviathan Command Framework - Security Audit Report
 
 **Datum:** 2025-12-14
-**Version:** 1.2.0
+**Version:** 1.2.0 (Update 2)
 **Analyst:** Claude Code Security Audit
 
 ---
@@ -9,6 +9,19 @@
 ## Zusammenfassung
 
 Diese Sicherheitsanalyse identifiziert potentielle Sicherheitslucken, Algorithmus-Probleme und Parsing-Fehler im Leviathan Command Framework. Die Probleme sind nach Schweregrad kategorisiert.
+
+### Status der Behebungen (Update 2)
+
+| Problem | Schweregrad | Status |
+|---------|-------------|--------|
+| Duration Parser Overflow | HIGH | ✅ BEHOBEN |
+| Double/Float NaN/Infinity | HIGH | ✅ BEHOBEN |
+| Levenshtein DoS | MEDIUM | ✅ BEHOBEN |
+| Quote-Escaping | MEDIUM | ✅ BEHOBEN |
+| CommandContext.getAsDouble() NaN/Infinity | MEDIUM | ✅ BEHOBEN (Update 2) |
+| SimpleDateFormat Thread-Safety | MEDIUM | ✅ BEHOBEN (Update 2) |
+| ReDoS in ArgContext | HIGH | ⚠️ DOKUMENTIERT |
+| Race Condition Cooldown | MEDIUM | ⚠️ TEILWEISE BEHOBEN (atomic ops) |
 
 ---
 
@@ -85,27 +98,59 @@ return ParseResult.success(value);
 
 ## Mittlere Probleme (MEDIUM)
 
-### 4. Levenshtein Distance DoS-Risiko
+### 4. CommandContext.getAsDouble() - NaN/Infinity nicht geprüft ✅ BEHOBEN
+
+**Datei:** `CommandContext.java:820-834`
+
+```java
+public @Nullable Double getAsDouble(@NotNull String name) {
+    // ...
+    return Double.parseDouble((String) value);  // Akzeptierte NaN, Infinity!
+}
+```
+
+**Problem:** Inkonsistent mit den Fixes in ArgParsers - `getAsDouble()` akzeptierte spezielle Werte.
+
+**Fix angewendet:** NaN/Infinity-Check in allen Konvertierungspfaden hinzugefügt.
+
+---
+
+### 5. SimpleDateFormat Thread-Safety Issue ✅ BEHOBEN
+
+**Datei:** `DetailedExceptionHandler.java:53` und `JvmInfoCollector.java`
+
+```java
+private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("...");
+```
+
+**Problem:** `SimpleDateFormat` ist NICHT thread-safe. Bei gleichzeitigen Aufrufen aus mehreren Threads können Datenkorruption oder Exceptions auftreten.
+
+**Fix angewendet:** Ersetzt durch thread-safe `DateTimeFormatter`:
+
+```java
+private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
+```
+
+---
+
+### 6. Levenshtein Distance DoS-Risiko ✅ BEHOBEN
 
 **Datei:** `StringSimilarity.java:29-67`
 
 **Problem:** Die Levenshtein-Distanz hat O(n*m) Zeitkomplexitat. Sehr lange Eingaben konnen den Server blockieren.
 
-**Empfehlung:**
+**Fix angewendet:**
 ```java
-public static int levenshteinDistance(@NotNull String s1, @NotNull String s2) {
-    // Limit string lengths to prevent DoS
-    final int MAX_LENGTH = 256;
-    if (s1.length() > MAX_LENGTH || s2.length() > MAX_LENGTH) {
-        return Integer.MAX_VALUE; // Treat as "very different"
-    }
-    // ... existing implementation
-}
+public static final int MAX_STRING_LENGTH = 256;
+
+// Security: Limit string length to prevent DoS (O(n*m) complexity)
+String truncated1 = s1.length() > MAX_STRING_LENGTH ? s1.substring(0, MAX_STRING_LENGTH) : s1;
+String truncated2 = s2.length() > MAX_STRING_LENGTH ? s2.substring(0, MAX_STRING_LENGTH) : s2;
 ```
 
 ---
 
-### 5. Race Condition bei Cooldown-Bypass
+### 7. Race Condition bei Cooldown-Bypass
 
 **Datei:** `SlashCommand.java:594-610` und `CooldownManager.java`
 
@@ -138,7 +183,7 @@ public static CooldownResult checkAndUpdateCooldown(String cmd, String userId, l
 
 ---
 
-### 6. Input-Sanitisierung unvollstandig
+### 8. Input-Sanitisierung unvollstandig
 
 **Datei:** `SlashCommand.java:358-432`
 
@@ -176,7 +221,7 @@ private @NotNull String sanitizeString(@NotNull String input) {
 
 ---
 
-### 7. OfflinePlayer Blocking Call
+### 9. OfflinePlayer Blocking Call
 
 **Datei:** `ArgParsers.java:435-437`
 
@@ -195,7 +240,7 @@ return ParseResult.success(offlinePlayer);
 
 ---
 
-### 8. Unzureichendes Quote-Handling
+### 10. Unzureichendes Quote-Handling ✅ BEHOBEN
 
 **Datei:** `FlagAndKeyValueParser.java:416-426`
 
@@ -241,7 +286,7 @@ private @NotNull String unquote(@NotNull String value) {
 
 ## Niedrige Probleme (LOW)
 
-### 9. Memory Leak Potential in pendingConfirmations
+### 11. Memory Leak Potential in pendingConfirmations
 
 **Datei:** `SlashCommand.java:67`
 
@@ -255,7 +300,7 @@ private static final Map<String, Long> pendingConfirmations = new java.util.conc
 
 ---
 
-### 10. Information Disclosure uber Tab-Completion
+### 12. Information Disclosure uber Tab-Completion
 
 **Datei:** `TabCompletionHandler.java`
 
@@ -265,7 +310,7 @@ private static final Map<String, Long> pendingConfirmations = new java.util.conc
 
 ---
 
-### 11. Unchecked Type Cast
+### 13. Unchecked Type Cast
 
 **Datei:** `ValidationHelper.java:98`
 
@@ -279,7 +324,7 @@ ArgContext.Validator<Object> objValidator = (ArgContext.Validator<Object>) valid
 
 ---
 
-### 12. CompletionCache evictOldest Thread-Safety
+### 14. CompletionCache evictOldest Thread-Safety
 
 **Datei:** `CompletionCache.java:267-281`
 
