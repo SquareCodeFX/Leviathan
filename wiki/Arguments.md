@@ -509,3 +509,110 @@ ArgContext ctx = ArgContext.builder()
 ```
 
 For advanced tab-completion features including async completions and permission-filtered suggestions, see [Advanced Completions](Advanced-Completions.md).
+
+### Custom ArgumentParser Interface
+
+For full control over argument parsing, implement the `ArgumentParser<T>` interface:
+
+```java
+public interface ArgumentParser<T> {
+    /** Short type name for error messages (e.g., "int", "uuid") */
+    @NotNull String getTypeName();
+
+    /** Parse input to target type. Never returns null. */
+    @NotNull ParseResult<T> parse(@NotNull String input, @NotNull CommandSender sender);
+
+    /** Provide tab-completion suggestions. Never returns null. */
+    @NotNull List<String> complete(@NotNull String input, @NotNull CommandSender sender);
+}
+```
+
+**Contract requirements:**
+- Implementations must be **stateless and thread-safe**
+- `parse()` must never return null — always return a `ParseResult`
+- `complete()` must return a non-null list (possibly empty)
+
+#### Creating a Custom Parser
+
+```java
+public class UUIDParser implements ArgumentParser<UUID> {
+
+    @Override
+    public @NotNull String getTypeName() {
+        return "uuid";
+    }
+
+    @Override
+    public @NotNull ParseResult<UUID> parse(@NotNull String input, @NotNull CommandSender sender) {
+        try {
+            UUID uuid = UUID.fromString(input);
+            return ParseResult.success(uuid);
+        } catch (IllegalArgumentException e) {
+            return ParseResult.failure("Invalid UUID format");
+        }
+    }
+
+    @Override
+    public @NotNull List<String> complete(@NotNull String input, @NotNull CommandSender sender) {
+        return List.of();  // UUIDs are too complex to suggest
+    }
+}
+```
+
+#### Using Custom Parsers
+
+```java
+private static final UUIDParser UUID_PARSER = new UUIDParser();
+
+SlashCommand lookup = SlashCommand.create("lookup")
+    .arg("id", UUID_PARSER, ArgContext.builder()
+        .description("The unique identifier")
+        .build())
+    .executes((sender, ctx) -> {
+        UUID id = ctx.require("id", UUID.class);
+        // Use the parsed UUID...
+    })
+    .build();
+```
+
+#### ParseResult
+
+```java
+// Successful parse
+ParseResult.success(value);
+
+// Failed parse with error message
+ParseResult.failure("Error message");
+
+// Check result
+if (result.isSuccess()) {
+    T value = result.value();
+} else {
+    String error = result.errorMessage();
+}
+```
+
+#### Context-Aware Parser Example
+
+```java
+public class HomeParser implements ArgumentParser<Location> {
+
+    @Override
+    public @NotNull ParseResult<Location> parse(@NotNull String input, @NotNull CommandSender sender) {
+        if (!(sender instanceof Player player)) {
+            return ParseResult.failure("This argument requires a player");
+        }
+        Location home = homeService.getHome(player.getUniqueId(), input);
+        if (home == null) {
+            return ParseResult.failure("Home '" + input + "' not found");
+        }
+        return ParseResult.success(home);
+    }
+
+    @Override
+    public @NotNull List<String> complete(@NotNull String input, @NotNull CommandSender sender) {
+        if (!(sender instanceof Player player)) return List.of();
+        return homeService.getHomeNames(player.getUniqueId());
+    }
+}
+```

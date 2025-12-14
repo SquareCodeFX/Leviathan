@@ -108,6 +108,54 @@ Retrieve at runtime via `CommandContext.getKeyValue*(...)` or `getKeyValue(name,
 - `perUserCooldown(long cooldownMillis)` — Per‑sender throttling (by UUID or name depending on sender type).
 - `perServerCooldown(long cooldownMillis)` — Global throttling across all senders.
 
+#### Metrics
+
+- `enableMetrics(boolean)` — Enable execution metrics collection. Default: false.
+
+When enabled, access metrics via `SlashCommand.metrics()`:
+
+```java
+SlashCommand cmd = SlashCommand.create("example")
+    .enableMetrics(true)
+    .executes(ctx -> { /* ... */ })
+    .build();
+
+// Later, retrieve metrics
+CommandMetrics metrics = cmd.metrics();
+
+// Get individual statistics
+long total = metrics.getTotalExecutions();
+long successful = metrics.getSuccessfulExecutions();
+long failed = metrics.getFailedExecutions();
+double successRate = metrics.getSuccessRate();  // 0-100%
+double avgTime = metrics.getAverageExecutionTimeMs();
+long minTime = metrics.getMinExecutionTimeMs();
+long maxTime = metrics.getMaxExecutionTimeMs();
+long firstExec = metrics.getFirstExecutionTime();  // Timestamp
+long lastExec = metrics.getLastExecutionTime();    // Timestamp
+
+// Get error count by type
+long permErrors = metrics.getErrorCount(ErrorType.NO_PERMISSION);
+long validationErrors = metrics.getErrorCount(ErrorType.VALIDATION_FAILED);
+
+// Get all metrics as a map (useful for serialization)
+Map<String, Object> snapshot = metrics.getSnapshot();
+
+// Reset metrics
+metrics.reset();
+
+// toString() for quick overview
+System.out.println(metrics);
+// Output: CommandMetrics{total=150, success=142, failed=8, successRate=94.7%, avgTime=12.3ms}
+```
+
+Tracked metrics:
+- Total/successful/failed executions
+- Success rate percentage
+- Execution time (average, min, max)
+- First and last execution timestamps
+- Errors by type (permission, validation, parsing, etc.)
+
 #### Guards and Validation
 
 - `require(Class<? extends CommandSender> type)` — Built‑in guard ensuring sender is instance of `type`. Provides a default error message.
