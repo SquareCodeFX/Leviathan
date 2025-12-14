@@ -179,3 +179,52 @@ SlashCommand reset = SlashCommand.create("reseteconomy")
 ```
 
 When a player first runs `/reseteconomy`, they'll receive a confirmation message. They must execute the command again within 10 seconds to confirm. This prevents accidental execution of dangerous commands.
+
+#### 10) Conditional subcommand registration with subIf()
+
+Register subcommands conditionally based on config, feature flags, or runtime conditions:
+
+```java
+// Using BooleanSupplier
+SlashCommand admin = SlashCommand.create("admin")
+    .enableHelp(true)
+    .sub(commonSubcommand)
+    .subIf(() -> config.getBoolean("features.advanced"), advancedSubcommand)
+    .subIf(() -> config.getBoolean("features.experimental"), experimentalSubcommand)
+    .build();
+
+// Using plugin predicate for config access
+SlashCommand server = SlashCommand.create("server")
+    .enableHelp(true)
+    .sub(statusCommand, infoCommand)
+    .subIf(plugin, p -> p.getConfig().getBoolean("enable-debug-commands"),
+        debugCommand, traceCommand)
+    .subIf(plugin, p -> p.getServer().getOnlinePlayers().size() > 0,
+        broadcastCommand)
+    .build();
+```
+
+This is useful for:
+- Feature flags that enable/disable commands at startup
+- Premium/free tier command separation
+- Environment-specific commands (dev vs production)
+- Conditional availability based on server state
+
+#### 11) Duration argument for time-based commands
+
+```java
+SlashCommand tempban = SlashCommand.create("tempban")
+    .permission("admin.tempban")
+    .argPlayer("target")
+    .argDuration("duration")  // Accepts: 30s, 5m, 2h, 1d, 1w, 2h30m, etc.
+    .argString("reason", ArgContext.builder().optional(true).greedy(true).build())
+    .executes((sender, ctx) -> {
+        Player target = ctx.get("target", Player.class);
+        long durationMs = ctx.get("duration", Long.class);
+        String reason = ctx.getStringOrDefault("reason", "No reason given");
+
+        banService.tempBan(target, durationMs, reason);
+        sender.sendMessage("Banned " + target.getName() + " for " + formatDuration(durationMs));
+    })
+    .build();
+```
