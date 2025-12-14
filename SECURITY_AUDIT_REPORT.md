@@ -1,7 +1,7 @@
 # Leviathan Command Framework - Security Audit Report
 
 **Datum:** 2025-12-14
-**Version:** 1.2.0 (Update 2)
+**Version:** 1.2.0 (Update 3)
 **Analyst:** Claude Code Security Audit
 
 ---
@@ -10,7 +10,7 @@
 
 Diese Sicherheitsanalyse identifiziert potentielle Sicherheitslucken, Algorithmus-Probleme und Parsing-Fehler im Leviathan Command Framework. Die Probleme sind nach Schweregrad kategorisiert.
 
-### Status der Behebungen (Update 2)
+### Status der Behebungen (Update 3)
 
 | Problem | Schweregrad | Status |
 |---------|-------------|--------|
@@ -22,6 +22,12 @@ Diese Sicherheitsanalyse identifiziert potentielle Sicherheitslucken, Algorithmu
 | SimpleDateFormat Thread-Safety | MEDIUM | ✅ BEHOBEN (Update 2) |
 | ReDoS in ArgContext | HIGH | ⚠️ DOKUMENTIERT |
 | Race Condition Cooldown | MEDIUM | ⚠️ TEILWEISE BEHOBEN (atomic ops) |
+| Kooperativer Timeout | LOW | ⚠️ DOKUMENTIERT (Update 3) |
+| Format String API Risiko | LOW | ⚠️ DOKUMENTIERT (Update 3) |
+| Listener Exception Silencing | LOW | ⚠️ DOKUMENTIERT (Update 3) |
+| Key Info in CacheException | LOW | ⚠️ DOKUMENTIERT (Update 3) |
+
+**Gesamtübersicht:** 18 Probleme identifiziert, 6 behoben, 12 dokumentiert
 
 ---
 
@@ -331,6 +337,77 @@ ArgContext.Validator<Object> objValidator = (ArgContext.Validator<Object>) valid
 **Problem:** Die Iteration uber `cache.entrySet()` wahrend `evictOldest()` ist nicht atomar mit dem folgenden `cache.remove()`.
 
 **Empfehlung:** Synchronisierung oder atomare Operationen verwenden.
+
+---
+
+### 15. Kooperativer Timeout - Kein echtes Interrupt (Update 3)
+
+**Datei:** `SlashCommand.java:1137-1141`
+
+```java
+// Execute with timeout awareness - action should check token.isCancelled()
+asyncActionAdv.execute(sender, ctx, token, progress);
+
+// Check if we exceeded timeout after execution
+if (System.currentTimeMillis() - startTime > asyncTimeoutMillis) {
+    timedOut = true;
+    token.cancel();
+}
+```
+
+**Problem:** Der Timeout wird nur NACH der Ausfuhrung gepruft. Wenn die Aktion nicht kooperativ `token.isCancelled()` pruft, kann sie unbegrenzt laufen und den Thread blockieren.
+
+**Empfehlung:**
+- Dokumentation verbessern - Entwickler mussen wissen, dass sie `token.isCancelled()` prufen mussen
+- Alternativ: Interrupt-basiertes Timeout mit `ExecutorService.submit()` und `future.get(timeout)` implementieren
+
+---
+
+### 16. Format String API Risiko (Update 3)
+
+**Datei:** `CooldownManager.java:197`
+
+```java
+return String.format(template, timeStr);
+```
+
+**Problem:** Die offentliche API `formatCooldownMessage(String template, long remainingMillis)` akzeptiert ein Template, das mit `String.format()` verarbeitet wird. Wenn ein Entwickler Benutzereingaben als Template ubergibt, kann dies zu:
+- Format-String-Injection (`%n`, `%x`, etc.)
+- CrashesLeaks
+
+**Empfehlung:**
+- Template validieren oder
+- `String.replace()` statt `String.format()` verwenden
+
+---
+
+### 17. Listener Exception wird unterdruckt (Update 3)
+
+**Datei:** `InteractivePaginator.java:333`
+
+```java
+} catch (Exception ignored) {
+    // Don't let listener exceptions break pagination
+}
+```
+
+**Problem:** Alle Listener-Exceptions werden stillschweigend verschluckt. Dies kann wichtige Bugs maskieren.
+
+**Empfehlung:** Mindestens Logging hinzufugen.
+
+---
+
+### 18. Key-Informationen in CacheException (Update 3)
+
+**Datei:** `LruPaginationCache.java:289, 314`
+
+```java
+throw new CacheException("Failed to load value for key: " + key, e);
+```
+
+**Problem:** Der Cache-Key wird in der Exception-Nachricht eingeschlossen. Bei sensiblen Keys (z.B. Session-IDs) kann dies zu Information Disclosure in Stack-Traces fuhren.
+
+**Empfehlung:** Keys nicht direkt in Exception-Nachrichten einbinden oder vorher hashen.
 
 ---
 
