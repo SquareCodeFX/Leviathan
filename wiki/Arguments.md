@@ -401,4 +401,111 @@ ArgContext ctx = ArgContext.builder()
     .build();
 ```
 
+#### String Validation Shortcuts
+
+ArgContext provides convenient shortcut methods for common string validation patterns:
+
+```java
+// Require valid email format
+ArgContext emailCtx = ArgContext.builder()
+    .requireEmail()
+    .build();
+
+// Require alphanumeric only (letters and digits)
+ArgContext alphaCtx = ArgContext.builder()
+    .requireAlphanumeric()
+    .build();
+
+// Require valid identifier (letters, digits, underscores, starts with letter/underscore)
+ArgContext identCtx = ArgContext.builder()
+    .requireIdentifier()
+    .build();
+
+// Require valid Minecraft username (3-16 chars, letters/digits/underscores)
+ArgContext mcCtx = ArgContext.builder()
+    .requireMinecraftUsername()
+    .build();
+
+// Require valid URL
+ArgContext urlCtx = ArgContext.builder()
+    .requireUrl()
+    .build();
+
+// Require no whitespace
+ArgContext noSpaceCtx = ArgContext.builder()
+    .requireNoWhitespace()
+    .build();
+```
+
+These shortcuts are equivalent to calling `stringPattern()` with the appropriate regex.
+
+#### String Transformers
+
+Transform string input before validation:
+
+```java
+// Convert to lowercase
+ArgContext lowerCtx = ArgContext.builder()
+    .transformLowercase()
+    .build();
+
+// Convert to uppercase
+ArgContext upperCtx = ArgContext.builder()
+    .transformUppercase()
+    .build();
+
+// Trim whitespace
+ArgContext trimCtx = ArgContext.builder()
+    .transformTrim()
+    .build();
+
+// Normalize whitespace (trim + collapse multiple spaces)
+ArgContext normalizeCtx = ArgContext.builder()
+    .transformNormalizeWhitespace()
+    .build();
+```
+
+#### Completion Helpers
+
+Convenience methods for adding completions:
+
+```java
+// Add a single completion
+ArgContext ctx1 = ArgContext.builder()
+    .addCompletion("option1")
+    .addCompletion("option2")
+    .build();
+
+// Add multiple completions at once
+ArgContext ctx2 = ArgContext.builder()
+    .addCompletions("easy", "normal", "hard")
+    .build();
+
+// Generate completions from an enum
+ArgContext ctx3 = ArgContext.builder()
+    .completionsFromEnum(GameMode.class)
+    .build();
+
+// Add range hint for numeric arguments
+ArgContext ctx4 = ArgContext.builder()
+    .rangeHint(1, 100)  // Shows "[1-100]" as hint
+    .intRange(1, 100)   // Actual validation
+    .build();
+```
+
+#### Fluent Aliases
+
+ArgContext.Builder provides fluent aliases for better readability:
+
+```java
+ArgContext ctx = ArgContext.builder()
+    .withPermission("admin.use")       // Same as permission()
+    .withCompletions(List.of("a", "b")) // Same as completionsPredefined()
+    .withDescription("The target")     // Same as description()
+    .withDynamicCompletions(provider)  // Same as completionsDynamic()
+    .withAsyncDynamicCompletions(prov) // Same as completionsDynamicAsync()
+    .withAsyncCompletions(supplier)    // Same as completionsPredefinedAsync()
+    .build();
+```
+
 For advanced tab-completion features including async completions and permission-filtered suggestions, see [Advanced Completions](Advanced-Completions.md).
