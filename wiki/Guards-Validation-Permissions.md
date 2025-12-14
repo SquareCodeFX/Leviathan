@@ -27,6 +27,31 @@ Builder helpers:
 - `playersOnly()` — Shortcut ensuring the sender is a `Player`.
 - `require(Class<? extends CommandSender> type)` — Ensure the sender is an instance of `type`. Provides a default message.
 - `require(Guard... guards)` — Add custom guards.
+- `requirePermission(String permission)` — Shortcut to add a permission-based guard.
+- `requireAnyPermission(String... permissions)` — Require at least one of the specified permissions.
+- `requireAllPermissions(String... permissions)` — Require all of the specified permissions.
+
+##### Permission Shortcut Guards
+
+```java
+// Single permission
+SlashCommand admin = SlashCommand.create("admin")
+    .requirePermission("myplugin.admin")
+    .executes(ctx -> { /* ... */ })
+    .build();
+
+// Any of multiple permissions (OR logic)
+SlashCommand moderate = SlashCommand.create("moderate")
+    .requireAnyPermission("myplugin.admin", "myplugin.moderator", "myplugin.helper")
+    .executes(ctx -> { /* ... */ })
+    .build();
+
+// All permissions required (AND logic)
+SlashCommand superadmin = SlashCommand.create("superadmin")
+    .requireAllPermissions("myplugin.admin", "myplugin.superadmin")
+    .executes(ctx -> { /* ... */ })
+    .build();
+```
 
 Example custom guard:
 

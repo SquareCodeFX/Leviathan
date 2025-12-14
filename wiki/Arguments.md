@@ -8,6 +8,7 @@ Leviathan provides a rich, type‑safe argument system. You declare positional a
 - Text: `argString`
 - Boolean: `argBoolean`
 - UUID: `argUUID`
+- Duration: `argDuration` — Parses time strings to milliseconds
 - Bukkit types: `argPlayer`, `argOfflinePlayer`, `argWorld`, `argMaterial`
 - Enums: `argEnum(name, Class<E>)`
 
@@ -71,6 +72,50 @@ SlashCommand give = SlashCommand.create("give")
         int amount = ctx.getOrDefault("amount", Integer.class, 1);
         // ...
     })
+    .build();
+```
+
+#### Duration arguments
+
+`argDuration(name)` parses human-readable time strings into milliseconds. Supported formats:
+
+- `30s` — 30 seconds
+- `5m` — 5 minutes
+- `2h` — 2 hours
+- `1d` — 1 day
+- `1w` — 1 week
+- `1mo` — 1 month (30 days)
+- `1y` — 1 year (365 days)
+- Combinations: `2h30m`, `1d12h`, `1w2d`
+
+Example:
+
+```java
+SlashCommand tempban = SlashCommand.create("tempban")
+    .argPlayer("target")
+    .argDuration("duration")
+    .argString("reason", ArgContext.builder().optional(true).greedy(true).build())
+    .executes((sender, ctx) -> {
+        Player target = ctx.get("target", Player.class);
+        long durationMs = ctx.get("duration", Long.class);
+        String reason = ctx.getStringOrDefault("reason", "No reason");
+
+        // Ban player for the specified duration
+        banService.ban(target, durationMs, reason);
+        sender.sendMessage("Banned " + target.getName() + " for " + formatDuration(durationMs));
+    })
+    .build();
+```
+
+With `ArgContext` for validation:
+
+```java
+SlashCommand mute = SlashCommand.create("mute")
+    .argPlayer("target")
+    .argDuration("duration", ArgContext.builder()
+        .description("How long to mute the player (e.g., 30m, 2h, 1d)")
+        .build())
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 ```
 
