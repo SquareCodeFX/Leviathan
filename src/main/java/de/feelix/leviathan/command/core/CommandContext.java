@@ -354,7 +354,8 @@ public final class CommandContext {
         private final String name;
 
         private MappingImpl(String name) {
-            this.name = name;
+            // Resolve alias to primary name at construction time
+            this.name = resolveName(name);
         }
 
         @Override
@@ -847,25 +848,27 @@ public final class CommandContext {
 
     /**
      * Get a value as String, converting if necessary.
+     * Supports argument aliases.
      *
-     * @param name the argument name
+     * @param name the argument name or alias
      * @return the string representation, or null if not present
      */
     public @Nullable String getAsString(@NotNull String name) {
         Preconditions.checkNotNull(name, "name");
-        Object value = values.get(name);
+        Object value = values.get(resolveName(name));
         return value != null ? String.valueOf(value) : null;
     }
 
     /**
      * Get a value as Integer, attempting conversion if necessary.
+     * Supports argument aliases.
      *
-     * @param name the argument name
+     * @param name the argument name or alias
      * @return the integer value, or null if not present or not convertible
      */
     public @Nullable Integer getAsInt(@NotNull String name) {
         Preconditions.checkNotNull(name, "name");
-        Object value = values.get(name);
+        Object value = values.get(resolveName(name));
         if (value == null) return null;
         if (value instanceof Integer) return (Integer) value;
         if (value instanceof Number) return ((Number) value).intValue();
@@ -881,13 +884,14 @@ public final class CommandContext {
 
     /**
      * Get a value as Long, attempting conversion if necessary.
+     * Supports argument aliases.
      *
-     * @param name the argument name
+     * @param name the argument name or alias
      * @return the long value, or null if not present or not convertible
      */
     public @Nullable Long getAsLong(@NotNull String name) {
         Preconditions.checkNotNull(name, "name");
-        Object value = values.get(name);
+        Object value = values.get(resolveName(name));
         if (value == null) return null;
         if (value instanceof Long) return (Long) value;
         if (value instanceof Number) return ((Number) value).longValue();
@@ -903,16 +907,17 @@ public final class CommandContext {
 
     /**
      * Get a value as Double, attempting conversion if necessary.
+     * Supports argument aliases.
      * <p>
      * Security: This method rejects NaN and Infinity values to prevent
      * potential issues with special floating-point values.
      *
-     * @param name the argument name
+     * @param name the argument name or alias
      * @return the double value, or null if not present, not convertible, or special value (NaN/Infinity)
      */
     public @Nullable Double getAsDouble(@NotNull String name) {
         Preconditions.checkNotNull(name, "name");
-        Object value = values.get(name);
+        Object value = values.get(resolveName(name));
         if (value == null) return null;
         if (value instanceof Double) {
             Double d = (Double) value;
@@ -941,13 +946,14 @@ public final class CommandContext {
 
     /**
      * Get a value as Boolean, attempting conversion if necessary.
+     * Supports argument aliases.
      *
-     * @param name the argument name
+     * @param name the argument name or alias
      * @return the boolean value, or null if not present or not convertible
      */
     public @Nullable Boolean getAsBoolean(@NotNull String name) {
         Preconditions.checkNotNull(name, "name");
-        Object value = values.get(name);
+        Object value = values.get(resolveName(name));
         if (value == null) return null;
         if (value instanceof Boolean) return (Boolean) value;
         if (value instanceof String) {
@@ -967,14 +973,15 @@ public final class CommandContext {
 
     /**
      * Check if all specified arguments are present.
+     * Supports argument aliases.
      *
-     * @param names the argument names to check
+     * @param names the argument names or aliases to check
      * @return true if all specified arguments have values
      */
     public boolean hasAll(@NotNull String... names) {
         Preconditions.checkNotNull(names, "names");
         for (String name : names) {
-            if (name == null || !values.containsKey(name)) {
+            if (name == null || !values.containsKey(resolveName(name))) {
                 return false;
             }
         }
@@ -983,14 +990,15 @@ public final class CommandContext {
 
     /**
      * Check if any of the specified arguments are present.
+     * Supports argument aliases.
      *
-     * @param names the argument names to check
+     * @param names the argument names or aliases to check
      * @return true if at least one of the specified arguments has a value
      */
     public boolean hasAny(@NotNull String... names) {
         Preconditions.checkNotNull(names, "names");
         for (String name : names) {
-            if (name != null && values.containsKey(name)) {
+            if (name != null && values.containsKey(resolveName(name))) {
                 return true;
             }
         }
@@ -1011,15 +1019,16 @@ public final class CommandContext {
     /**
      * Require all specified arguments to be present.
      * Throws an exception if any are missing.
+     * Supports argument aliases.
      *
-     * @param names the argument names that must all be present
+     * @param names the argument names or aliases that must all be present
      * @throws ApiMisuseException if any argument is missing
      */
     public void requireAll(@NotNull String... names) {
         Preconditions.checkNotNull(names, "names");
         List<String> missing = new ArrayList<>();
         for (String name : names) {
-            if (name != null && !values.containsKey(name)) {
+            if (name != null && !values.containsKey(resolveName(name))) {
                 missing.add(name);
             }
         }
@@ -1045,18 +1054,19 @@ public final class CommandContext {
     /**
      * If a trigger argument is present, require all dependent arguments.
      * This is useful for conditional dependencies.
+     * Supports argument aliases.
      *
-     * @param trigger      the argument that triggers the requirement
-     * @param dependencies arguments required when trigger is present
+     * @param trigger      the argument or alias that triggers the requirement
+     * @param dependencies arguments or aliases required when trigger is present
      * @throws ApiMisuseException if trigger is present but dependencies are missing
      */
     public void requireIfPresent(@NotNull String trigger, @NotNull String... dependencies) {
         Preconditions.checkNotNull(trigger, "trigger");
         Preconditions.checkNotNull(dependencies, "dependencies");
-        if (values.containsKey(trigger)) {
+        if (values.containsKey(resolveName(trigger))) {
             List<String> missing = new ArrayList<>();
             for (String dep : dependencies) {
-                if (dep != null && !values.containsKey(dep)) {
+                if (dep != null && !values.containsKey(resolveName(dep))) {
                     missing.add(dep);
                 }
             }
@@ -1070,15 +1080,16 @@ public final class CommandContext {
     /**
      * Require that at most one of the specified arguments is present.
      * Throws an exception if more than one is present.
+     * Supports argument aliases.
      *
-     * @param names the mutually exclusive argument names
+     * @param names the mutually exclusive argument names or aliases
      * @throws ApiMisuseException if more than one argument is present
      */
     public void requireMutuallyExclusive(@NotNull String... names) {
         Preconditions.checkNotNull(names, "names");
         List<String> present = new ArrayList<>();
         for (String name : names) {
-            if (name != null && values.containsKey(name)) {
+            if (name != null && values.containsKey(resolveName(name))) {
                 present.add(name);
             }
         }
@@ -1090,9 +1101,10 @@ public final class CommandContext {
     /**
      * Get all values for the specified argument names that are present.
      * Useful for gathering related optional arguments.
+     * Supports argument aliases. The map keys will be the names as provided (not resolved to primary).
      *
      * @param type  the expected type for all values
-     * @param names the argument names to gather
+     * @param names the argument names or aliases to gather
      * @param <T>   the type
      * @return a map of name to value for present arguments
      */
@@ -1102,10 +1114,13 @@ public final class CommandContext {
         Preconditions.checkNotNull(names, "names");
         Map<String, T> result = new LinkedHashMap<>();
         for (String name : names) {
-            if (name != null && values.containsKey(name)) {
-                Object value = values.get(name);
-                if (type.isInstance(value)) {
-                    result.put(name, (T) value);
+            if (name != null) {
+                String resolvedName = resolveName(name);
+                if (values.containsKey(resolvedName)) {
+                    Object value = values.get(resolvedName);
+                    if (type.isInstance(value)) {
+                        result.put(name, (T) value);
+                    }
                 }
             }
         }
