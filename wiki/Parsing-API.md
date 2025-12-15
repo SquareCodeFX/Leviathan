@@ -1169,10 +1169,39 @@ command.execute((sender, ctx) -> {
 
 ### CommandContext Methods
 
+**Alias-Specific Methods:**
+
 | Method | Description |
 |--------|-------------|
 | `aliasMap()` | Get alias → primary name mapping |
 | `isAlias(name)` | Check if name is an alias |
 | `getPrimaryName(alias)` | Get primary name for alias |
-| `argument(name)` | Get value by name or alias (no type check) |
-| `allArguments()` | Get all argument values |
+
+**All These Methods Support Aliases:**
+
+| Category | Methods |
+|----------|---------|
+| **Basic Getters** | `get()`, `getOrDefault()`, `optional()`, `orThrow()`, `require()`, `argument()` |
+| **Type-Specific** | `getStringOrDefault()`, `getIntOrDefault()`, `getLongOrDefault()`, `getDoubleOrDefault()`, `getFloatOrDefault()`, `getBooleanOrDefault()`, `getUuidOrDefault()`, `getPlayerOrDefault()` |
+| **Type Conversion** | `getAsString()`, `getAsInt()`, `getAsLong()`, `getAsDouble()`, `getAsBoolean()` |
+| **Presence Checks** | `has()`, `hasAll()`, `hasAny()` |
+| **Validation** | `requireAll()`, `requireAny()`, `requireIfPresent()`, `requireMutuallyExclusive()` |
+| **Bulk Operations** | `gatherPresent()`, `ifAllPresent()`, `ifAnyPresent()` |
+| **Functional** | `map()`, `ifPresent()`, `arg()` |
+| **Raw Access** | `allArguments()` |
+
+### PartialParseResult Methods
+
+| Method | Description |
+|--------|-------------|
+| `getArgument(name)` | Get parsed value by name or alias |
+| `hasArgument(name)` | Check if argument exists by name or alias |
+| `aliasMap()` | Get alias → primary name mapping |
+| `withAliasMap()` | Builder method to set alias map |
+
+### ParseResultBuilder Methods
+
+| Method | Description |
+|--------|-------------|
+| `withAliasMap(map)` | Set the full alias map |
+| `withAlias(alias, primary)` | Add a single alias mapping |
