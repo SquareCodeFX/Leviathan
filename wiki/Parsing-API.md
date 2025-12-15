@@ -795,3 +795,286 @@ This makes the Parse API ideal for:
 - Parallel test execution
 - Async validation in background threads
 - Preview/dry-run scenarios
+
+---
+
+## Advanced Features
+
+### Parse Metrics
+
+Track parsing performance with `ParseMetrics`. Enable metrics collection in `ParseOptions`:
+
+```java
+ParseOptions options = ParseOptions.builder()
+    .collectMetrics(true)
+    .build();
+
+CommandParseResult result = command.parse(sender, label, args, options);
+ParseMetrics metrics = result.metrics();
+
+if (metrics.isEnabled()) {
+    System.out.println("Total parse time: " + metrics.totalTimeMillis() + "ms");
+    System.out.println("Permission check: " + metrics.permissionCheckTimeNanos() + "ns");
+    System.out.println("Argument parsing: " + metrics.argumentParseTimeNanos() + "ns");
+    System.out.println("Arguments parsed: " + metrics.argumentsParsed());
+    System.out.println("Errors encountered: " + metrics.errorsEncountered());
+}
+```
+
+### Async Parsing
+
+Parse commands asynchronously using `CompletableFuture`:
+
+```java
+// Basic async parsing
+command.parseAsync(sender, label, args)
+    .thenAccept(result -> {
+        if (result.isSuccess()) {
+            // Handle on async thread
+        }
+    });
+
+// Async parsing with options
+command.parseAsync(sender, label, args, ParseOptions.STRICT)
+    .thenAccept(result -> processResult(result));
+
+// Async parse and execute
+command.parseAndExecuteAsync(sender, label, args, (s, ctx) -> {
+    // Execute on async thread
+    // Remember to schedule back to main thread for Bukkit API calls
+});
+```
+
+### Parse Simulation
+
+Test how commands would parse for different senders:
+
+```java
+// Parse as a different sender
+CommandParseResult result = command.parseAs(targetPlayer, "give", args);
+if (result.hasAccessErrors()) {
+    admin.sendMessage("Player lacks permission for this command");
+}
+
+// Parse for multiple senders at once
+List<CommandSender> players = getOnlinePlayers();
+Map<CommandSender, CommandParseResult> results = command.parseForAll(players, "give", args);
+
+// Find all players who can execute this command
+List<CommandSender> eligible = results.entrySet().stream()
+    .filter(e -> e.getValue().isSuccess())
+    .map(Map.Entry::getKey)
+    .collect(Collectors.toList());
+
+// Async version for large player lists
+command.parseForAllAsync(players, label, args)
+    .thenAccept(results -> {
+        // Process results on async thread
+    });
+```
+
+### Partial Parsing
+
+Parse only a subset of arguments, useful for progressive validation:
+
+```java
+// Parse first 2 arguments only
+PartialParseResult result = command.parsePartial(sender, label, args,
+    PartialParseOptions.firstN(2));
+
+// Parse until first error
+PartialParseResult result = command.parseUntilError(sender, label, args);
+
+// Get what was successfully parsed even with errors
+Map<String, Object> parsed = result.parsedArguments();
+
+// Check where parsing failed
+if (result.hasErrors()) {
+    int errorIndex = result.errorArgumentIndex();
+    sender.sendMessage("Error at argument " + errorIndex);
+}
+
+// Full options control
+PartialParseOptions options = PartialParseOptions.builder()
+    .startAtArgument(1)
+    .maxArguments(3)
+    .stopOnFirstError(true)
+    .skipPermissionChecks(true)
+    .includePartialContext(true)
+    .build();
+
+PartialParseResult result = command.parsePartial(sender, label, args, options);
+```
+
+### Auto-Correction
+
+Automatically correct typos in argument values:
+
+```java
+ParseOptions options = ParseOptions.builder()
+    .enableAutoCorrection(true)
+    .autoCorrectThreshold(0.8)  // 80% similarity required
+    .maxAutoCorrections(3)      // Max 3 corrections per parse
+    .build();
+
+// If player types "diamnod" and "diamond" is a valid choice,
+// it will be auto-corrected to "diamond"
+CommandParseResult result = command.parse(sender, label, args, options);
+```
+
+### Validation Profiles
+
+Define reusable validation rules:
+
+```java
+// Create a profile for admin commands
+ValidationProfile adminProfile = ValidationProfile.builder()
+    .name("admin")
+    .requirePermission("admin.commands")
+    .requirePlayer(false)
+    .requireArgumentNonNull("target")
+    .requirePositive("amount")
+    .requireInRange("level", 1, 100)
+    .requireNotBlank("reason")
+    .addGlobalRule(
+        result -> result.context().argument("amount") != null,
+        "Amount is required for admin commands"
+    )
+    .build();
+
+// Validate a result against the profile
+CommandParseResult result = command.parse(sender, label, args);
+List<CommandParseError> validationErrors = adminProfile.validate(result);
+
+// Or apply the profile and get updated result
+CommandParseResult validated = adminProfile.applyTo(result);
+
+// Check validity
+if (adminProfile.isValid(result)) {
+    // Proceed with execution
+}
+```
+
+### Result Utilities
+
+Combine and transform parse results:
+
+```java
+// Combine multiple results
+CommandParseResult combined = CommandParseResult.combine(result1, result2, result3);
+
+// Combine instance method
+CommandParseResult merged = result1.combineWith(result2);
+
+// Transform errors
+CommandParseResult transformed = result
+    .mapErrors(error -> error.withMessage("Custom: " + error.message()))
+    .prefixErrors("[Command] ");
+
+// Filter errors
+CommandParseResult filtered = result
+    .filterErrors(e -> e.type() != ErrorType.INTERNAL)
+    .excludeErrorType(ErrorType.PERMISSION)
+    .onlyErrorType(ErrorType.VALIDATION);
+```
+
+### ParseResultBuilder (For Testing)
+
+Build mock parse results for unit tests:
+
+```java
+// Create a successful result for testing
+CommandParseResult mockResult = ParseResultBuilder.success()
+    .withArgument("player", mockPlayer)
+    .withArgument("amount", 10)
+    .withFlag("silent", true)
+    .withKeyValue("reason", "test")
+    .withRawArgs("Notch", "10", "-s", "--reason=test")
+    .build();
+
+// Create a failure result for testing error handling
+CommandParseResult errorResult = ParseResultBuilder.failure()
+    .withParsingError("amount", "Invalid number")
+    .withValidationError("player", "Player not found")
+    .withRawArgs("invalid", "abc")
+    .build();
+
+// Copy and modify existing result
+CommandParseResult modified = ParseResultBuilder.from(originalResult)
+    .withArgument("amount", 20)
+    .build();
+```
+
+---
+
+## Complete API Reference
+
+### CommandParseResult Methods
+
+| Method | Description |
+|--------|-------------|
+| `isSuccess()` / `isFailure()` | Check parse outcome |
+| `context()` / `contextOrThrow()` | Get parsed context |
+| `optionalContext()` | Get context as Optional |
+| `errors()` / `firstError()` | Get parsing errors |
+| `errorCount()` / `hasErrors()` | Error statistics |
+| `rawArgs()` | Get original arguments |
+| `metrics()` | Get parsing metrics |
+| `errorsByType()` / `errorsByCategory()` | Filter errors |
+| `errorsForArgument()` | Get errors for specific arg |
+| `hasAccessErrors()` / `hasInputErrors()` | Check error types |
+| `ifSuccess()` / `ifFailure()` | Fluent callbacks |
+| `executeIfSuccess()` | Execute action if success |
+| `map()` / `mapOrDefault()` | Transform context |
+| `orElse()` / `orElseThrow()` | Get context or default |
+| `errorMessages()` / `joinedErrorMessages()` | Get error text |
+| `formattedErrors()` | Get formatted errors |
+| `sendErrorsTo()` / `sendFirstErrorTo()` | Send to sender |
+| `mapErrors()` / `filterErrors()` | Transform errors |
+| `excludeErrorType()` / `onlyErrorType()` | Filter by type |
+| `mapErrorMessages()` / `prefixErrors()` | Modify messages |
+| `combine()` / `combineWith()` | Merge results |
+
+### SlashCommand Parse Methods
+
+| Method | Description |
+|--------|-------------|
+| `parse(sender, label, args)` | Basic parsing |
+| `parse(sender, label, args, options)` | Parsing with options |
+| `parseStrict(sender, label, args)` | Parse with cooldowns |
+| `parseAndExecute(sender, label, args, action)` | Parse and execute |
+| `parseAsync(...)` | Async parsing variants |
+| `parseAndExecuteAsync(...)` | Async parse+execute |
+| `parseAs(sender, label, args)` | Parse as different sender |
+| `parseForAll(senders, label, args)` | Parse for multiple senders |
+| `parseForAllAsync(...)` | Async multi-sender parsing |
+| `parsePartial(sender, label, args, options)` | Partial parsing |
+| `parseFirstN(sender, label, args, count)` | Parse first N args |
+| `parseUntilError(sender, label, args)` | Parse until error |
+
+### ParseOptions
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `checkCooldowns` | false | Check cooldowns |
+| `includeSubcommands` | false | Route subcommands |
+| `collectAllErrors` | false | Collect vs fail-fast |
+| `includeSuggestions` | true | Did-you-mean hints |
+| `checkConfirmation` | false | Require confirmation |
+| `skipGuards` | false | Skip guard checks |
+| `skipPermissionChecks` | false | Skip permissions |
+| `enableAutoCorrection` | false | Auto-fix typos |
+| `autoCorrectThreshold` | 0.8 | Similarity threshold |
+| `maxAutoCorrections` | 3 | Max corrections |
+| `collectMetrics` | false | Track performance |
+
+### PartialParseOptions
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `startAtArgument` | 0 | Start index |
+| `maxArguments` | -1 | Max to parse (-1=all) |
+| `stopOnFirstError` | false | Stop at first error |
+| `skipPermissionChecks` | false | Skip permissions |
+| `skipGuards` | false | Skip guards |
+| `includePartialContext` | false | Include partial on failure |

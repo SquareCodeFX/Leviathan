@@ -9,6 +9,8 @@ import de.feelix.leviathan.command.argument.ParseResult;
 import de.feelix.leviathan.command.parsing.CommandParseError;
 import de.feelix.leviathan.command.parsing.CommandParseResult;
 import de.feelix.leviathan.command.parsing.ParseOptions;
+import de.feelix.leviathan.command.parsing.PartialParseOptions;
+import de.feelix.leviathan.command.parsing.PartialParseResult;
 import de.feelix.leviathan.command.async.CancellationToken;
 import de.feelix.leviathan.command.async.Progress;
 import de.feelix.leviathan.command.completion.TabCompletionHandler;
@@ -2235,6 +2237,433 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         }
 
         return result;
+    }
+
+    // ==================== Async Parsing ====================
+
+    /**
+     * Parse command arguments asynchronously.
+     * <p>
+     * This method performs parsing on a separate thread, which is useful for commands
+     * that might involve I/O operations during parsing (e.g., database lookups for player names).
+     * <p>
+     * Example usage:
+     * <pre>{@code
+     * command.parseAsync(sender, label, args)
+     *     .thenAccept(result -> {
+     *         if (result.isSuccess()) {
+     *             // Handle success on async thread
+     *         } else {
+     *             // Handle errors
+     *         }
+     *     });
+     * }</pre>
+     *
+     * @param sender       the command sender
+     * @param label        the command label used
+     * @param providedArgs the command arguments
+     * @return a CompletableFuture that completes with the parse result
+     */
+    public @NotNull CompletableFuture<CommandParseResult> parseAsync(@NotNull CommandSender sender,
+                                                                      @NotNull String label,
+                                                                      @NotNull String[] providedArgs) {
+        Preconditions.checkNotNull(sender, "sender");
+        Preconditions.checkNotNull(label, "label");
+        Preconditions.checkNotNull(providedArgs, "providedArgs");
+
+        return CompletableFuture.supplyAsync(() -> parse(sender, label, providedArgs));
+    }
+
+    /**
+     * Parse command arguments asynchronously with custom options.
+     *
+     * @param sender       the command sender
+     * @param label        the command label used
+     * @param providedArgs the command arguments
+     * @param options      the parsing options
+     * @return a CompletableFuture that completes with the parse result
+     */
+    public @NotNull CompletableFuture<CommandParseResult> parseAsync(@NotNull CommandSender sender,
+                                                                      @NotNull String label,
+                                                                      @NotNull String[] providedArgs,
+                                                                      @NotNull ParseOptions options) {
+        Preconditions.checkNotNull(sender, "sender");
+        Preconditions.checkNotNull(label, "label");
+        Preconditions.checkNotNull(providedArgs, "providedArgs");
+        Preconditions.checkNotNull(options, "options");
+
+        return CompletableFuture.supplyAsync(() -> parse(sender, label, providedArgs, options));
+    }
+
+    /**
+     * Parse and execute command asynchronously.
+     * <p>
+     * Note: The action will be executed on the async thread. If you need to interact
+     * with the Bukkit API, you should schedule the action back to the main thread.
+     *
+     * @param sender       the command sender
+     * @param label        the command label used
+     * @param providedArgs the command arguments
+     * @param action       the action to execute if parsing succeeds
+     * @return a CompletableFuture that completes with the parse result
+     */
+    public @NotNull CompletableFuture<CommandParseResult> parseAndExecuteAsync(@NotNull CommandSender sender,
+                                                                                 @NotNull String label,
+                                                                                 @NotNull String[] providedArgs,
+                                                                                 @NotNull CommandAction action) {
+        Preconditions.checkNotNull(sender, "sender");
+        Preconditions.checkNotNull(label, "label");
+        Preconditions.checkNotNull(providedArgs, "providedArgs");
+        Preconditions.checkNotNull(action, "action");
+
+        return CompletableFuture.supplyAsync(() -> parseAndExecute(sender, label, providedArgs, action));
+    }
+
+    // ==================== Parse Simulation ====================
+
+    /**
+     * Parse command as if executed by a different sender.
+     * <p>
+     * This is useful for testing permissions and sender-specific validations,
+     * or for admin commands that need to validate how a command would behave for another user.
+     * <p>
+     * Example usage:
+     * <pre>{@code
+     * // Test what errors a player would get
+     * CommandParseResult result = command.parseAs(targetPlayer, "give", new String[]{"diamond", "64"});
+     * if (result.hasAccessErrors()) {
+     *     admin.sendMessage("Player lacks permission for this command");
+     * }
+     * }</pre>
+     *
+     * @param simulatedSender the sender to simulate
+     * @param label           the command label used
+     * @param providedArgs    the command arguments
+     * @return the parse result as if executed by the simulated sender
+     */
+    public @NotNull CommandParseResult parseAs(@NotNull CommandSender simulatedSender,
+                                                @NotNull String label,
+                                                @NotNull String[] providedArgs) {
+        return parse(simulatedSender, label, providedArgs);
+    }
+
+    /**
+     * Parse command as if executed by a different sender with custom options.
+     *
+     * @param simulatedSender the sender to simulate
+     * @param label           the command label used
+     * @param providedArgs    the command arguments
+     * @param options         the parsing options
+     * @return the parse result as if executed by the simulated sender
+     */
+    public @NotNull CommandParseResult parseAs(@NotNull CommandSender simulatedSender,
+                                                @NotNull String label,
+                                                @NotNull String[] providedArgs,
+                                                @NotNull ParseOptions options) {
+        return parse(simulatedSender, label, providedArgs, options);
+    }
+
+    /**
+     * Parse command for multiple senders at once.
+     * <p>
+     * This is useful for batch operations or testing how a command behaves
+     * across different permission levels.
+     * <p>
+     * Example usage:
+     * <pre>{@code
+     * List<CommandSender> players = getOnlinePlayers();
+     * Map<CommandSender, CommandParseResult> results = command.parseForAll(players, "give", args);
+     *
+     * // Find all players who can execute this command
+     * List<CommandSender> eligible = results.entrySet().stream()
+     *     .filter(e -> e.getValue().isSuccess())
+     *     .map(Map.Entry::getKey)
+     *     .collect(Collectors.toList());
+     * }</pre>
+     *
+     * @param senders      the senders to parse for
+     * @param label        the command label used
+     * @param providedArgs the command arguments
+     * @return a map from sender to their respective parse result
+     */
+    public @NotNull Map<CommandSender, CommandParseResult> parseForAll(@NotNull Collection<? extends CommandSender> senders,
+                                                                        @NotNull String label,
+                                                                        @NotNull String[] providedArgs) {
+        Preconditions.checkNotNull(senders, "senders");
+        Preconditions.checkNotNull(label, "label");
+        Preconditions.checkNotNull(providedArgs, "providedArgs");
+
+        Map<CommandSender, CommandParseResult> results = new LinkedHashMap<>();
+        for (CommandSender sender : senders) {
+            results.put(sender, parse(sender, label, providedArgs));
+        }
+        return Collections.unmodifiableMap(results);
+    }
+
+    /**
+     * Parse command for multiple senders with custom options.
+     *
+     * @param senders      the senders to parse for
+     * @param label        the command label used
+     * @param providedArgs the command arguments
+     * @param options      the parsing options
+     * @return a map from sender to their respective parse result
+     */
+    public @NotNull Map<CommandSender, CommandParseResult> parseForAll(@NotNull Collection<? extends CommandSender> senders,
+                                                                        @NotNull String label,
+                                                                        @NotNull String[] providedArgs,
+                                                                        @NotNull ParseOptions options) {
+        Preconditions.checkNotNull(senders, "senders");
+        Preconditions.checkNotNull(label, "label");
+        Preconditions.checkNotNull(providedArgs, "providedArgs");
+        Preconditions.checkNotNull(options, "options");
+
+        Map<CommandSender, CommandParseResult> results = new LinkedHashMap<>();
+        for (CommandSender sender : senders) {
+            results.put(sender, parse(sender, label, providedArgs, options));
+        }
+        return Collections.unmodifiableMap(results);
+    }
+
+    /**
+     * Parse command for all senders in parallel.
+     *
+     * @param senders      the senders to parse for
+     * @param label        the command label used
+     * @param providedArgs the command arguments
+     * @return a CompletableFuture that completes with a map from sender to their parse result
+     */
+    public @NotNull CompletableFuture<Map<CommandSender, CommandParseResult>> parseForAllAsync(
+            @NotNull Collection<? extends CommandSender> senders,
+            @NotNull String label,
+            @NotNull String[] providedArgs) {
+        Preconditions.checkNotNull(senders, "senders");
+        Preconditions.checkNotNull(label, "label");
+        Preconditions.checkNotNull(providedArgs, "providedArgs");
+
+        return CompletableFuture.supplyAsync(() -> parseForAll(senders, label, providedArgs));
+    }
+
+    // ==================== Partial Parsing ====================
+
+    /**
+     * Parse command arguments partially according to the given options.
+     * <p>
+     * Partial parsing allows you to parse only a subset of arguments, which is useful for:
+     * <ul>
+     *   <li>Tab completion validation - parse only what's been typed so far</li>
+     *   <li>Progressive validation - validate as user types</li>
+     *   <li>Early error detection - stop at first error</li>
+     *   <li>Argument-specific testing - only test certain arguments</li>
+     * </ul>
+     * <p>
+     * Example usage:
+     * <pre>{@code
+     * // Parse only first 2 arguments for early validation
+     * PartialParseResult result = command.parsePartial(sender, "cmd", args,
+     *     PartialParseOptions.firstN(2));
+     *
+     * // Get what was successfully parsed even if there were errors
+     * Map<String, Object> parsed = result.parsedArguments();
+     *
+     * // Check where parsing failed
+     * if (result.hasErrors()) {
+     *     int errorIndex = result.errorArgumentIndex();
+     *     sender.sendMessage("Error at argument " + errorIndex);
+     * }
+     * }</pre>
+     *
+     * @param sender       the command sender
+     * @param label        the command label used
+     * @param providedArgs the command arguments
+     * @param options      the partial parsing options
+     * @return the partial parse result
+     */
+    public @NotNull PartialParseResult parsePartial(@NotNull CommandSender sender,
+                                                     @NotNull String label,
+                                                     @NotNull String[] providedArgs,
+                                                     @NotNull PartialParseOptions options) {
+        Preconditions.checkNotNull(sender, "sender");
+        Preconditions.checkNotNull(label, "label");
+        Preconditions.checkNotNull(providedArgs, "providedArgs");
+        Preconditions.checkNotNull(options, "options");
+
+        PartialParseResult.Builder resultBuilder = PartialParseResult.builder()
+            .withRawArgs(providedArgs);
+
+        // Permission check (unless skipped)
+        if (!options.skipPermissionChecks() && permission != null && !sender.hasPermission(permission)) {
+            return resultBuilder
+                .withError(CommandParseError.permission(messages.noPermission()))
+                .build();
+        }
+
+        // Player-only check
+        if (requiresPlayer && !(sender instanceof Player)) {
+            return resultBuilder
+                .withError(CommandParseError.playerOnly(messages.playersOnly()))
+                .build();
+        }
+
+        // Guard checks (unless skipped)
+        if (!options.skipGuards()) {
+            for (Guard guard : guards) {
+                try {
+                    if (!guard.check(sender)) {
+                        return resultBuilder
+                            .withError(CommandParseError.guardFailed(guard.message()))
+                            .build();
+                    }
+                } catch (Throwable t) {
+                    return resultBuilder
+                        .withError(CommandParseError.internal("Guard check failed: " + t.getMessage()))
+                        .build();
+                }
+            }
+        }
+
+        // Parse arguments according to options
+        int argIndex = 0;
+        int parsedCount = 0;
+
+        for (int i = 0; i < args.size(); i++) {
+            // Check if we should parse this argument
+            if (!options.shouldParseArgument(i)) {
+                continue;
+            }
+
+            Arg<?> arg = args.get(i);
+
+            // Check if we have input for this argument
+            if (argIndex >= providedArgs.length) {
+                if (!arg.optional()) {
+                    if (options.stopOnFirstError()) {
+                        return resultBuilder
+                            .withErrorAt(CommandParseError.usage("Missing required argument: " + arg.name()), i)
+                            .argumentsParsed(parsedCount)
+                            .build();
+                    }
+                }
+                break;
+            }
+
+            // Parse the argument
+            String input = providedArgs[argIndex];
+            ArgumentParser<?> parser = arg.parser();
+
+            try {
+                ArgContext argContext = new ArgContext(
+                    sender, label, providedArgs, argIndex,
+                    input, arg, Collections.emptyMap()
+                );
+
+                ParseResult<?> parseResult = parser.parse(argContext);
+
+                if (parseResult.isSuccess()) {
+                    Object value = parseResult.value();
+
+                    // Run validators if present
+                    if (arg.validatorChain() != null) {
+                        Optional<String> validationError = ValidationHelper.validate(arg.validatorChain(), value, arg.name());
+                        if (validationError.isPresent()) {
+                            if (options.stopOnFirstError()) {
+                                return resultBuilder
+                                    .withErrorAt(CommandParseError.validation(arg.name(), validationError.get()), i)
+                                    .argumentsParsed(parsedCount)
+                                    .build();
+                            }
+                            resultBuilder.withErrorAt(CommandParseError.validation(arg.name(), validationError.get()), i);
+                        }
+                    }
+
+                    resultBuilder.withArgument(arg.name(), value);
+                    parsedCount++;
+                } else {
+                    // Parsing failed
+                    CommandParseError error = CommandParseError.parsing(arg.name(), parseResult.errorMessage())
+                        .withInput(input);
+
+                    if (options.stopOnFirstError()) {
+                        return resultBuilder
+                            .withErrorAt(error, i)
+                            .argumentsParsed(parsedCount)
+                            .build();
+                    }
+                    resultBuilder.withErrorAt(error, i);
+                }
+            } catch (Throwable t) {
+                CommandParseError error = CommandParseError.parsing(arg.name(), "Parse error: " + t.getMessage())
+                    .withInput(input);
+
+                if (options.stopOnFirstError()) {
+                    return resultBuilder
+                        .withErrorAt(error, i)
+                        .argumentsParsed(parsedCount)
+                        .build();
+                }
+                resultBuilder.withErrorAt(error, i);
+            }
+
+            argIndex++;
+        }
+
+        // Parse flags and key-values
+        for (Flag flag : flags) {
+            resultBuilder.withFlag(flag.name(), false); // Default value
+        }
+
+        // Check if parsing is complete
+        boolean complete = parsedCount == args.size() ||
+                           (options.maxArguments() >= 0 && parsedCount >= options.maxArguments());
+
+        return resultBuilder
+            .argumentsParsed(parsedCount)
+            .complete(complete && !resultBuilder.build().hasErrors())
+            .build();
+    }
+
+    /**
+     * Parse command arguments partially with default options.
+     *
+     * @param sender       the command sender
+     * @param label        the command label used
+     * @param providedArgs the command arguments
+     * @return the partial parse result
+     */
+    public @NotNull PartialParseResult parsePartial(@NotNull CommandSender sender,
+                                                     @NotNull String label,
+                                                     @NotNull String[] providedArgs) {
+        return parsePartial(sender, label, providedArgs, PartialParseOptions.DEFAULT);
+    }
+
+    /**
+     * Parse only the first N arguments.
+     *
+     * @param sender       the command sender
+     * @param label        the command label used
+     * @param providedArgs the command arguments
+     * @param count        number of arguments to parse
+     * @return the partial parse result
+     */
+    public @NotNull PartialParseResult parseFirstN(@NotNull CommandSender sender,
+                                                    @NotNull String label,
+                                                    @NotNull String[] providedArgs,
+                                                    int count) {
+        return parsePartial(sender, label, providedArgs, PartialParseOptions.firstN(count));
+    }
+
+    /**
+     * Parse arguments and stop at the first error.
+     *
+     * @param sender       the command sender
+     * @param label        the command label used
+     * @param providedArgs the command arguments
+     * @return the partial parse result
+     */
+    public @NotNull PartialParseResult parseUntilError(@NotNull CommandSender sender,
+                                                        @NotNull String label,
+                                                        @NotNull String[] providedArgs) {
+        return parsePartial(sender, label, providedArgs, PartialParseOptions.STOP_ON_ERROR);
     }
 
     /**
