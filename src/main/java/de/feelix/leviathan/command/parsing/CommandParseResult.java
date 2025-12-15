@@ -10,6 +10,8 @@ import org.bukkit.command.CommandSender;
 import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 /**
@@ -58,13 +60,16 @@ public final class CommandParseResult {
     private final @Nullable CommandContext context;
     private final @NotNull List<CommandParseError> errors;
     private final @NotNull String[] rawArgs;
+    private final @NotNull ParseMetrics metrics;
 
     private CommandParseResult(@Nullable CommandContext context,
                                @NotNull List<CommandParseError> errors,
-                               @NotNull String[] rawArgs) {
+                               @NotNull String[] rawArgs,
+                               @NotNull ParseMetrics metrics) {
         this.context = context;
         this.errors = Collections.unmodifiableList(new ArrayList<>(errors));
         this.rawArgs = rawArgs.clone();
+        this.metrics = metrics;
     }
 
     // ==================== Factory Methods ====================
@@ -79,7 +84,24 @@ public final class CommandParseResult {
     public static @NotNull CommandParseResult success(@NotNull CommandContext context, @NotNull String[] rawArgs) {
         Preconditions.checkNotNull(context, "context");
         Preconditions.checkNotNull(rawArgs, "rawArgs");
-        return new CommandParseResult(context, Collections.emptyList(), rawArgs);
+        return new CommandParseResult(context, Collections.emptyList(), rawArgs, ParseMetrics.EMPTY);
+    }
+
+    /**
+     * Create a successful parse result with the given context and metrics.
+     *
+     * @param context the successfully parsed command context
+     * @param rawArgs the original raw arguments
+     * @param metrics the parsing metrics
+     * @return a successful parse result with metrics
+     */
+    public static @NotNull CommandParseResult successWithMetrics(@NotNull CommandContext context,
+                                                                   @NotNull String[] rawArgs,
+                                                                   @NotNull ParseMetrics metrics) {
+        Preconditions.checkNotNull(context, "context");
+        Preconditions.checkNotNull(rawArgs, "rawArgs");
+        Preconditions.checkNotNull(metrics, "metrics");
+        return new CommandParseResult(context, Collections.emptyList(), rawArgs, metrics);
     }
 
     /**
@@ -95,7 +117,27 @@ public final class CommandParseResult {
         if (errors.isEmpty()) {
             throw new IllegalArgumentException("Failure result must have at least one error");
         }
-        return new CommandParseResult(null, errors, rawArgs);
+        return new CommandParseResult(null, errors, rawArgs, ParseMetrics.EMPTY);
+    }
+
+    /**
+     * Create a failed parse result with the given errors and metrics.
+     *
+     * @param errors  the list of parsing errors
+     * @param rawArgs the original raw arguments
+     * @param metrics the parsing metrics
+     * @return a failed parse result with metrics
+     */
+    public static @NotNull CommandParseResult failureWithMetrics(@NotNull List<CommandParseError> errors,
+                                                                   @NotNull String[] rawArgs,
+                                                                   @NotNull ParseMetrics metrics) {
+        Preconditions.checkNotNull(errors, "errors");
+        Preconditions.checkNotNull(rawArgs, "rawArgs");
+        Preconditions.checkNotNull(metrics, "metrics");
+        if (errors.isEmpty()) {
+            throw new IllegalArgumentException("Failure result must have at least one error");
+        }
+        return new CommandParseResult(null, errors, rawArgs, metrics);
     }
 
     /**
@@ -120,6 +162,65 @@ public final class CommandParseResult {
      */
     public static @NotNull CommandParseResult failure(@NotNull ErrorType type, @NotNull String message, @NotNull String[] rawArgs) {
         return failure(CommandParseError.of(type, message), rawArgs);
+    }
+
+    // ==================== Combine/Merge Operations ====================
+
+    /**
+     * Combine multiple parse results into a single result.
+     * <p>
+     * If all results are successful, returns a success with the context from the first result.
+     * If any result is a failure, returns a failure with all errors combined.
+     *
+     * @param results the results to combine
+     * @return combined result
+     */
+    public static @NotNull CommandParseResult combine(@NotNull CommandParseResult... results) {
+        Preconditions.checkNotNull(results, "results");
+        if (results.length == 0) {
+            throw new IllegalArgumentException("At least one result required");
+        }
+
+        List<CommandParseError> allErrors = new ArrayList<>();
+        CommandContext firstContext = null;
+        String[] rawArgs = results[0].rawArgs;
+        long totalTime = 0;
+
+        for (CommandParseResult result : results) {
+            if (result.isFailure()) {
+                allErrors.addAll(result.errors());
+            } else if (firstContext == null) {
+                firstContext = result.context();
+            }
+            totalTime += result.metrics().totalTimeNanos();
+        }
+
+        ParseMetrics combinedMetrics = ParseMetrics.builder()
+            .totalTimeNanos(totalTime)
+            .errorsEncountered(allErrors.size())
+            .build();
+
+        if (allErrors.isEmpty() && firstContext != null) {
+            return successWithMetrics(firstContext, rawArgs, combinedMetrics);
+        } else if (!allErrors.isEmpty()) {
+            return failureWithMetrics(allErrors, rawArgs, combinedMetrics);
+        } else {
+            throw new IllegalArgumentException("No valid context found in results");
+        }
+    }
+
+    /**
+     * Combine this result with another result.
+     * <p>
+     * If both are successful, returns this result's context.
+     * If either is a failure, returns a failure with all errors combined.
+     *
+     * @param other the other result to combine with
+     * @return combined result
+     */
+    public @NotNull CommandParseResult combineWith(@NotNull CommandParseResult other) {
+        Preconditions.checkNotNull(other, "other");
+        return combine(this, other);
     }
 
     // ==================== State Accessors ====================
@@ -228,6 +329,15 @@ public final class CommandParseResult {
         return rawArgs.clone();
     }
 
+    /**
+     * Get the parsing metrics.
+     *
+     * @return the parse metrics (may be empty if metrics collection was disabled)
+     */
+    public @NotNull ParseMetrics metrics() {
+        return metrics;
+    }
+
     // ==================== Error Filtering ====================
 
     /**
@@ -285,6 +395,95 @@ public final class CommandParseResult {
      */
     public boolean hasInputErrors() {
         return errors.stream().anyMatch(CommandParseError::isInputError);
+    }
+
+    // ==================== Error Transformation ====================
+
+    /**
+     * Create a new result with transformed errors.
+     * <p>
+     * If this result is successful, returns this result unchanged.
+     *
+     * @param mapper the function to transform each error
+     * @return a new result with transformed errors, or this result if successful
+     */
+    public @NotNull CommandParseResult mapErrors(@NotNull UnaryOperator<CommandParseError> mapper) {
+        Preconditions.checkNotNull(mapper, "mapper");
+        if (isSuccess()) {
+            return this;
+        }
+        List<CommandParseError> mappedErrors = errors.stream()
+            .map(mapper)
+            .collect(Collectors.toList());
+        return failureWithMetrics(mappedErrors, rawArgs, metrics);
+    }
+
+    /**
+     * Create a new result with filtered errors.
+     * <p>
+     * If this result is successful, returns this result unchanged.
+     * If filtering removes all errors, returns a failure with a generic error.
+     *
+     * @param predicate the predicate to filter errors (errors matching the predicate are kept)
+     * @return a new result with filtered errors
+     */
+    public @NotNull CommandParseResult filterErrors(@NotNull Predicate<CommandParseError> predicate) {
+        Preconditions.checkNotNull(predicate, "predicate");
+        if (isSuccess()) {
+            return this;
+        }
+        List<CommandParseError> filteredErrors = errors.stream()
+            .filter(predicate)
+            .collect(Collectors.toList());
+        if (filteredErrors.isEmpty()) {
+            // Keep at least one error
+            return this;
+        }
+        return failureWithMetrics(filteredErrors, rawArgs, metrics);
+    }
+
+    /**
+     * Create a new result excluding errors of a specific type.
+     *
+     * @param type the error type to exclude
+     * @return a new result without errors of the specified type
+     */
+    public @NotNull CommandParseResult excludeErrorType(@NotNull ErrorType type) {
+        Preconditions.checkNotNull(type, "type");
+        return filterErrors(e -> e.type() != type);
+    }
+
+    /**
+     * Create a new result keeping only errors of a specific type.
+     *
+     * @param type the error type to keep
+     * @return a new result with only errors of the specified type
+     */
+    public @NotNull CommandParseResult onlyErrorType(@NotNull ErrorType type) {
+        Preconditions.checkNotNull(type, "type");
+        return filterErrors(e -> e.type() == type);
+    }
+
+    /**
+     * Create a new result with updated error messages.
+     *
+     * @param messageMapper the function to transform error messages
+     * @return a new result with transformed error messages
+     */
+    public @NotNull CommandParseResult mapErrorMessages(@NotNull UnaryOperator<String> messageMapper) {
+        Preconditions.checkNotNull(messageMapper, "messageMapper");
+        return mapErrors(e -> e.withMessage(messageMapper.apply(e.message())));
+    }
+
+    /**
+     * Create a new result with a prefix added to all error messages.
+     *
+     * @param prefix the prefix to add
+     * @return a new result with prefixed error messages
+     */
+    public @NotNull CommandParseResult prefixErrors(@NotNull String prefix) {
+        Preconditions.checkNotNull(prefix, "prefix");
+        return mapErrorMessages(msg -> prefix + msg);
     }
 
     // ==================== Fluent API ====================
@@ -475,9 +674,11 @@ public final class CommandParseResult {
     @Override
     public String toString() {
         if (context != null) {
-            return "CommandParseResult{success=true, context=" + context + "}";
+            return "CommandParseResult{success=true, context=" + context +
+                   (metrics.isEnabled() ? ", metrics=" + metrics.toSummary() : "") + "}";
         } else {
-            return "CommandParseResult{success=false, errors=" + errors + "}";
+            return "CommandParseResult{success=false, errors=" + errors +
+                   (metrics.isEnabled() ? ", metrics=" + metrics.toSummary() : "") + "}";
         }
     }
 
@@ -488,12 +689,13 @@ public final class CommandParseResult {
         CommandParseResult that = (CommandParseResult) o;
         return Objects.equals(context, that.context) &&
                errors.equals(that.errors) &&
-               Arrays.equals(rawArgs, that.rawArgs);
+               Arrays.equals(rawArgs, that.rawArgs) &&
+               Objects.equals(metrics, that.metrics);
     }
 
     @Override
     public int hashCode() {
-        int result = Objects.hash(context, errors);
+        int result = Objects.hash(context, errors, metrics);
         result = 31 * result + Arrays.hashCode(rawArgs);
         return result;
     }

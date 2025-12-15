@@ -52,6 +52,10 @@ public final class ParseOptions {
     private final boolean checkConfirmation;
     private final boolean skipGuards;
     private final boolean skipPermissionChecks;
+    private final boolean enableAutoCorrection;
+    private final double autoCorrectThreshold;
+    private final int maxAutoCorrections;
+    private final boolean collectMetrics;
 
     private ParseOptions(Builder builder) {
         this.checkCooldowns = builder.checkCooldowns;
@@ -61,6 +65,10 @@ public final class ParseOptions {
         this.checkConfirmation = builder.checkConfirmation;
         this.skipGuards = builder.skipGuards;
         this.skipPermissionChecks = builder.skipPermissionChecks;
+        this.enableAutoCorrection = builder.enableAutoCorrection;
+        this.autoCorrectThreshold = builder.autoCorrectThreshold;
+        this.maxAutoCorrections = builder.maxAutoCorrections;
+        this.collectMetrics = builder.collectMetrics;
     }
 
     /**
@@ -142,6 +150,54 @@ public final class ParseOptions {
     }
 
     /**
+     * Whether auto-correction is enabled for argument parsing.
+     * <p>
+     * When enabled, the parser will automatically correct typos in argument values
+     * if the similarity to a valid value exceeds the threshold.
+     * <p>
+     * Example: If a player types "diamnod" and "diamond" is a valid choice,
+     * it will be auto-corrected to "diamond".
+     *
+     * @return true if auto-correction is enabled
+     */
+    public boolean enableAutoCorrection() {
+        return enableAutoCorrection;
+    }
+
+    /**
+     * The minimum similarity threshold for auto-correction (0.0 to 1.0).
+     * <p>
+     * Higher values require closer matches. A threshold of 0.8 means
+     * the input must be at least 80% similar to the target.
+     *
+     * @return the similarity threshold (default: 0.8)
+     */
+    public double autoCorrectThreshold() {
+        return autoCorrectThreshold;
+    }
+
+    /**
+     * Maximum number of auto-corrections to apply in a single parse.
+     * <p>
+     * This prevents too many corrections which might indicate the user
+     * doesn't understand the command.
+     *
+     * @return the maximum number of auto-corrections (default: 3)
+     */
+    public int maxAutoCorrections() {
+        return maxAutoCorrections;
+    }
+
+    /**
+     * Whether to collect performance metrics during parsing.
+     *
+     * @return true if metrics collection is enabled
+     */
+    public boolean collectMetrics() {
+        return collectMetrics;
+    }
+
+    /**
      * Builder for {@link ParseOptions}.
      */
     public static final class Builder {
@@ -152,6 +208,10 @@ public final class ParseOptions {
         private boolean checkConfirmation = false;
         private boolean skipGuards = false;
         private boolean skipPermissionChecks = false;
+        private boolean enableAutoCorrection = false;
+        private double autoCorrectThreshold = 0.8;
+        private int maxAutoCorrections = 3;
+        private boolean collectMetrics = false;
 
         private Builder() {}
 
@@ -233,6 +293,61 @@ public final class ParseOptions {
         }
 
         /**
+         * Enable or disable auto-correction for argument parsing.
+         * <p>
+         * When enabled, typos in argument values will be automatically corrected
+         * if a close match is found.
+         *
+         * @param enable true to enable auto-correction
+         * @return this builder
+         */
+        public @NotNull Builder enableAutoCorrection(boolean enable) {
+            this.enableAutoCorrection = enable;
+            return this;
+        }
+
+        /**
+         * Set the similarity threshold for auto-correction.
+         *
+         * @param threshold threshold between 0.0 and 1.0 (default: 0.8)
+         * @return this builder
+         * @throws IllegalArgumentException if threshold is not between 0.0 and 1.0
+         */
+        public @NotNull Builder autoCorrectThreshold(double threshold) {
+            if (threshold < 0.0 || threshold > 1.0) {
+                throw new IllegalArgumentException("Threshold must be between 0.0 and 1.0");
+            }
+            this.autoCorrectThreshold = threshold;
+            return this;
+        }
+
+        /**
+         * Set the maximum number of auto-corrections per parse.
+         *
+         * @param max maximum corrections (default: 3)
+         * @return this builder
+         * @throws IllegalArgumentException if max is negative
+         */
+        public @NotNull Builder maxAutoCorrections(int max) {
+            if (max < 0) {
+                throw new IllegalArgumentException("Max auto-corrections must be non-negative");
+            }
+            this.maxAutoCorrections = max;
+            return this;
+        }
+
+        /**
+         * Enable or disable metrics collection during parsing.
+         *
+         * @param collect true to collect metrics
+         * @return this builder
+         */
+        public @NotNull Builder collectMetrics(boolean collect) {
+            this.collectMetrics = collect;
+            return this;
+        }
+
+        /**
          * Build the ParseOptions instance.
          *
          * @return a new ParseOptions instance
@@ -252,6 +367,10 @@ public final class ParseOptions {
                ", checkConfirmation=" + checkConfirmation +
                ", skipGuards=" + skipGuards +
                ", skipPermissionChecks=" + skipPermissionChecks +
+               ", enableAutoCorrection=" + enableAutoCorrection +
+               ", autoCorrectThreshold=" + autoCorrectThreshold +
+               ", maxAutoCorrections=" + maxAutoCorrections +
+               ", collectMetrics=" + collectMetrics +
                '}';
     }
 }
