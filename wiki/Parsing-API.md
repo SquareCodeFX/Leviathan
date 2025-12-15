@@ -904,6 +904,18 @@ PartialParseOptions options = PartialParseOptions.builder()
     .build();
 
 PartialParseResult result = command.parsePartial(sender, label, args, options);
+
+// PartialParseResult supports argument aliases
+Player p = result.getArgument("p");           // Using alias
+Player target = result.getArgument("player"); // Using primary name
+boolean has = result.hasArgument("target");   // Check by alias
+
+// Build PartialParseResult manually with aliases (for testing)
+PartialParseResult testResult = PartialParseResult.builder()
+    .withArgument("player", mockPlayer)
+    .withAliasMap(Map.of("p", "player", "target", "player"))
+    .complete(true)
+    .build();
 ```
 
 ### Auto-Correction
@@ -1003,6 +1015,14 @@ CommandParseResult errorResult = ParseResultBuilder.failure()
 CommandParseResult modified = ParseResultBuilder.from(originalResult)
     .withArgument("amount", 20)
     .build();
+
+// Create result with argument aliases for testing
+CommandParseResult resultWithAliases = ParseResultBuilder.success()
+    .withArgument("player", mockPlayer)
+    .withAlias("p", "player")
+    .withAlias("target", "player")
+    .withAliasMap(Map.of("amt", "amount", "n", "amount"))
+    .build();
 ```
 
 ---
@@ -1078,3 +1098,81 @@ CommandParseResult modified = ParseResultBuilder.from(originalResult)
 | `skipPermissionChecks` | false | Skip permissions |
 | `skipGuards` | false | Skip guards |
 | `includePartialContext` | false | Include partial on failure |
+
+---
+
+## Argument Aliases
+
+Arguments can have aliases, allowing them to be referenced by multiple names.
+
+### Defining Aliases
+
+```java
+// Using ArgContext builder
+SlashCommand.builder("give")
+    .arg("player", playerParser(), ArgContext.builder()
+        .aliases("p", "target", "t")
+        .build())
+    .arg("amount", intParser(), ArgContext.builder()
+        .aliases("amt", "count", "n")
+        .build())
+    .build();
+
+// Using Arg fluent API
+Arg<Player> playerArg = Arg.of("player", playerParser())
+    .withAliases("p", "target", "t");
+
+Arg<Integer> amountArg = Arg.of("amount", intParser())
+    .withAlias("amt")
+    .withAlias("n");
+```
+
+### Using Aliases in CommandContext
+
+```java
+command.execute((sender, ctx) -> {
+    // All these return the same value:
+    Player target = ctx.get("player", Player.class);
+    Player target = ctx.get("p", Player.class);
+    Player target = ctx.get("target", Player.class);
+
+    // Same for amount:
+    Integer amount = ctx.get("amount", Integer.class);
+    Integer amount = ctx.get("amt", Integer.class);
+    Integer amount = ctx.get("n", Integer.class);
+
+    // Check if a name is an alias
+    boolean isAlias = ctx.isAlias("p"); // true
+
+    // Get the primary name for an alias
+    String primary = ctx.getPrimaryName("p"); // "player"
+});
+```
+
+### Use Cases
+
+1. **Short forms**: `player` → `p`, `amount` → `amt`
+2. **Localization**: Same argument accessible via different language names
+3. **Backwards compatibility**: Rename arguments without breaking existing code
+4. **Developer convenience**: Multiple intuitive names for the same argument
+
+### Arg Methods
+
+| Method | Description |
+|--------|-------------|
+| `aliases()` | Get list of aliases |
+| `hasAliases()` | Check if argument has aliases |
+| `matchesNameOrAlias(name)` | Check if name matches primary or alias |
+| `allNames()` | Get primary name + all aliases |
+| `withAliases(...)` | Create copy with aliases |
+| `withAlias(alias)` | Create copy with additional alias |
+
+### CommandContext Methods
+
+| Method | Description |
+|--------|-------------|
+| `aliasMap()` | Get alias → primary name mapping |
+| `isAlias(name)` | Check if name is an alias |
+| `getPrimaryName(alias)` | Get primary name for alias |
+| `argument(name)` | Get value by name or alias (no type check) |
+| `allArguments()` | Get all argument values |

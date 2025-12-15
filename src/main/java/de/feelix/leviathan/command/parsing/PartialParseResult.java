@@ -43,6 +43,7 @@ public final class PartialParseResult {
     private final int errorArgumentIndex;
     private final boolean complete;
     private final @NotNull ParseMetrics metrics;
+    private final @NotNull Map<String, String> aliasMap;
 
     private PartialParseResult(Builder builder) {
         this.parsedArguments = Collections.unmodifiableMap(new LinkedHashMap<>(builder.parsedArguments));
@@ -54,6 +55,7 @@ public final class PartialParseResult {
         this.errorArgumentIndex = builder.errorArgumentIndex;
         this.complete = builder.complete;
         this.metrics = builder.metrics;
+        this.aliasMap = Collections.unmodifiableMap(new LinkedHashMap<>(builder.aliasMap));
     }
 
     /**
@@ -79,8 +81,20 @@ public final class PartialParseResult {
             .withArguments(context.allArguments())
             .withFlags(context.allFlags())
             .withKeyValues(context.allKeyValues())
+            .withAliasMap(context.aliasMap())
             .complete(true)
             .build();
+    }
+
+    /**
+     * Resolve an argument name or alias to the primary name.
+     *
+     * @param nameOrAlias the name or alias to resolve
+     * @return the primary argument name
+     */
+    private @NotNull String resolveName(@NotNull String nameOrAlias) {
+        String resolved = aliasMap.get(nameOrAlias);
+        return resolved != null ? resolved : nameOrAlias;
     }
 
     /**
@@ -94,24 +108,35 @@ public final class PartialParseResult {
 
     /**
      * Get a specific parsed argument value.
+     * Supports looking up by argument name or alias.
      *
-     * @param name the argument name
+     * @param name the argument name or alias
      * @param <T>  the expected type
      * @return the parsed value, or null if not parsed
      */
     @SuppressWarnings("unchecked")
     public @Nullable <T> T getArgument(@NotNull String name) {
-        return (T) parsedArguments.get(name);
+        return (T) parsedArguments.get(resolveName(name));
     }
 
     /**
      * Check if a specific argument was successfully parsed.
+     * Supports looking up by argument name or alias.
      *
-     * @param name the argument name
+     * @param name the argument name or alias
      * @return true if the argument was parsed
      */
     public boolean hasArgument(@NotNull String name) {
-        return parsedArguments.containsKey(name);
+        return parsedArguments.containsKey(resolveName(name));
+    }
+
+    /**
+     * Get the alias map.
+     *
+     * @return unmodifiable map of alias to primary argument name
+     */
+    public @NotNull Map<String, String> aliasMap() {
+        return aliasMap;
     }
 
     /**
@@ -231,7 +256,8 @@ public final class PartialParseResult {
                 parsedFlags,
                 parsedKeyValues,
                 Collections.emptyMap(),
-                rawArgs
+                rawArgs,
+                aliasMap
             );
             return CommandParseResult.successWithMetrics(context, rawArgs, metrics);
         }
@@ -288,6 +314,7 @@ public final class PartialParseResult {
         private final Map<String, Boolean> parsedFlags = new LinkedHashMap<>();
         private final Map<String, Object> parsedKeyValues = new LinkedHashMap<>();
         private final List<CommandParseError> errors = new ArrayList<>();
+        private final Map<String, String> aliasMap = new LinkedHashMap<>();
         private String[] rawArgs = new String[0];
         private int argumentsParsed = 0;
         private int errorArgumentIndex = -1;
@@ -434,6 +461,18 @@ public final class PartialParseResult {
          */
         public @NotNull Builder withMetrics(@NotNull ParseMetrics metrics) {
             this.metrics = metrics;
+            return this;
+        }
+
+        /**
+         * Set the alias map.
+         *
+         * @param aliasMap mapping of aliases to primary argument names
+         * @return this builder
+         */
+        public @NotNull Builder withAliasMap(@NotNull Map<String, String> aliasMap) {
+            this.aliasMap.clear();
+            this.aliasMap.putAll(aliasMap);
             return this;
         }
 

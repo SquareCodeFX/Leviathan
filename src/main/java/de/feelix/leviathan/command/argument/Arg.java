@@ -141,6 +141,49 @@ public final class Arg<T> {
     }
 
     /**
+     * Get the list of aliases for this argument.
+     * <p>
+     * Aliases allow the argument to be referenced by alternative names in key-value syntax
+     * and when retrieving values from the CommandContext.
+     *
+     * @return an immutable list of aliases (empty if none defined)
+     */
+    public @NotNull java.util.List<String> aliases() {
+        return context.aliases();
+    }
+
+    /**
+     * Check if this argument has any aliases defined.
+     *
+     * @return true if at least one alias is defined
+     */
+    public boolean hasAliases() {
+        return context.hasAliases();
+    }
+
+    /**
+     * Check if the given name matches this argument's name or any of its aliases.
+     *
+     * @param nameToCheck the name to check against
+     * @return true if nameToCheck matches the primary name or any alias
+     */
+    public boolean matchesNameOrAlias(@NotNull String nameToCheck) {
+        return context.matchesNameOrAlias(name, nameToCheck);
+    }
+
+    /**
+     * Get all names this argument can be referred to (primary name + aliases).
+     *
+     * @return a list containing the primary name followed by all aliases
+     */
+    public @NotNull java.util.List<String> allNames() {
+        java.util.List<String> allNames = new java.util.ArrayList<>();
+        allNames.add(name);
+        allNames.addAll(context.aliases());
+        return java.util.Collections.unmodifiableList(allNames);
+    }
+
+    /**
      * @return the broad option type for this argument, inferred from its parser
      */
     public @NotNull OptionType optionType() {
@@ -189,7 +232,8 @@ public final class Arg<T> {
             .stringPattern(context.stringPattern())
             .didYouMean(context.didYouMean())
             .defaultValue(context.defaultValue())
-            .description(context.description());
+            .description(context.description())
+            .aliases(new ArrayList<>(context.aliases()));
         for (ArgContext.Validator<?> validator : context.customValidators()) {
             b.addValidator(validator);
         }
@@ -258,5 +302,41 @@ public final class Arg<T> {
      */
     public @NotNull Arg<T> withDescription(@Nullable String description) {
         return new Arg<>(name, parser, copyContextToBuilder().description(description).build(), condition, transformer);
+    }
+
+    /**
+     * Return a copy of this argument with the specified aliases.
+     * <p>
+     * Aliases allow the argument to be referenced by alternative names in key-value syntax
+     * and when retrieving values from the CommandContext.
+     * <p>
+     * Example:
+     * <pre>{@code
+     * Arg<Player> playerArg = Arg.of("player", playerParser())
+     *     .withAliases("p", "target", "t");
+     *
+     * // Now all these work:
+     * // /cmd player=Notch
+     * // /cmd p=Notch
+     * // /cmd target=Notch
+     * }</pre>
+     *
+     * @param aliases the alternative names for this argument
+     * @return a new Arg instance with the aliases set
+     */
+    public @NotNull Arg<T> withAliases(@NotNull String... aliases) {
+        return new Arg<>(name, parser, copyContextToBuilder().aliases(aliases).build(), condition, transformer);
+    }
+
+    /**
+     * Return a copy of this argument with an additional alias.
+     *
+     * @param alias the alias to add
+     * @return a new Arg instance with the alias added
+     */
+    public @NotNull Arg<T> withAlias(@NotNull String alias) {
+        ArgContext.Builder builder = copyContextToBuilder();
+        builder.addAlias(alias);
+        return new Arg<>(name, parser, builder.build(), condition, transformer);
     }
 }
