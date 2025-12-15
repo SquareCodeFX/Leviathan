@@ -36,6 +36,7 @@ public final class ParseResultBuilder {
     private final Map<String, Boolean> flags = new LinkedHashMap<>();
     private final Map<String, Object> keyValues = new LinkedHashMap<>();
     private final Map<String, List<Object>> multiValues = new LinkedHashMap<>();
+    private final Map<String, String> aliasMap = new LinkedHashMap<>();
     private final List<CommandParseError> errors = new ArrayList<>();
     private String[] rawArgs = new String[0];
     private ParseMetrics metrics = ParseMetrics.EMPTY;
@@ -237,6 +238,33 @@ public final class ParseResultBuilder {
     }
 
     /**
+     * Set the alias map for argument alias resolution.
+     *
+     * @param aliasMap mapping of aliases to primary argument names
+     * @return this builder
+     */
+    public @NotNull ParseResultBuilder withAliasMap(@NotNull Map<String, String> aliasMap) {
+        Preconditions.checkNotNull(aliasMap, "aliasMap");
+        this.aliasMap.clear();
+        this.aliasMap.putAll(aliasMap);
+        return this;
+    }
+
+    /**
+     * Add a single alias mapping.
+     *
+     * @param alias       the alias name
+     * @param primaryName the primary argument name
+     * @return this builder
+     */
+    public @NotNull ParseResultBuilder withAlias(@NotNull String alias, @NotNull String primaryName) {
+        Preconditions.checkNotNull(alias, "alias");
+        Preconditions.checkNotNull(primaryName, "primaryName");
+        this.aliasMap.put(alias, primaryName);
+        return this;
+    }
+
+    /**
      * Build the parse result.
      *
      * @return a new CommandParseResult
@@ -249,7 +277,8 @@ public final class ParseResultBuilder {
                 flags,
                 keyValues,
                 multiValues,
-                rawArgs
+                rawArgs,
+                aliasMap
             );
             return CommandParseResult.successWithMetrics(context, rawArgs, metrics);
         } else {
@@ -275,8 +304,10 @@ public final class ParseResultBuilder {
         if (original.isSuccess()) {
             CommandContext ctx = original.context();
             if (ctx != null) {
-                // Copy values from context - this requires access to internal state
-                // For now, we'll leave it as-is since CommandContext is immutable
+                builder.arguments.putAll(ctx.allArguments());
+                builder.flags.putAll(ctx.allFlags());
+                builder.keyValues.putAll(ctx.allKeyValues());
+                builder.aliasMap.putAll(ctx.aliasMap());
             }
         } else {
             builder.errors.addAll(original.errors());

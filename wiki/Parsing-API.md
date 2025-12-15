@@ -904,6 +904,18 @@ PartialParseOptions options = PartialParseOptions.builder()
     .build();
 
 PartialParseResult result = command.parsePartial(sender, label, args, options);
+
+// PartialParseResult supports argument aliases
+Player p = result.getArgument("p");           // Using alias
+Player target = result.getArgument("player"); // Using primary name
+boolean has = result.hasArgument("target");   // Check by alias
+
+// Build PartialParseResult manually with aliases (for testing)
+PartialParseResult testResult = PartialParseResult.builder()
+    .withArgument("player", mockPlayer)
+    .withAliasMap(Map.of("p", "player", "target", "player"))
+    .complete(true)
+    .build();
 ```
 
 ### Auto-Correction
@@ -1002,6 +1014,14 @@ CommandParseResult errorResult = ParseResultBuilder.failure()
 // Copy and modify existing result
 CommandParseResult modified = ParseResultBuilder.from(originalResult)
     .withArgument("amount", 20)
+    .build();
+
+// Create result with argument aliases for testing
+CommandParseResult resultWithAliases = ParseResultBuilder.success()
+    .withArgument("player", mockPlayer)
+    .withAlias("p", "player")
+    .withAlias("target", "player")
+    .withAliasMap(Map.of("amt", "amount", "n", "amount"))
     .build();
 ```
 
