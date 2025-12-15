@@ -5,6 +5,10 @@ import de.feelix.leviathan.annotations.Nullable;
 import de.feelix.leviathan.command.error.ErrorType;
 import de.feelix.leviathan.util.Preconditions;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 /**
  * Represents a single parsing error that occurred during command argument parsing.
  * <p>
@@ -25,15 +29,20 @@ public final class CommandParseError {
     private final String message;
     private final @Nullable String argumentName;
     private final @Nullable String rawInput;
+    private final @NotNull List<String> suggestions;
 
     private CommandParseError(@NotNull ErrorType type,
                               @NotNull String message,
                               @Nullable String argumentName,
-                              @Nullable String rawInput) {
+                              @Nullable String rawInput,
+                              @Nullable List<String> suggestions) {
         this.type = Preconditions.checkNotNull(type, "type");
         this.message = Preconditions.checkNotNull(message, "message");
         this.argumentName = argumentName;
         this.rawInput = rawInput;
+        this.suggestions = suggestions != null
+            ? Collections.unmodifiableList(new ArrayList<>(suggestions))
+            : Collections.emptyList();
     }
 
     // ==================== Factory Methods ====================
@@ -46,7 +55,7 @@ public final class CommandParseError {
      * @return a new CommandParseError instance
      */
     public static @NotNull CommandParseError of(@NotNull ErrorType type, @NotNull String message) {
-        return new CommandParseError(type, message, null, null);
+        return new CommandParseError(type, message, null, null, null);
     }
 
     /**
@@ -56,7 +65,7 @@ public final class CommandParseError {
      * @return a new CommandParseError for permission failures
      */
     public static @NotNull CommandParseError permission(@NotNull String message) {
-        return new CommandParseError(ErrorType.PERMISSION, message, null, null);
+        return new CommandParseError(ErrorType.PERMISSION, message, null, null, null);
     }
 
     /**
@@ -66,7 +75,7 @@ public final class CommandParseError {
      * @return a new CommandParseError for player-only commands
      */
     public static @NotNull CommandParseError playerOnly(@NotNull String message) {
-        return new CommandParseError(ErrorType.PLAYER_ONLY, message, null, null);
+        return new CommandParseError(ErrorType.PLAYER_ONLY, message, null, null, null);
     }
 
     /**
@@ -76,7 +85,27 @@ public final class CommandParseError {
      * @return a new CommandParseError for guard failures
      */
     public static @NotNull CommandParseError guardFailed(@NotNull String message) {
-        return new CommandParseError(ErrorType.GUARD_FAILED, message, null, null);
+        return new CommandParseError(ErrorType.GUARD_FAILED, message, null, null, null);
+    }
+
+    /**
+     * Create a cooldown error.
+     *
+     * @param message the cooldown error message (should include remaining time)
+     * @return a new CommandParseError for cooldown failures
+     */
+    public static @NotNull CommandParseError cooldown(@NotNull String message) {
+        return new CommandParseError(ErrorType.GUARD_FAILED, message, null, null, null);
+    }
+
+    /**
+     * Create a confirmation required error.
+     *
+     * @param message the confirmation message
+     * @return a new CommandParseError for confirmation requirements
+     */
+    public static @NotNull CommandParseError confirmationRequired(@NotNull String message) {
+        return new CommandParseError(ErrorType.GUARD_FAILED, message, null, null, null);
     }
 
     /**
@@ -87,7 +116,7 @@ public final class CommandParseError {
      * @return a new CommandParseError for parsing failures
      */
     public static @NotNull CommandParseError parsing(@NotNull String argumentName, @NotNull String message) {
-        return new CommandParseError(ErrorType.PARSING, message, argumentName, null);
+        return new CommandParseError(ErrorType.PARSING, message, argumentName, null, null);
     }
 
     /**
@@ -98,7 +127,7 @@ public final class CommandParseError {
      * @return a new CommandParseError for validation failures
      */
     public static @NotNull CommandParseError validation(@NotNull String argumentName, @NotNull String message) {
-        return new CommandParseError(ErrorType.VALIDATION, message, argumentName, null);
+        return new CommandParseError(ErrorType.VALIDATION, message, argumentName, null, null);
     }
 
     /**
@@ -109,7 +138,7 @@ public final class CommandParseError {
      * @return a new CommandParseError for argument permission failures
      */
     public static @NotNull CommandParseError argumentPermission(@NotNull String argumentName, @NotNull String message) {
-        return new CommandParseError(ErrorType.ARGUMENT_PERMISSION, message, argumentName, null);
+        return new CommandParseError(ErrorType.ARGUMENT_PERMISSION, message, argumentName, null, null);
     }
 
     /**
@@ -119,7 +148,7 @@ public final class CommandParseError {
      * @return a new CommandParseError for usage failures
      */
     public static @NotNull CommandParseError usage(@NotNull String message) {
-        return new CommandParseError(ErrorType.USAGE, message, null, null);
+        return new CommandParseError(ErrorType.USAGE, message, null, null, null);
     }
 
     /**
@@ -129,7 +158,7 @@ public final class CommandParseError {
      * @return a new CommandParseError for cross-argument validation failures
      */
     public static @NotNull CommandParseError crossValidation(@NotNull String message) {
-        return new CommandParseError(ErrorType.CROSS_VALIDATION, message, null, null);
+        return new CommandParseError(ErrorType.CROSS_VALIDATION, message, null, null, null);
     }
 
     /**
@@ -139,7 +168,32 @@ public final class CommandParseError {
      * @return a new CommandParseError for internal errors
      */
     public static @NotNull CommandParseError internal(@NotNull String message) {
-        return new CommandParseError(ErrorType.INTERNAL_ERROR, message, null, null);
+        return new CommandParseError(ErrorType.INTERNAL_ERROR, message, null, null, null);
+    }
+
+    /**
+     * Create a subcommand not found error.
+     *
+     * @param subcommandName the name of the subcommand that was not found
+     * @param message        the error message
+     * @return a new CommandParseError for subcommand not found
+     */
+    public static @NotNull CommandParseError subcommandNotFound(@NotNull String subcommandName, @NotNull String message) {
+        return new CommandParseError(ErrorType.USAGE, message, null, subcommandName, null);
+    }
+
+    /**
+     * Create a subcommand not found error with suggestions.
+     *
+     * @param subcommandName the name of the subcommand that was not found
+     * @param message        the error message
+     * @param suggestions    similar subcommand suggestions
+     * @return a new CommandParseError for subcommand not found with suggestions
+     */
+    public static @NotNull CommandParseError subcommandNotFound(@NotNull String subcommandName,
+                                                                 @NotNull String message,
+                                                                 @NotNull List<String> suggestions) {
+        return new CommandParseError(ErrorType.USAGE, message, null, subcommandName, suggestions);
     }
 
     // ==================== Builder Methods (Immutable) ====================
@@ -152,7 +206,7 @@ public final class CommandParseError {
      */
     public @NotNull CommandParseError forArgument(@NotNull String argumentName) {
         Preconditions.checkNotNull(argumentName, "argumentName");
-        return new CommandParseError(this.type, this.message, argumentName, this.rawInput);
+        return new CommandParseError(this.type, this.message, argumentName, this.rawInput, this.suggestions);
     }
 
     /**
@@ -163,7 +217,7 @@ public final class CommandParseError {
      */
     public @NotNull CommandParseError withInput(@NotNull String input) {
         Preconditions.checkNotNull(input, "input");
-        return new CommandParseError(this.type, this.message, this.argumentName, input);
+        return new CommandParseError(this.type, this.message, this.argumentName, input, this.suggestions);
     }
 
     /**
@@ -174,7 +228,30 @@ public final class CommandParseError {
      */
     public @NotNull CommandParseError withMessage(@NotNull String message) {
         Preconditions.checkNotNull(message, "message");
-        return new CommandParseError(this.type, message, this.argumentName, this.rawInput);
+        return new CommandParseError(this.type, message, this.argumentName, this.rawInput, this.suggestions);
+    }
+
+    /**
+     * Create a new error with "did you mean" suggestions.
+     *
+     * @param suggestions list of suggested corrections
+     * @return a new CommandParseError with suggestions
+     */
+    public @NotNull CommandParseError withSuggestions(@NotNull List<String> suggestions) {
+        Preconditions.checkNotNull(suggestions, "suggestions");
+        return new CommandParseError(this.type, this.message, this.argumentName, this.rawInput, suggestions);
+    }
+
+    /**
+     * Create a new error with "did you mean" suggestions.
+     *
+     * @param suggestions varargs suggested corrections
+     * @return a new CommandParseError with suggestions
+     */
+    public @NotNull CommandParseError withSuggestions(@NotNull String... suggestions) {
+        Preconditions.checkNotNull(suggestions, "suggestions");
+        return new CommandParseError(this.type, this.message, this.argumentName, this.rawInput,
+            java.util.Arrays.asList(suggestions));
     }
 
     // ==================== Accessors ====================
@@ -234,6 +311,24 @@ public final class CommandParseError {
     }
 
     /**
+     * Get the "did you mean" suggestions for this error.
+     *
+     * @return an unmodifiable list of suggestions (empty if none)
+     */
+    public @NotNull List<String> suggestions() {
+        return suggestions;
+    }
+
+    /**
+     * Check if this error has suggestions.
+     *
+     * @return true if suggestions are available
+     */
+    public boolean hasSuggestions() {
+        return !suggestions.isEmpty();
+    }
+
+    /**
      * Check if this error is in the access category (permission, player-only, guard).
      *
      * @return true if this is an access-related error
@@ -266,7 +361,22 @@ public final class CommandParseError {
         if (rawInput != null) {
             sb.append(" (input: '").append(rawInput).append("')");
         }
+        if (!suggestions.isEmpty()) {
+            sb.append(" Did you mean: ").append(String.join(", ", suggestions)).append("?");
+        }
         return sb.toString();
+    }
+
+    /**
+     * Get a user-friendly message including suggestions if available.
+     *
+     * @return the message with optional suggestions
+     */
+    public @NotNull String toUserMessage() {
+        if (suggestions.isEmpty()) {
+            return message;
+        }
+        return message + " Did you mean: " + String.join(", ", suggestions) + "?";
     }
 
     @Override
@@ -276,6 +386,7 @@ public final class CommandParseError {
                ", message='" + message + '\'' +
                (argumentName != null ? ", argument='" + argumentName + '\'' : "") +
                (rawInput != null ? ", input='" + rawInput + '\'' : "") +
+               (!suggestions.isEmpty() ? ", suggestions=" + suggestions : "") +
                '}';
     }
 
@@ -287,11 +398,12 @@ public final class CommandParseError {
         return type == that.type &&
                message.equals(that.message) &&
                java.util.Objects.equals(argumentName, that.argumentName) &&
-               java.util.Objects.equals(rawInput, that.rawInput);
+               java.util.Objects.equals(rawInput, that.rawInput) &&
+               suggestions.equals(that.suggestions);
     }
 
     @Override
     public int hashCode() {
-        return java.util.Objects.hash(type, message, argumentName, rawInput);
+        return java.util.Objects.hash(type, message, argumentName, rawInput, suggestions);
     }
 }
