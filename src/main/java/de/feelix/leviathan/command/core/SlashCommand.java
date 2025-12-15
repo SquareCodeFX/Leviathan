@@ -6,6 +6,8 @@ import de.feelix.leviathan.command.argument.Arg;
 import de.feelix.leviathan.command.argument.ArgContext;
 import de.feelix.leviathan.command.argument.ArgumentParser;
 import de.feelix.leviathan.command.argument.ParseResult;
+import de.feelix.leviathan.command.parsing.CommandParseError;
+import de.feelix.leviathan.command.parsing.CommandParseResult;
 import de.feelix.leviathan.command.async.CancellationToken;
 import de.feelix.leviathan.command.async.Progress;
 import de.feelix.leviathan.command.completion.TabCompletionHandler;
@@ -1278,6 +1280,483 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
             }
         }
         return true;
+    }
+
+    // ==================== Parse-Only Methods ====================
+
+    /**
+     * Parse command arguments without executing the command action.
+     * <p>
+     * This method allows developers to separate parsing from execution, enabling:
+     * <ul>
+     *   <li>Custom error handling (errors are returned, not sent directly)</li>
+     *   <li>Validation before execution</li>
+     *   <li>Dry-run/preview functionality</li>
+     *   <li>Custom execution flow control</li>
+     * </ul>
+     * <p>
+     * This method performs:
+     * <ul>
+     *   <li>Permission checks (command and argument level)</li>
+     *   <li>Player-only validation</li>
+     *   <li>Guard evaluation</li>
+     *   <li>Flag and key-value parsing</li>
+     *   <li>Positional argument parsing with validation</li>
+     *   <li>Cross-argument validation</li>
+     * </ul>
+     * <p>
+     * It does NOT perform:
+     * <ul>
+     *   <li>Cooldown checks (use {@link #parseStrict} for that)</li>
+     *   <li>Confirmation handling</li>
+     *   <li>Command execution</li>
+     *   <li>Before/after execution hooks</li>
+     * </ul>
+     * <p>
+     * Example usage:
+     * <pre>{@code
+     * CommandParseResult result = command.parse(sender, label, args);
+     *
+     * // Handle success case
+     * result.ifSuccess(ctx -> {
+     *     // Do something with the parsed context
+     *     Player target = ctx.get("target", Player.class);
+     *     int amount = ctx.getIntOrDefault("amount", 1);
+     * });
+     *
+     * // Handle failure case
+     * result.ifFailure(errors -> {
+     *     // Handle errors without automatic messaging
+     *     errors.forEach(error -> {
+     *         logger.warn("Parse error: " + error.message());
+     *     });
+     * });
+     *
+     * // Or use fluent chaining
+     * command.parse(sender, label, args)
+     *     .ifSuccess(ctx -> executeMyLogic(sender, ctx))
+     *     .ifFailure(errors -> handleErrors(sender, errors));
+     * }</pre>
+     *
+     * @param sender       the command sender
+     * @param label        the command label used
+     * @param providedArgs the raw argument tokens
+     * @return a {@link CommandParseResult} containing either the parsed context or parsing errors
+     */
+    public @NotNull CommandParseResult parse(@NotNull CommandSender sender,
+                                              @NotNull String label,
+                                              @NotNull String[] providedArgs) {
+        Preconditions.checkNotNull(sender, "sender");
+        Preconditions.checkNotNull(label, "label");
+        Preconditions.checkNotNull(providedArgs, "providedArgs");
+
+        List<CommandParseError> errors = new ArrayList<>();
+
+        // Permission check
+        if (permission != null && !permission.isEmpty() && !sender.hasPermission(permission)) {
+            return CommandParseResult.failure(
+                CommandParseError.permission(messages.noPermission()),
+                providedArgs
+            );
+        }
+
+        // Player-only check
+        if (playerOnly && !(sender instanceof Player)) {
+            return CommandParseResult.failure(
+                CommandParseError.playerOnly(messages.playerOnly()),
+                providedArgs
+            );
+        }
+
+        // Guards
+        for (Guard g : this.guards) {
+            try {
+                if (!g.test(sender)) {
+                    return CommandParseResult.failure(
+                        CommandParseError.guardFailed(g.errorMessage()),
+                        providedArgs
+                    );
+                }
+            } catch (Throwable t) {
+                return CommandParseResult.failure(
+                    CommandParseError.guardFailed(messages.guardFailed()),
+                    providedArgs
+                );
+            }
+        }
+
+        // Parse flags and key-value pairs
+        Map<String, Boolean> flagValues = Collections.emptyMap();
+        Map<String, Object> keyValuePairs = Collections.emptyMap();
+        Map<String, List<Object>> multiValuePairs = Collections.emptyMap();
+        String[] positionalArgs = providedArgs;
+
+        if (!flags.isEmpty() || !keyValues.isEmpty()) {
+            FlagAndKeyValueParser flagKvParser = new FlagAndKeyValueParser(flags, keyValues);
+            FlagAndKeyValueParser.ParsedResult flagKvResult = flagKvParser.parse(providedArgs, sender);
+
+            if (!flagKvResult.isSuccess()) {
+                // Collect all flag/key-value parsing errors
+                for (String errorMsg : flagKvResult.errors()) {
+                    errors.add(CommandParseError.of(ErrorType.PARSING, errorMsg));
+                }
+                return CommandParseResult.failure(errors, providedArgs);
+            }
+
+            flagValues = flagKvResult.flagValues();
+            keyValuePairs = flagKvResult.keyValuePairs();
+            multiValuePairs = flagKvResult.multiValuePairs();
+
+            // Apply input sanitization to string values in key-value pairs if enabled
+            if (sanitizeInputs) {
+                Map<String, Object> sanitizedKvPairs = new LinkedHashMap<>();
+                for (Map.Entry<String, Object> entry : keyValuePairs.entrySet()) {
+                    Object value = entry.getValue();
+                    if (value instanceof String) {
+                        sanitizedKvPairs.put(entry.getKey(), sanitizeString((String) value));
+                    } else {
+                        sanitizedKvPairs.put(entry.getKey(), value);
+                    }
+                }
+                keyValuePairs = sanitizedKvPairs;
+
+                // Also sanitize multi-value pairs
+                Map<String, List<Object>> sanitizedMultiPairs = new LinkedHashMap<>();
+                for (Map.Entry<String, List<Object>> entry : multiValuePairs.entrySet()) {
+                    List<Object> sanitizedList = new ArrayList<>();
+                    for (Object value : entry.getValue()) {
+                        if (value instanceof String) {
+                            sanitizedList.add(sanitizeString((String) value));
+                        } else {
+                            sanitizedList.add(value);
+                        }
+                    }
+                    sanitizedMultiPairs.put(entry.getKey(), sanitizedList);
+                }
+                multiValuePairs = sanitizedMultiPairs;
+            }
+
+            positionalArgs = flagKvResult.remainingArgs().toArray(new String[0]);
+        }
+
+        Map<String, Object> values = new LinkedHashMap<>();
+        boolean lastIsGreedy = !args.isEmpty() && args.get(args.size() - 1).greedy();
+
+        // Parse arguments
+        int argIndex = 0;
+        int tokenIndex = 0;
+        while (argIndex < args.size() && tokenIndex < positionalArgs.length) {
+            Arg<?> arg = args.get(argIndex);
+
+            // Evaluate conditional argument
+            if (arg.condition() != null) {
+                CommandContext tempCtx = new CommandContext(values, flagValues, keyValuePairs, multiValuePairs, providedArgs);
+                try {
+                    if (!arg.condition().test(tempCtx)) {
+                        argIndex++;
+                        continue;
+                    }
+                } catch (Throwable t) {
+                    errors.add(CommandParseError.internal(messages.argumentConditionError(arg.name()))
+                        .forArgument(arg.name()));
+                    return CommandParseResult.failure(errors, providedArgs);
+                }
+            }
+
+            // Per-argument permission check
+            if (arg.permission() != null && !arg.permission().isEmpty() && !sender.hasPermission(arg.permission())) {
+                if (!arg.optional()) {
+                    errors.add(CommandParseError.argumentPermission(arg.name(), messages.argumentPermissionDenied(arg.name())));
+                    return CommandParseResult.failure(errors, providedArgs);
+                }
+                argIndex++;
+                continue;
+            }
+
+            ArgumentParser<?> parser = arg.parser();
+            String token;
+
+            // Check if this is the last argument to be parsed
+            boolean isLastArgToBeParsed = true;
+            for (int checkIdx = argIndex + 1; checkIdx < args.size(); checkIdx++) {
+                Arg<?> futureArg = args.get(checkIdx);
+
+                boolean willBeSkippedByCondition = false;
+                if (futureArg.condition() != null) {
+                    try {
+                        CommandContext tempCtx = new CommandContext(values, flagValues, keyValuePairs, multiValuePairs, providedArgs);
+                        willBeSkippedByCondition = !futureArg.condition().test(tempCtx);
+                    } catch (Throwable ignored) {
+                    }
+                }
+
+                boolean willBeSkippedByPermission = futureArg.permission() != null
+                    && !futureArg.permission().isEmpty()
+                    && !sender.hasPermission(futureArg.permission())
+                    && futureArg.optional();
+
+                if (!willBeSkippedByCondition && !willBeSkippedByPermission) {
+                    isLastArgToBeParsed = false;
+                    break;
+                }
+            }
+
+            if (isLastArgToBeParsed && arg.greedy()) {
+                if (tokenIndex >= positionalArgs.length) {
+                    token = "";
+                } else {
+                    token = String.join(" ", Arrays.asList(positionalArgs).subList(tokenIndex, positionalArgs.length));
+                }
+                tokenIndex = positionalArgs.length;
+            } else {
+                token = positionalArgs[tokenIndex++];
+            }
+
+            ParseResult<?> res;
+            try {
+                res = parser.parse(token, sender);
+                if (res == null) {
+                    throw new ParsingException(
+                        "Parser " + parser.getClass().getName() + " returned null ParseResult for argument '"
+                        + arg.name() + "'");
+                }
+            } catch (ParsingException pe) {
+                throw pe;
+            } catch (Throwable t) {
+                errors.add(CommandParseError.internal(messages.argumentParsingError(arg.name()))
+                    .forArgument(arg.name())
+                    .withInput(token));
+                return CommandParseResult.failure(errors, providedArgs);
+            }
+
+            if (!res.isSuccess()) {
+                String msg = res.error().orElse("invalid value");
+                String errorMsg = messages.invalidArgumentValue(arg.name(), parser.getTypeName(), msg);
+                errors.add(CommandParseError.parsing(arg.name(), errorMsg).withInput(token));
+                return CommandParseResult.failure(errors, providedArgs);
+            }
+
+            Object parsedValue = res.value().orElse(null);
+
+            // Apply input sanitization for string values if enabled
+            if (sanitizeInputs && parsedValue instanceof String) {
+                parsedValue = sanitizeString((String) parsedValue);
+            }
+
+            // Apply transformation if transformer is present
+            if (arg.transformer() != null && parsedValue != null) {
+                try {
+                    @SuppressWarnings("unchecked")
+                    Function<Object, Object> transformer = (Function<Object, Object>) arg.transformer();
+                    parsedValue = transformer.apply(parsedValue);
+                } catch (Throwable t) {
+                    errors.add(CommandParseError.internal(messages.argumentTransformationError(arg.name()))
+                        .forArgument(arg.name()));
+                    return CommandParseResult.failure(errors, providedArgs);
+                }
+            }
+
+            // Apply validations from ArgContext
+            ArgContext ctx = arg.context();
+            String validationError;
+            try {
+                validationError = ValidationHelper.validateValue(
+                    parsedValue, ctx, arg.name(), parser.getTypeName(), messages);
+            } catch (Throwable t) {
+                errors.add(CommandParseError.internal(messages.argumentValidationError(arg.name()))
+                    .forArgument(arg.name()));
+                return CommandParseResult.failure(errors, providedArgs);
+            }
+
+            if (validationError != null) {
+                errors.add(CommandParseError.validation(arg.name(), messages.validationFailed(arg.name(), validationError)));
+                return CommandParseResult.failure(errors, providedArgs);
+            }
+
+            values.put(arg.name(), parsedValue);
+            argIndex++;
+        }
+
+        // Validate that all required arguments were provided
+        for (Arg<?> arg : args) {
+            if (!arg.optional() && !values.containsKey(arg.name())) {
+                boolean skippedByCondition = false;
+                if (arg.condition() != null) {
+                    try {
+                        CommandContext tempCtx = new CommandContext(values, flagValues, keyValuePairs, multiValuePairs, providedArgs);
+                        skippedByCondition = !arg.condition().test(tempCtx);
+                    } catch (Throwable ignored) {
+                    }
+                }
+
+                boolean skippedByPermission = false;
+                if (arg.optional() && arg.permission() != null && !arg.permission().isEmpty()
+                    && !sender.hasPermission(arg.permission())) {
+                    skippedByPermission = true;
+                }
+
+                if (!skippedByCondition && !skippedByPermission) {
+                    errors.add(CommandParseError.usage(messages.insufficientArguments(fullCommandPath(label), usage())));
+                    return CommandParseResult.failure(errors, providedArgs);
+                }
+            }
+        }
+
+        // Apply default values for missing optional arguments
+        for (Arg<?> arg : args) {
+            if (!values.containsKey(arg.name()) && arg.context().defaultValue() != null) {
+                values.put(arg.name(), arg.context().defaultValue());
+            }
+        }
+
+        // Check for extra arguments after parsing
+        if (!lastIsGreedy && tokenIndex < positionalArgs.length) {
+            errors.add(CommandParseError.usage(messages.tooManyArguments(fullCommandPath(label), usage())));
+            return CommandParseResult.failure(errors, providedArgs);
+        }
+
+        // Cross-argument validation
+        if (!crossArgumentValidators.isEmpty()) {
+            CommandContext tempCtx = new CommandContext(values, flagValues, keyValuePairs, multiValuePairs, providedArgs);
+            for (CrossArgumentValidator validator : crossArgumentValidators) {
+                String error;
+                try {
+                    error = validator.validate(tempCtx);
+                } catch (Throwable t) {
+                    errors.add(CommandParseError.internal(messages.crossValidationInternalError()));
+                    return CommandParseResult.failure(errors, providedArgs);
+                }
+                if (error != null) {
+                    errors.add(CommandParseError.crossValidation(messages.crossValidationFailed(error)));
+                    return CommandParseResult.failure(errors, providedArgs);
+                }
+            }
+        }
+
+        // Build final context
+        CommandContext finalContext = new CommandContext(values, flagValues, keyValuePairs, multiValuePairs, providedArgs);
+        return CommandParseResult.success(finalContext, providedArgs);
+    }
+
+    /**
+     * Parse command arguments with full strictness, including cooldown checks.
+     * <p>
+     * This method performs all the same checks as {@link #parse}, plus:
+     * <ul>
+     *   <li>Server cooldown checks</li>
+     *   <li>User cooldown checks</li>
+     * </ul>
+     * <p>
+     * Use this method when you want to respect cooldowns but still separate
+     * parsing from execution for custom handling.
+     *
+     * @param sender       the command sender
+     * @param label        the command label used
+     * @param providedArgs the raw argument tokens
+     * @return a {@link CommandParseResult} containing either the parsed context or parsing errors
+     */
+    public @NotNull CommandParseResult parseStrict(@NotNull CommandSender sender,
+                                                    @NotNull String label,
+                                                    @NotNull String[] providedArgs) {
+        Preconditions.checkNotNull(sender, "sender");
+        Preconditions.checkNotNull(label, "label");
+        Preconditions.checkNotNull(providedArgs, "providedArgs");
+
+        // Check cooldowns first
+        CooldownResult serverCooldown = CooldownManager.checkServerCooldown(name, perServerCooldownMillis);
+        if (serverCooldown.onCooldown()) {
+            String formattedTime = CooldownManager.formatCooldownMessage("%s", serverCooldown.remainingMillis());
+            return CommandParseResult.failure(
+                CommandParseError.guardFailed(messages.serverCooldown(formattedTime)),
+                providedArgs
+            );
+        }
+
+        CooldownResult userCooldown = CooldownManager.checkUserCooldown(name, sender.getName(), perUserCooldownMillis);
+        if (userCooldown.onCooldown()) {
+            String formattedTime = CooldownManager.formatCooldownMessage("%s", userCooldown.remainingMillis());
+            return CommandParseResult.failure(
+                CommandParseError.guardFailed(messages.userCooldown(formattedTime)),
+                providedArgs
+            );
+        }
+
+        // Delegate to regular parse
+        return parse(sender, label, providedArgs);
+    }
+
+    /**
+     * Parse and execute the command if parsing succeeds.
+     * <p>
+     * This is a convenience method that combines parsing and execution with custom
+     * error handling. Unlike {@link #execute}, this method does not automatically
+     * send error messages to the sender - instead, it returns the parse result
+     * allowing you to handle errors as needed.
+     * <p>
+     * Example usage:
+     * <pre>{@code
+     * command.parseAndExecute(sender, label, args, (s, ctx) -> {
+     *     Player target = ctx.require("target", Player.class);
+     *     target.sendMessage("Hello!");
+     * }).ifFailure(errors -> {
+     *     // Custom error handling
+     *     sender.sendMessage("§cCommand failed: " + errors.get(0).message());
+     * });
+     * }</pre>
+     *
+     * @param sender       the command sender
+     * @param label        the command label used
+     * @param providedArgs the raw argument tokens
+     * @param action       the action to execute if parsing succeeds
+     * @return the parse result for further handling
+     */
+    public @NotNull CommandParseResult parseAndExecute(@NotNull CommandSender sender,
+                                                        @NotNull String label,
+                                                        @NotNull String[] providedArgs,
+                                                        @NotNull CommandAction action) {
+        Preconditions.checkNotNull(sender, "sender");
+        Preconditions.checkNotNull(label, "label");
+        Preconditions.checkNotNull(providedArgs, "providedArgs");
+        Preconditions.checkNotNull(action, "action");
+
+        CommandParseResult result = parseStrict(sender, label, providedArgs);
+
+        if (result.isSuccess()) {
+            // Update cooldowns after successful parse
+            if (perServerCooldownMillis > 0) {
+                try {
+                    CooldownManager.updateServerCooldown(name);
+                } catch (Throwable t) {
+                    if (plugin != null) {
+                        plugin.getLogger().warning("Failed to update server cooldown for command '" + name + "': " + t.getMessage());
+                    }
+                }
+            }
+            if (perUserCooldownMillis > 0) {
+                try {
+                    CooldownManager.updateUserCooldown(name, sender.getName());
+                } catch (Throwable t) {
+                    if (plugin != null) {
+                        plugin.getLogger().warning(
+                            "Failed to update user cooldown for command '" + name + "' and user '" + sender.getName() + "': " + t.getMessage());
+                    }
+                }
+            }
+
+            // Execute the action
+            CommandContext ctx = result.contextOrThrow();
+            try {
+                action.execute(sender, ctx);
+            } catch (Throwable t) {
+                // Return failure with execution error
+                return CommandParseResult.failure(
+                    CommandParseError.internal(messages.executionError()),
+                    providedArgs
+                );
+            }
+        }
+
+        return result;
     }
 
     /**
