@@ -153,6 +153,75 @@ ArgContext ctx = ArgContext.builder()
     .build();
 ```
 
+##### Argument Aliases
+
+Define alternative names for arguments so they can be accessed in `CommandContext` using any of their names:
+
+```java
+// Using ArgContext builder
+ArgContext playerCtx = ArgContext.builder()
+    .aliases("p", "target", "t")             // Define aliases
+    .description("The target player")
+    .build();
+
+SlashCommand cmd = SlashCommand.create("teleport")
+    .arg("player", ArgParsers.PLAYER, playerCtx)
+    .executes((sender, ctx) -> {
+        // All of these return the same value:
+        Player p1 = ctx.get("player", Player.class); // Primary name
+        Player p2 = ctx.get("p", Player.class);      // Alias
+        Player p3 = ctx.get("target", Player.class); // Alias
+        Player p4 = ctx.get("t", Player.class);      // Alias
+    })
+    .build();
+```
+
+Or use fluent methods:
+
+```java
+// Add all aliases at once
+ArgContext ctx1 = ArgContext.builder()
+    .withAliases("p", "target", "t")
+    .build();
+
+// Add aliases one at a time
+ArgContext ctx2 = ArgContext.builder()
+    .addAlias("p")
+    .addAlias("target")
+    .addAlias("t")
+    .build();
+```
+
+Using the fluent Arg API:
+
+```java
+SlashCommand cmd = SlashCommand.create("give")
+    .arg(Arg.of("player", ArgParsers.PLAYER)
+        .withAliases("p", "target"))
+    .arg(Arg.of("amount", ArgParsers.INT)
+        .withAlias("amt")
+        .withAlias("n"))
+    .executes((sender, ctx) -> {
+        // Access by alias
+        Player p = ctx.get("p", Player.class);
+        int amount = ctx.getIntOrDefault("n", 1);
+    })
+    .build();
+```
+
+**Alias Methods on Arg:**
+
+| Method | Description |
+|--------|-------------|
+| `aliases()` | Get list of all aliases |
+| `hasAliases()` | Check if argument has any aliases |
+| `matchesNameOrAlias(name)` | Check if name matches primary or any alias |
+| `allNames()` | Get primary name + all aliases as a list |
+| `withAliases(...)` | Create copy of Arg with specified aliases |
+| `withAlias(alias)` | Create copy of Arg with an additional alias |
+
+See [CommandContext-API](CommandContext-API.md#argument-aliases) for full details on accessing arguments by alias.
+
 ##### Descriptions for Help
 
 Add descriptions to arguments for better help output:

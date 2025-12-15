@@ -361,3 +361,88 @@ Validate argument dependencies at runtime:
     }, "filter", "tag", "category");
 })
 ```
+
+---
+
+#### Argument Aliases
+
+All CommandContext methods support argument aliases. When an argument has aliases defined, you can access it using any of its names.
+
+##### Defining Aliases
+
+```java
+SlashCommand.create("teleport")
+    .arg("player", playerParser(), ArgContext.builder()
+        .aliases("p", "target", "t")
+        .build())
+    .arg("location", locationParser(), ArgContext.builder()
+        .aliases("loc", "pos", "dest")
+        .build())
+    .build();
+
+// Or using fluent API on Arg
+Arg<Player> playerArg = Arg.of("player", playerParser())
+    .withAliases("p", "target", "t");
+```
+
+##### Using Aliases in CommandContext
+
+```java
+.executes((sender, ctx) -> {
+    // All of these return the same value:
+    Player target = ctx.get("player", Player.class);
+    Player target = ctx.get("p", Player.class);
+    Player target = ctx.get("target", Player.class);
+    Player target = ctx.get("t", Player.class);
+
+    // Works with all accessor methods:
+    ctx.getOrDefault("p", Player.class, defaultPlayer);
+    ctx.optional("target", Player.class);
+    ctx.require("t", Player.class);
+    ctx.has("p");
+    ctx.getAsString("target");
+    ctx.getAsInt("n");  // If "amount" has alias "n"
+
+    // Works with bulk operations:
+    ctx.hasAll("p", "loc");           // Check aliases
+    ctx.hasAny("p", "target", "all"); // Mix of aliases and names
+    ctx.requireAll("p", "dest");      // Use aliases in validation
+    ctx.requireIfPresent("p", "loc"); // Conditional with aliases
+    ctx.gatherPresent(Player.class, "p", "target2", "victim");
+})
+```
+
+##### Alias Introspection
+
+```java
+.executes((sender, ctx) -> {
+    // Get the alias map (alias -> primary name)
+    Map<String, String> aliases = ctx.aliasMap();
+    // Example: {"p" -> "player", "target" -> "player", "t" -> "player"}
+
+    // Check if a name is an alias
+    boolean isAlias = ctx.isAlias("p");      // true
+    boolean isAlias2 = ctx.isAlias("player"); // false (primary name)
+
+    // Get the primary name for an alias
+    String primary = ctx.getPrimaryName("p");     // "player"
+    String primary2 = ctx.getPrimaryName("player"); // "player" (unchanged)
+
+    // Get value without type checking
+    Object value = ctx.argument("p");
+})
+```
+
+##### Alias-Aware Methods Summary
+
+All these methods support aliases:
+
+| Category | Methods |
+|----------|---------|
+| **Basic Getters** | `get()`, `getOrDefault()`, `optional()`, `orThrow()`, `require()` |
+| **Type-Specific** | `getStringOrDefault()`, `getIntOrDefault()`, `getDoubleOrDefault()`, etc. |
+| **Type Conversion** | `getAsString()`, `getAsInt()`, `getAsLong()`, `getAsDouble()`, `getAsBoolean()` |
+| **Presence Checks** | `has()`, `hasAll()`, `hasAny()` |
+| **Validation** | `requireAll()`, `requireAny()`, `requireIfPresent()`, `requireMutuallyExclusive()` |
+| **Bulk Operations** | `gatherPresent()`, `ifAllPresent()`, `ifAnyPresent()` |
+| **Functional** | `map()`, `ifPresent()`, `arg()` |
