@@ -428,6 +428,335 @@ if (result.isFailure()) {
 | Sends messages | ✅ | ❌ | ❌ |
 | Returns result | ❌ | ✅ | ✅ |
 
+## Unit Testing with Parse API
+
+The Parse API is designed to be highly testable. Since it returns a `CommandParseResult` object instead of sending messages directly, you can easily write unit tests to verify parsing behavior.
+
+### Basic Test Setup
+
+```java
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+class GiveCommandTest {
+
+    private SlashCommand giveCommand;
+    private Player mockPlayer;
+
+    @BeforeEach
+    void setUp() {
+        giveCommand = SlashCommand.builder("give")
+            .arg("player", ArgParsers.playerParser())
+            .arg("amount", ArgParsers.intParser(), ArgContext.builder()
+                .intRange(1, 64)
+                .build())
+            .build();
+
+        mockPlayer = mock(Player.class);
+        when(mockPlayer.hasPermission(anyString())).thenReturn(true);
+        when(mockPlayer.getName()).thenReturn("TestPlayer");
+    }
+
+    @Test
+    void testValidArgs_ShouldSucceed() {
+        String[] args = {"Notch", "10"};
+
+        CommandParseResult result = giveCommand.parse(mockPlayer, "give", args);
+
+        assertTrue(result.isSuccess());
+        assertNotNull(result.context());
+        assertEquals(10, result.context().require("amount", Integer.class));
+    }
+
+    @Test
+    void testInvalidAmount_ShouldFail() {
+        String[] args = {"Notch", "100"}; // Over max of 64
+
+        CommandParseResult result = giveCommand.parse(mockPlayer, "give", args);
+
+        assertTrue(result.isFailure());
+        assertEquals(1, result.errorCount());
+        assertEquals(ErrorType.VALIDATION, result.firstError().type());
+    }
+
+    @Test
+    void testMissingArgs_ShouldFail() {
+        String[] args = {}; // No arguments
+
+        CommandParseResult result = giveCommand.parse(mockPlayer, "give", args);
+
+        assertTrue(result.isFailure());
+        assertEquals(ErrorType.USAGE, result.firstError().type());
+    }
+}
+```
+
+### Testing with ParseOptions
+
+```java
+@Test
+void testCollectAllErrors() {
+    String[] args = {"invalid_player", "invalid_amount"};
+    ParseOptions options = ParseOptions.builder()
+        .collectAllErrors(true)
+        .build();
+
+    CommandParseResult result = command.parse(mockPlayer, "cmd", args, options);
+
+    assertTrue(result.isFailure());
+    assertTrue(result.errorCount() > 1); // Multiple errors collected
+}
+
+@Test
+void testSkipPermissions_ForAdminTool() {
+    // Player without permission
+    when(mockPlayer.hasPermission("admin.give")).thenReturn(false);
+
+    String[] args = {"Notch", "10"};
+    ParseOptions options = ParseOptions.builder()
+        .skipPermissionChecks(true)
+        .build();
+
+    // Should succeed despite missing permission
+    CommandParseResult result = command.parse(mockPlayer, "give", args, options);
+    assertTrue(result.isSuccess());
+}
+
+@Test
+void testSkipGuards_ForDryRun() {
+    // Guard that would normally fail
+    SlashCommand cmd = SlashCommand.builder("restricted")
+        .guard(Guard.of(s -> false, "Access denied"))
+        .arg("value", ArgParsers.stringParser())
+        .build();
+
+    ParseOptions dryRun = ParseOptions.builder()
+        .skipGuards(true)
+        .build();
+
+    CommandParseResult result = cmd.parse(mockPlayer, "restricted", new String[]{"test"}, dryRun);
+    assertTrue(result.isSuccess()); // Guards were skipped
+}
+```
+
+### Testing Error Details
+
+```java
+@Test
+void testErrorDetails() {
+    String[] args = {"abc"}; // Invalid integer
+
+    CommandParseResult result = command.parse(mockPlayer, "cmd", args);
+
+    assertTrue(result.isFailure());
+    CommandParseError error = result.firstError();
+
+    assertEquals(ErrorType.PARSING, error.type());
+    assertEquals("amount", error.argumentName());
+    assertEquals("abc", error.rawInput());
+    assertTrue(error.isInputError());
+}
+
+@Test
+void testSuggestions() {
+    // Command with predefined choices
+    SlashCommand cmd = SlashCommand.builder("color")
+        .arg("color", ArgParsers.choiceParser("red", "green", "blue"),
+             ArgContext.builder().didYouMean(true).build())
+        .build();
+
+    ParseOptions options = ParseOptions.builder()
+        .includeSuggestions(true)
+        .build();
+
+    CommandParseResult result = cmd.parse(mockPlayer, "color", new String[]{"rad"}, options);
+
+    assertTrue(result.isFailure());
+    assertTrue(result.firstError().hasSuggestions());
+    assertTrue(result.firstError().suggestions().contains("red"));
+}
+```
+
+### Testing Subcommands
+
+```java
+@Test
+void testSubcommandRouting() {
+    SlashCommand parent = SlashCommand.builder("admin")
+        .subcommand(SlashCommand.builder("kick")
+            .arg("player", ArgParsers.playerParser())
+            .build())
+        .subcommand(SlashCommand.builder("ban")
+            .arg("player", ArgParsers.playerParser())
+            .arg("reason", ArgParsers.greedyStringParser())
+            .build())
+        .build();
+
+    ParseOptions options = ParseOptions.builder()
+        .includeSubcommands(true)
+        .build();
+
+    // Test kick subcommand
+    CommandParseResult kickResult = parent.parse(mockPlayer, "admin",
+        new String[]{"kick", "Notch"}, options);
+    assertTrue(kickResult.isSuccess());
+
+    // Test invalid subcommand
+    CommandParseResult invalidResult = parent.parse(mockPlayer, "admin",
+        new String[]{"invalid"}, options);
+    assertTrue(invalidResult.isFailure());
+    assertEquals(ErrorType.USAGE, invalidResult.firstError().type());
+}
+```
+
+### Testing Cross-Argument Validation
+
+```java
+@Test
+void testCrossValidation() {
+    SlashCommand cmd = SlashCommand.builder("range")
+        .arg("min", ArgParsers.intParser())
+        .arg("max", ArgParsers.intParser())
+        .crossValidate(ctx -> {
+            int min = ctx.require("min", Integer.class);
+            int max = ctx.require("max", Integer.class);
+            return min > max ? "min must be less than max" : null;
+        })
+        .build();
+
+    // Valid: min < max
+    CommandParseResult valid = cmd.parse(mockPlayer, "range", new String[]{"1", "10"});
+    assertTrue(valid.isSuccess());
+
+    // Invalid: min > max
+    CommandParseResult invalid = cmd.parse(mockPlayer, "range", new String[]{"10", "1"});
+    assertTrue(invalid.isFailure());
+    assertEquals(ErrorType.CROSS_VALIDATION, invalid.firstError().type());
+}
+```
+
+### Testing Flags and Key-Values
+
+```java
+@Test
+void testFlagsAndKeyValues() {
+    SlashCommand cmd = SlashCommand.builder("search")
+        .arg("query", ArgParsers.stringParser())
+        .flag(Flag.builder("silent").shortForm('s').build())
+        .keyValue(KeyValue.ofInt("limit").defaultValue(10).build())
+        .build();
+
+    String[] args = {"hello", "-s", "--limit=5"};
+    CommandParseResult result = cmd.parse(mockPlayer, "search", args);
+
+    assertTrue(result.isSuccess());
+    CommandContext ctx = result.context();
+    assertEquals("hello", ctx.require("query", String.class));
+    assertTrue(ctx.getFlag("silent"));
+    assertEquals(5, ctx.getKeyValue("limit", Integer.class));
+}
+```
+
+### Testing Optional Arguments with Defaults
+
+```java
+@Test
+void testOptionalWithDefaults() {
+    SlashCommand cmd = SlashCommand.builder("greet")
+        .arg("name", ArgParsers.stringParser())
+        .arg("times", ArgParsers.intParser(), ArgContext.builder()
+            .optional(true)
+            .defaultValue(1)
+            .build())
+        .build();
+
+    // Without optional arg
+    CommandParseResult result1 = cmd.parse(mockPlayer, "greet", new String[]{"World"});
+    assertTrue(result1.isSuccess());
+    assertEquals(1, result1.context().require("times", Integer.class));
+
+    // With optional arg
+    CommandParseResult result2 = cmd.parse(mockPlayer, "greet", new String[]{"World", "3"});
+    assertTrue(result2.isSuccess());
+    assertEquals(3, result2.context().require("times", Integer.class));
+}
+```
+
+### Mocking CommandSender for Tests
+
+```java
+// Create a mock player with permissions
+Player mockPlayer() {
+    Player player = mock(Player.class);
+    when(player.hasPermission(anyString())).thenReturn(true);
+    when(player.getName()).thenReturn("TestPlayer");
+    return player;
+}
+
+// Create a mock console sender
+ConsoleCommandSender mockConsole() {
+    ConsoleCommandSender console = mock(ConsoleCommandSender.class);
+    when(console.hasPermission(anyString())).thenReturn(true);
+    when(console.getName()).thenReturn("Console");
+    return console;
+}
+
+@Test
+void testPlayerOnlyCommand() {
+    SlashCommand cmd = SlashCommand.builder("fly")
+        .playerOnly(true)
+        .build();
+
+    // Console should fail
+    CommandParseResult consoleResult = cmd.parse(mockConsole(), "fly", new String[]{});
+    assertTrue(consoleResult.isFailure());
+    assertEquals(ErrorType.PLAYER_ONLY, consoleResult.firstError().type());
+
+    // Player should succeed
+    CommandParseResult playerResult = cmd.parse(mockPlayer(), "fly", new String[]{});
+    assertTrue(playerResult.isSuccess());
+}
+```
+
+## Complete Feature Support Matrix
+
+| SlashCommand Feature | `parse()` | `parse(options)` | Notes |
+|---------------------|-----------|------------------|-------|
+| **Access Control** ||||
+| Permission check | ✅ | ✅ (skip-able) | Can skip for admin tools |
+| Player-only check | ✅ | ✅ | Never skipped (type check) |
+| Guards | ✅ | ✅ (skip-able) | Can skip for dry-run |
+| Cooldowns (server) | ❌ | ✅ | When `checkCooldowns=true` |
+| Cooldowns (user) | ❌ | ✅ | When `checkCooldowns=true` |
+| Confirmation | ❌ | ✅ | When `checkConfirmation=true` |
+| **Argument Parsing** ||||
+| Positional args | ✅ | ✅ | Full support |
+| Optional args | ✅ | ✅ | With default values |
+| Greedy args | ✅ | ✅ | Captures remaining tokens |
+| Conditional args | ✅ | ✅ | Based on context |
+| Per-arg permission | ✅ | ✅ (skip-able) | Can skip for admin tools |
+| Transformers | ✅ | ✅ | Full support |
+| **Flags & Options** ||||
+| Boolean flags | ✅ | ✅ | `-f`, `--flag`, `--no-flag` |
+| Key-value pairs | ✅ | ✅ | `key=value`, `--key value` |
+| Multi-value | ✅ | ✅ | `key=a,b,c` |
+| **Validation** ||||
+| Range validation | ✅ | ✅ | int, long, double, float |
+| String validation | ✅ | ✅ | length, pattern |
+| Custom validators | ✅ | ✅ | Via `Validator<T>` |
+| Cross-arg validation | ✅ | ✅ | Full support |
+| **Subcommands** ||||
+| Subcommand routing | ❌ | ✅ | When `includeSubcommands=true` |
+| Fuzzy matching | ❌ | ✅ | When subcommands enabled |
+| **Error Handling** ||||
+| Fail-fast | ✅ | ✅ | Default behavior |
+| Collect all errors | ❌ | ✅ | When `collectAllErrors=true` |
+| Did-you-mean | ✅ | ✅ | When `includeSuggestions=true` |
+| **Input Processing** ||||
+| Input sanitization | ✅ | ✅ | When command has it enabled |
+
 ## Best Practices
 
 1. **Use `parse()` when:**
@@ -435,6 +764,7 @@ if (result.isFailure()) {
    - You want to validate before executing
    - You're implementing dry-run functionality
    - You need to log/track parsing errors
+   - **You're writing unit tests**
 
 2. **Use `parseStrict()` when:**
    - You want cooldown checks without automatic execution
@@ -445,8 +775,23 @@ if (result.isFailure()) {
    - You want to collect all errors
    - You need subcommand routing without execution
    - You're implementing admin tools that validate commands
+   - **You're testing complex scenarios**
 
 4. **Use `execute()` when:**
    - You want the standard behavior
    - Automatic error messaging is desired
    - You don't need custom error handling
+
+## Thread Safety
+
+The parse methods are thread-safe with the following considerations:
+
+- `parse()` and `parse(options)` are pure functions (no side effects)
+- `parseStrict()` checks cooldowns but doesn't update them
+- `parseAndExecute()` updates cooldowns after successful parse
+- Confirmation state is managed with `ConcurrentHashMap`
+
+This makes the Parse API ideal for:
+- Parallel test execution
+- Async validation in background threads
+- Preview/dry-run scenarios
