@@ -258,6 +258,9 @@ public final class ArgContext {
     // Argument description for help/documentation
     private final @Nullable String description;
 
+    // Argument aliases (alternative names for the argument)
+    private final @NotNull List<String> aliases;
+
     private ArgContext(boolean optional,
                        boolean greedy,
                        @Nullable String permission,
@@ -279,7 +282,8 @@ public final class ArgContext {
                        @Nullable List<Validator<?>> customValidators,
                        boolean didYouMean,
                        @Nullable Object defaultValue,
-                       @Nullable String description) {
+                       @Nullable String description,
+                       @Nullable List<String> aliases) {
         this.optional = optional;
         this.greedy = greedy;
         this.permission = (permission == null || permission.isBlank()) ? null : permission;
@@ -306,6 +310,8 @@ public final class ArgContext {
         this.didYouMean = didYouMean;
         this.defaultValue = defaultValue;
         this.description = description;
+        List<String> aliasList = (aliases == null) ? List.of() : new ArrayList<>(aliases);
+        this.aliases = Collections.unmodifiableList(aliasList);
     }
 
     public static @NotNull Builder builder() {
@@ -408,6 +414,47 @@ public final class ArgContext {
         return description;
     }
 
+    /**
+     * Get the list of aliases for this argument.
+     * <p>
+     * Aliases allow the argument to be referenced by alternative names in key-value syntax
+     * (e.g., {@code player=Notch} or {@code p=Notch}) and when retrieving values from
+     * the CommandContext.
+     *
+     * @return an immutable list of aliases (empty if none defined)
+     */
+    public @NotNull List<String> aliases() {
+        return aliases;
+    }
+
+    /**
+     * Check if this argument has any aliases defined.
+     *
+     * @return true if at least one alias is defined
+     */
+    public boolean hasAliases() {
+        return !aliases.isEmpty();
+    }
+
+    /**
+     * Check if the given name matches this argument's name or any of its aliases.
+     *
+     * @param name          the primary argument name
+     * @param nameToCheck   the name to check against
+     * @return true if nameToCheck matches the primary name or any alias
+     */
+    public boolean matchesNameOrAlias(@NotNull String name, @NotNull String nameToCheck) {
+        if (name.equalsIgnoreCase(nameToCheck)) {
+            return true;
+        }
+        for (String alias : aliases) {
+            if (alias.equalsIgnoreCase(nameToCheck)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public static final class Builder {
         private boolean optional;
         private boolean greedy;
@@ -433,6 +480,7 @@ public final class ArgContext {
         private boolean didYouMean = false;
         private @Nullable Object defaultValue;
         private @Nullable String description;
+        private @NotNull List<String> aliases = new ArrayList<>();
 
         public @NotNull Builder optional(boolean optional) {
             this.optional = optional;
@@ -667,6 +715,83 @@ public final class ArgContext {
             return description(description);
         }
 
+        // ==================== Argument Aliases ====================
+
+        /**
+         * Set aliases for this argument.
+         * <p>
+         * Aliases allow the argument to be referenced by alternative names in key-value syntax
+         * and when retrieving values from the CommandContext.
+         * <p>
+         * Example:
+         * <pre>{@code
+         * ArgContext.builder()
+         *     .aliases("p", "target", "t")
+         *     .build();
+         *
+         * // All these work:
+         * // /cmd player=Notch
+         * // /cmd p=Notch
+         * // /cmd target=Notch
+         * // ctx.get("player") or ctx.get("p") or ctx.get("target")
+         * }</pre>
+         *
+         * @param aliases the alternative names for this argument
+         * @return this builder
+         */
+        public @NotNull Builder aliases(@NotNull String... aliases) {
+            Preconditions.checkNotNull(aliases, "aliases");
+            this.aliases = new ArrayList<>();
+            for (String alias : aliases) {
+                if (alias != null && !alias.isBlank()) {
+                    this.aliases.add(alias);
+                }
+            }
+            return this;
+        }
+
+        /**
+         * Set aliases for this argument from a list.
+         *
+         * @param aliases the list of alternative names
+         * @return this builder
+         */
+        public @NotNull Builder aliases(@NotNull List<String> aliases) {
+            Preconditions.checkNotNull(aliases, "aliases");
+            this.aliases = new ArrayList<>();
+            for (String alias : aliases) {
+                if (alias != null && !alias.isBlank()) {
+                    this.aliases.add(alias);
+                }
+            }
+            return this;
+        }
+
+        /**
+         * Fluent alias for {@link #aliases(String...)}.
+         * Makes the API read more naturally: {@code withAliases("p", "target")}
+         *
+         * @param aliases the alternative names for this argument
+         * @return this builder
+         */
+        public @NotNull Builder withAliases(@NotNull String... aliases) {
+            return aliases(aliases);
+        }
+
+        /**
+         * Add a single alias to this argument.
+         *
+         * @param alias the alias to add
+         * @return this builder
+         */
+        public @NotNull Builder addAlias(@NotNull String alias) {
+            Preconditions.checkNotNull(alias, "alias");
+            if (!alias.isBlank()) {
+                this.aliases.add(alias);
+            }
+            return this;
+        }
+
         // ==================== String Transformer Shortcuts ====================
 
         /**
@@ -874,7 +999,7 @@ public final class ArgContext {
                 completionsDynamicAsync, completionsPredefinedAsync,
                 intMin, intMax, longMin, longMax, doubleMin, doubleMax, floatMin, floatMax,
                 stringMinLength, stringMaxLength, stringPattern, customValidators, didYouMean,
-                defaultValue, description
+                defaultValue, description, aliases
             );
         }
     }

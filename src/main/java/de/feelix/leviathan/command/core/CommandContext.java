@@ -31,6 +31,7 @@ public final class CommandContext {
     private final Map<String, Object> keyValuePairs;
     private final Map<String, List<Object>> multiValuePairs;
     private final String[] rawArgs;
+    private final Map<String, String> aliasToNameMap; // Maps alias -> primary name
 
     /**
      * Create a new command context.
@@ -56,11 +57,44 @@ public final class CommandContext {
                           @NotNull Map<String, Object> keyValuePairs,
                           @NotNull Map<String, List<Object>> multiValuePairs,
                           @NotNull String[] rawArgs) {
+        this(values, flagValues, keyValuePairs, multiValuePairs, rawArgs, Collections.emptyMap());
+    }
+
+    /**
+     * Create a new command context with flags, key-value pairs, and alias mappings.
+     *
+     * @param values          parsed argument name-to-value mapping
+     * @param flagValues      parsed flag name-to-boolean mapping
+     * @param keyValuePairs   parsed key-value name-to-value mapping (single values)
+     * @param multiValuePairs parsed key-value name-to-list mapping (multiple values)
+     * @param rawArgs         raw argument tokens provided by Bukkit
+     * @param aliasToNameMap  mapping of aliases to primary argument names
+     */
+    public CommandContext(@NotNull Map<String, Object> values,
+                          @NotNull Map<String, Boolean> flagValues,
+                          @NotNull Map<String, Object> keyValuePairs,
+                          @NotNull Map<String, List<Object>> multiValuePairs,
+                          @NotNull String[] rawArgs,
+                          @NotNull Map<String, String> aliasToNameMap) {
         this.values = Map.copyOf(Preconditions.checkNotNull(values, "values"));
         this.flagValues = Map.copyOf(Preconditions.checkNotNull(flagValues, "flagValues"));
         this.keyValuePairs = Map.copyOf(Preconditions.checkNotNull(keyValuePairs, "keyValuePairs"));
         this.multiValuePairs = Map.copyOf(Preconditions.checkNotNull(multiValuePairs, "multiValuePairs"));
         this.rawArgs = Preconditions.checkNotNull(rawArgs, "rawArgs").clone();
+        this.aliasToNameMap = Map.copyOf(Preconditions.checkNotNull(aliasToNameMap, "aliasToNameMap"));
+    }
+
+    /**
+     * Resolve an argument name or alias to the primary name.
+     * If the given name is an alias, returns the primary name.
+     * If not an alias, returns the original name.
+     *
+     * @param nameOrAlias the name or alias to resolve
+     * @return the primary argument name
+     */
+    private @NotNull String resolveName(@NotNull String nameOrAlias) {
+        String resolved = aliasToNameMap.get(nameOrAlias);
+        return resolved != null ? resolved : nameOrAlias;
     }
 
     /**
@@ -71,9 +105,9 @@ public final class CommandContext {
     }
 
     /**
-     * Retrieve an optional typed value by argument name.
+     * Retrieve an optional typed value by argument name or alias.
      *
-     * @param name argument name
+     * @param name argument name or alias
      * @param type expected type class
      * @return Optional of the value if present and assignable to the given type, otherwise empty
      */
@@ -81,16 +115,16 @@ public final class CommandContext {
     public @NotNull <T> Optional<T> optional(@NotNull String name, @NotNull Class<T> type) {
         Preconditions.checkNotNull(name, "name");
         Preconditions.checkNotNull(type, "type");
-        Object o = values.get(name);
+        Object o = values.get(resolveName(name));
         if (o == null) return Optional.empty();
         if (!type.isInstance(o)) return Optional.empty();
         return Optional.of((T) o);
     }
 
     /**
-     * Retrieve a typed value by argument name, returning null when missing or of a different type.
+     * Retrieve a typed value by argument name or alias, returning null when missing or of a different type.
      *
-     * @param name argument name
+     * @param name argument name or alias
      * @param type expected type class
      * @return the value or null
      */
@@ -98,16 +132,16 @@ public final class CommandContext {
     public @Nullable <T> T get(@NotNull String name, @NotNull Class<T> type) {
         Preconditions.checkNotNull(name, "name");
         Preconditions.checkNotNull(type, "type");
-        Object o = values.get(name);
+        Object o = values.get(resolveName(name));
         if (o == null) return null;
         if (!type.isInstance(o)) return null;
         return (T) o;
     }
 
     /**
-     * Strictly retrieve a value by name, throwing if it is missing or of the wrong type.
+     * Strictly retrieve a value by name or alias, throwing if it is missing or of the wrong type.
      *
-     * @param name argument name
+     * @param name argument name or alias
      * @param type expected type class
      * @return non-null value of the requested type
      * @throws ApiMisuseException if missing or type-incompatible
@@ -116,10 +150,11 @@ public final class CommandContext {
     public @NotNull <T> T orThrow(@NotNull String name, @NotNull Class<T> type) {
         Preconditions.checkNotNull(name, "name");
         Preconditions.checkNotNull(type, "type");
-        if (!values.containsKey(name)) {
+        String resolvedName = resolveName(name);
+        if (!values.containsKey(resolvedName)) {
             throw new ApiMisuseException("Required argument '" + name + "' is missing in CommandContext");
         }
-        Object o = values.get(name);
+        Object o = values.get(resolvedName);
         if (!type.isInstance(o)) {
             String actual = (o == null) ? "null" : o.getClass().getName();
             throw new ApiMisuseException(
@@ -136,11 +171,66 @@ public final class CommandContext {
     }
 
     /**
-     * Whether a value with the given name exists in the context.
+     * Whether a value with the given name or alias exists in the context.
      */
     public boolean has(@NotNull String name) {
         Preconditions.checkNotNull(name, "name");
-        return values.containsKey(name);
+        return values.containsKey(resolveName(name));
+    }
+
+    /**
+     * Get the argument value by name or alias without type checking.
+     * <p>
+     * This is a convenience method for quick access when the type is known.
+     *
+     * @param name the argument name or alias
+     * @param <T>  the expected type
+     * @return the value cast to the expected type, or null if not present
+     */
+    @SuppressWarnings("unchecked")
+    public @Nullable <T> T argument(@NotNull String name) {
+        Preconditions.checkNotNull(name, "name");
+        return (T) values.get(resolveName(name));
+    }
+
+    /**
+     * Get all argument values as an unmodifiable map.
+     *
+     * @return unmodifiable view of all argument name-to-value mappings
+     */
+    public @NotNull Map<String, Object> allArguments() {
+        return values;
+    }
+
+    /**
+     * Get all registered alias mappings.
+     *
+     * @return unmodifiable view of alias to primary name mappings
+     */
+    public @NotNull Map<String, String> aliasMap() {
+        return aliasToNameMap;
+    }
+
+    /**
+     * Check if a name is an alias (not a primary name).
+     *
+     * @param name the name to check
+     * @return true if this is an alias for another argument
+     */
+    public boolean isAlias(@NotNull String name) {
+        Preconditions.checkNotNull(name, "name");
+        return aliasToNameMap.containsKey(name);
+    }
+
+    /**
+     * Get the primary name for an alias.
+     *
+     * @param alias the alias
+     * @return the primary name, or the alias itself if not an alias
+     */
+    public @NotNull String getPrimaryName(@NotNull String alias) {
+        Preconditions.checkNotNull(alias, "alias");
+        return resolveName(alias);
     }
 
     /**
