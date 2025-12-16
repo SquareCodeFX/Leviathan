@@ -410,4 +410,82 @@ public class DefaultMessageProvider implements MessageProvider {
 
         return sb.toString();
     }
+
+    // Interactive Prompting Messages
+
+    @Override
+    public @NotNull String interactivePromptPrefix() {
+        return "§e[Interactive] §f";
+    }
+
+    @Override
+    public @NotNull String interactivePromptForArgument(@NotNull String argumentName, @NotNull String description) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(interactivePromptPrefix());
+        sb.append("Please enter a value for §b").append(argumentName);
+        if (description != null && !description.isEmpty()) {
+            sb.append(" §7(").append(description).append(")");
+        }
+        sb.append("§f:");
+        return sb.toString();
+    }
+
+    @Override
+    public @NotNull String interactivePromptOptions(@NotNull String options) {
+        return "§7Options: §f" + options;
+    }
+
+    @Override
+    public @NotNull String interactivePromptCancelHint(@NotNull String cancelWord) {
+        return "§7Type '§c" + cancelWord + "§7' to abort.";
+    }
+
+    @Override
+    public @NotNull String interactiveSessionTimeout() {
+        return "§c[Interactive] §fSession timed out.";
+    }
+
+    @Override
+    public @NotNull String interactiveSessionCancelled() {
+        return "§c[Interactive] §fSession cancelled.";
+    }
+
+    @Override
+    public @NotNull String interactiveValueAccepted() {
+        return "§a✓ §7Value accepted.";
+    }
+
+    @Override
+    public @NotNull String interactiveSkipNotAllowed() {
+        return "§cThis argument is required and cannot be skipped.";
+    }
+
+    @Override
+    public @NotNull String interactiveSessionComplete() {
+        return "§a[Interactive] §fAll values collected. Executing command...";
+    }
+
+    @Override
+    public @NotNull String interactiveInvalidInput() {
+        return "§cInvalid input. Please try again.";
+    }
+
+    // Argument Group Validation Messages
+
+    @Override
+    public @NotNull String argumentGroupMutuallyExclusive(@NotNull String groupName, @NotNull String members,
+                                                          @NotNull String provided) {
+        return "§cArguments in group '§f" + groupName + "§c' are mutually exclusive. Only one of §f" + members
+               + " §ccan be provided. Found: §f" + provided;
+    }
+
+    @Override
+    public @NotNull String argumentGroupAtLeastOneRequired(@NotNull String groupName, @NotNull String members) {
+        return "§cAt least one of §f" + members + " §c(from group '§f" + groupName + "§c') must be provided.";
+    }
+
+    @Override
+    public @NotNull String argumentGroupAllRequired(@NotNull String groupName, @NotNull String members) {
+        return "§cWhen using group '§f" + groupName + "§c', all members must be provided: §f" + members;
+    }
 }

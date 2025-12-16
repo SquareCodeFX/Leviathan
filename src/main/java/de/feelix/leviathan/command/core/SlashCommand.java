@@ -1219,7 +1219,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                         },
                         () -> {
                             // Session cancelled - do nothing
-                        }
+                        },
+                        messages
                     );
                     return true; // Return early - command will continue via interactive session
                 }
@@ -1287,26 +1288,26 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
 
                 // Check mutually exclusive constraint
                 if (group.isMutuallyExclusive() && presentCount > 1) {
-                    String error = "Arguments in group '" + group.name() + "' are mutually exclusive. Only one of "
-                                   + String.join(", ", group.memberNames()) + " can be provided. Found: "
-                                   + String.join(", ", presentNames);
-                    sendErrorMessage(sender, ErrorType.CROSS_VALIDATION, messages.crossValidationFailed(error), null);
+                    String members = String.join(", ", group.memberNames());
+                    String provided = String.join(", ", presentNames);
+                    sendErrorMessage(sender, ErrorType.CROSS_VALIDATION,
+                        messages.argumentGroupMutuallyExclusive(group.name(), members, provided), null);
                     return true;
                 }
 
                 // Check at-least-one constraint
                 if (group.isAtLeastOneRequired() && presentCount == 0) {
-                    String error = "At least one of " + String.join(", ", group.memberNames())
-                                   + " (from group '" + group.name() + "') must be provided.";
-                    sendErrorMessage(sender, ErrorType.CROSS_VALIDATION, messages.crossValidationFailed(error), null);
+                    String members = String.join(", ", group.memberNames());
+                    sendErrorMessage(sender, ErrorType.CROSS_VALIDATION,
+                        messages.argumentGroupAtLeastOneRequired(group.name(), members), null);
                     return true;
                 }
 
                 // Check all-required constraint
                 if (group.isAllRequired() && presentCount > 0 && presentCount < group.memberNames().size()) {
-                    String error = "When using group '" + group.name() + "', all members must be provided: "
-                                   + String.join(", ", group.memberNames());
-                    sendErrorMessage(sender, ErrorType.CROSS_VALIDATION, messages.crossValidationFailed(error), null);
+                    String members = String.join(", ", group.memberNames());
+                    sendErrorMessage(sender, ErrorType.CROSS_VALIDATION,
+                        messages.argumentGroupAllRequired(group.name(), members), null);
                     return true;
                 }
             }
