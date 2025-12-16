@@ -508,29 +508,219 @@ ArgContext noSpaceCtx = ArgContext.builder()
 
 These shortcuts are equivalent to calling `stringPattern()` with the appropriate regex.
 
-#### String Transformers
+#### Transformation Pipeline
 
-Transform string input before validation:
+Transformers modify parsed argument values after parsing but before validation. They're useful for normalizing input, expanding shortcuts, formatting values, and more.
+
+##### Transformer Interface
 
 ```java
+@FunctionalInterface
+public interface Transformer<T> {
+    @Nullable T transform(@Nullable T value);
+}
+```
+
+##### Built-in String Transformers
+
+```java
+// Trim whitespace
+ArgContext trimCtx = ArgContext.builder()
+    .transformer(Transformer.trim())
+    .build();
+
 // Convert to lowercase
 ArgContext lowerCtx = ArgContext.builder()
-    .transformLowercase()
+    .transformer(Transformer.lowercase())
     .build();
 
 // Convert to uppercase
 ArgContext upperCtx = ArgContext.builder()
-    .transformUppercase()
-    .build();
-
-// Trim whitespace
-ArgContext trimCtx = ArgContext.builder()
-    .transformTrim()
+    .transformer(Transformer.uppercase())
     .build();
 
 // Normalize whitespace (trim + collapse multiple spaces)
 ArgContext normalizeCtx = ArgContext.builder()
-    .transformNormalizeWhitespace()
+    .transformer(Transformer.normalizeWhitespace())
+    .build();
+
+// Strip all whitespace
+ArgContext stripCtx = ArgContext.builder()
+    .transformer(Transformer.stripWhitespace())
+    .build();
+
+// Capitalize first letter
+ArgContext capCtx = ArgContext.builder()
+    .transformer(Transformer.capitalize())
+    .build();
+```
+
+##### Shortcut Methods
+
+ArgContext.Builder provides convenient shortcuts:
+
+```java
+ArgContext ctx = ArgContext.builder()
+    .transformTrim()               // Same as transformer(Transformer.trim())
+    .transformLowercase()          // Same as transformer(Transformer.lowercase())
+    .transformUppercase()          // Same as transformer(Transformer.uppercase())
+    .transformNormalizeWhitespace() // Same as transformer(Transformer.normalizeWhitespace())
+    .build();
+```
+
+##### String Manipulation Transformers
+
+```java
+// Replace pattern with replacement
+Transformer<String> noNumbers = Transformer.replace("[0-9]", "");
+
+// Add prefix
+Transformer<String> prefixed = Transformer.prefix("user_");
+
+// Add suffix
+Transformer<String> suffixed = Transformer.suffix("_v2");
+
+// Truncate to max length
+Transformer<String> short = Transformer.truncate(16);
+
+// Pad to min length
+Transformer<String> padded = Transformer.pad(8, '0', true);  // Left-pad with zeros
+```
+
+##### Shortcut Expansion
+
+Expand abbreviations to full values:
+
+```java
+Map<String, String> shortcuts = Map.of(
+    "dia", "diamond",
+    "g", "gold",
+    "i", "iron",
+    "e", "emerald"
+);
+
+ArgContext ctx = ArgContext.builder()
+    .transformer(Transformer.expandShortcuts(shortcuts))
+    .build();
+
+// User types: /give player dia
+// Transformed to: /give player diamond
+```
+
+##### Numeric Transformers
+
+Clamp and round numeric values:
+
+```java
+// Clamp integers to range
+ArgContext intCtx = ArgContext.builder()
+    .transformer(Transformer.clampInt(1, 100))
+    .build();
+
+// Clamp longs
+ArgContext longCtx = ArgContext.builder()
+    .transformer(Transformer.clampLong(0L, 1_000_000L))
+    .build();
+
+// Clamp doubles
+ArgContext doubleCtx = ArgContext.builder()
+    .transformer(Transformer.clampDouble(0.0, 1.0))
+    .build();
+
+// Round to decimal places
+ArgContext roundedCtx = ArgContext.builder()
+    .transformer(Transformer.round(2))  // 2 decimal places
+    .build();
+```
+
+##### Chaining Transformers
+
+Apply multiple transformations in sequence:
+
+```java
+// Chain with andThen()
+Transformer<String> pipeline = Transformer.trim()
+    .andThen(Transformer.lowercase())
+    .andThen(Transformer.replace("\\s+", "_"));
+
+// Or add multiple transformers to ArgContext
+ArgContext ctx = ArgContext.builder()
+    .transformer(Transformer.trim())
+    .transformer(Transformer.lowercase())
+    .transformer(Transformer.expandShortcuts(shortcuts))
+    .build();
+```
+
+##### Custom Transformers
+
+Create custom transformation logic:
+
+```java
+// Using static factory
+Transformer<String> custom = Transformer.of(value -> {
+    if ("me".equalsIgnoreCase(value)) {
+        return player.getName();
+    }
+    return value;
+});
+
+// Using lambda directly
+ArgContext ctx = ArgContext.builder()
+    .transformer(value -> value == null ? null : value.replace("-", ""))
+    .build();
+
+// Identity transformer (no-op)
+Transformer<String> noOp = Transformer.identity();
+```
+
+##### Applying Transformers
+
+Transformers are automatically applied when accessing values through `ArgContext`:
+
+```java
+ArgContext ctx = /* ... with transformers ... */;
+
+// Apply all transformers to a value
+Object original = "  HELLO World  ";
+Object transformed = ctx.applyTransformers(original);
+// Result depends on configured transformers
+
+// Check if transformers are configured
+boolean hasTransformers = ctx.hasTransformers();
+```
+
+##### Example: Username Normalization
+
+```java
+SlashCommand register = SlashCommand.create("register")
+    .argString("username", ArgContext.builder()
+        .transformer(Transformer.trim())
+        .transformer(Transformer.lowercase())
+        .transformer(Transformer.replace("[^a-z0-9_]", ""))
+        .transformer(Transformer.truncate(16))
+        .stringLengthRange(3, 16)
+        .requireAlphanumeric()
+        .build())
+    .executes((sender, ctx) -> {
+        // Username is already normalized
+        String username = ctx.require("username", String.class);
+        // ...
+    })
+    .build();
+```
+
+##### Example: Price Formatting
+
+```java
+SlashCommand setprice = SlashCommand.create("setprice")
+    .argDouble("price", ArgContext.builder()
+        .transformer(Transformer.clampDouble(0.01, 1_000_000.0))
+        .transformer(Transformer.round(2))
+        .build())
+    .executes((sender, ctx) -> {
+        double price = ctx.require("price", Double.class);
+        // Price is clamped and rounded to 2 decimals
+    })
     .build();
 ```
 
