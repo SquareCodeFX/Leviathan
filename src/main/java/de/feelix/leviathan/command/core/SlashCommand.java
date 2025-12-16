@@ -4,8 +4,10 @@ import de.feelix.leviathan.annotations.NotNull;
 import de.feelix.leviathan.annotations.Nullable;
 import de.feelix.leviathan.command.argument.Arg;
 import de.feelix.leviathan.command.argument.ArgContext;
+import de.feelix.leviathan.command.argument.ArgumentGroup;
 import de.feelix.leviathan.command.argument.ArgumentParser;
 import de.feelix.leviathan.command.argument.ParseResult;
+import de.feelix.leviathan.command.suggestion.SuggestionEngine;
 import de.feelix.leviathan.command.parsing.CommandParseError;
 import de.feelix.leviathan.command.parsing.CommandParseResult;
 import de.feelix.leviathan.command.parsing.ParseOptions;
@@ -128,6 +130,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
     private final boolean awaitConfirmation;
     private final List<ExecutionHook.Before> beforeHooks;
     private final List<ExecutionHook.After> afterHooks;
+    private final List<ArgumentGroup> argumentGroups;
     JavaPlugin plugin;
     private boolean subOnly = false;
     @Nullable
@@ -228,6 +231,128 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
      */
     public @Nullable String permission() {
         return permission;
+    }
+
+    /**
+     * Get the effective permission for this command, including inherited permissions from parent commands.
+     * <p>
+     * When permission cascade is enabled, this returns a combined permission that requires
+     * both the parent's permission and this command's permission.
+     *
+     * @return the effective permission string, or null if no permissions are required
+     */
+    public @Nullable String effectivePermission() {
+        if (parent == null) {
+            return permission;
+        }
+        String parentPerm = parent.effectivePermission();
+        if (parentPerm == null) {
+            return permission;
+        }
+        if (permission == null) {
+            return parentPerm;
+        }
+        // Both have permissions - return this command's permission
+        // (the check will also verify parent permission)
+        return permission;
+    }
+
+    /**
+     * Check if a sender has the effective permission for this command.
+     * <p>
+     * This checks both the command's own permission and any inherited parent permissions.
+     *
+     * @param sender the command sender to check
+     * @return true if the sender has permission
+     */
+    public boolean hasEffectivePermission(@NotNull org.bukkit.command.CommandSender sender) {
+        Preconditions.checkNotNull(sender, "sender");
+        // Check parent permission first
+        if (parent != null && !parent.hasEffectivePermission(sender)) {
+            return false;
+        }
+        // Check own permission
+        return permission == null || sender.hasPermission(permission);
+    }
+
+    /**
+     * Get all permissions required to execute this command (including parent permissions).
+     *
+     * @return list of all required permissions, from root to this command
+     */
+    public @NotNull List<String> allRequiredPermissions() {
+        List<String> perms = new ArrayList<>();
+        collectPermissions(perms);
+        return Collections.unmodifiableList(perms);
+    }
+
+    private void collectPermissions(List<String> perms) {
+        if (parent != null) {
+            parent.collectPermissions(perms);
+        }
+        if (permission != null) {
+            perms.add(permission);
+        }
+    }
+
+    /**
+     * Get the parent command, if this is a subcommand.
+     *
+     * @return the parent command, or null if this is a root command
+     */
+    public @Nullable SlashCommand parent() {
+        return parent;
+    }
+
+    /**
+     * Check if this command is a subcommand.
+     *
+     * @return true if this command has a parent
+     */
+    public boolean isSubcommand() {
+        return parent != null;
+    }
+
+    /**
+     * Get the argument groups defined for this command.
+     *
+     * @return an immutable list of argument groups
+     */
+    public @NotNull List<ArgumentGroup> argumentGroups() {
+        return argumentGroups;
+    }
+
+    /**
+     * Get the argument group with the specified name.
+     *
+     * @param name the group name
+     * @return the argument group, or null if not found
+     */
+    public @Nullable ArgumentGroup getArgumentGroup(@NotNull String name) {
+        Preconditions.checkNotNull(name, "name");
+        for (ArgumentGroup group : argumentGroups) {
+            if (group.name().equalsIgnoreCase(name)) {
+                return group;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Get all arguments belonging to a specific group.
+     *
+     * @param groupName the group name
+     * @return list of arguments in the group
+     */
+    public @NotNull List<Arg<?>> getArgumentsInGroup(@NotNull String groupName) {
+        Preconditions.checkNotNull(groupName, "groupName");
+        List<Arg<?>> result = new ArrayList<>();
+        for (Arg<?> arg : args) {
+            if (groupName.equals(arg.context().group())) {
+                result.add(arg);
+            }
+        }
+        return result;
     }
 
     /**
@@ -350,7 +475,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                  int helpPageSize, @Nullable MessageProvider messages, boolean sanitizeInputs,
                  boolean fuzzySubcommandMatching, double fuzzyMatchThreshold, boolean debugMode,
                  List<Flag> flags, List<KeyValue<?>> keyValues, boolean awaitConfirmation,
-                 List<ExecutionHook.Before> beforeHooks, List<ExecutionHook.After> afterHooks) {
+                 List<ExecutionHook.Before> beforeHooks, List<ExecutionHook.After> afterHooks,
+                 List<ArgumentGroup> argumentGroups) {
         this.name = Preconditions.checkNotNull(name, "name");
         this.aliases = List.copyOf(aliases == null ? List.of() : aliases);
         this.description = (description == null) ? "" : description;
@@ -382,6 +508,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         this.awaitConfirmation = awaitConfirmation;
         this.beforeHooks = List.copyOf(beforeHooks == null ? List.of() : beforeHooks);
         this.afterHooks = List.copyOf(afterHooks == null ? List.of() : afterHooks);
+        this.argumentGroups = List.copyOf(argumentGroups == null ? List.of() : argumentGroups);
         // Pre-compute usage string for performance
         this.cachedUsage = computeUsageString();
         // Pre-compute alias map for argument alias support

@@ -4,6 +4,7 @@ import de.feelix.leviathan.annotations.NotNull;
 import de.feelix.leviathan.annotations.Nullable;
 import de.feelix.leviathan.command.argument.Arg;
 import de.feelix.leviathan.command.argument.ArgContext;
+import de.feelix.leviathan.command.argument.ArgumentGroup;
 import de.feelix.leviathan.command.error.DetailedExceptionHandler;
 import de.feelix.leviathan.command.error.ExceptionHandler;
 import de.feelix.leviathan.command.flag.Flag;
@@ -72,6 +73,8 @@ public final class SlashCommandBuilder {
     // Execution hooks
     private final List<ExecutionHook.Before> beforeHooks = new ArrayList<>();
     private final List<ExecutionHook.After> afterHooks = new ArrayList<>();
+    // Argument groups
+    private final List<ArgumentGroup> argumentGroups = new ArrayList<>();
 
     SlashCommandBuilder(String name) {
         this.name = Preconditions.checkNotNull(name, "name");
@@ -1892,6 +1895,89 @@ public final class SlashCommandBuilder {
         return this;
     }
 
+    // ==================== Argument Groups ====================
+
+    /**
+     * Add an argument group to this command.
+     * <p>
+     * Argument groups allow you to organize related arguments together in help output
+     * and apply group-level validation rules (e.g., at least one required, mutually exclusive).
+     * <p>
+     * Example:
+     * <pre>{@code
+     * SlashCommand.create("export")
+     *     .argString("file")
+     *     .argString("format", ArgContext.builder().optional(true).inGroup("Output Options").build())
+     *     .argString("output", ArgContext.builder().optional(true).inGroup("Output Options").build())
+     *     .argumentGroup(ArgumentGroup.builder("Output Options")
+     *         .description("Options for controlling output format")
+     *         .members("format", "output")
+     *         .atLeastOne(true)
+     *         .build())
+     *     .build();
+     * }</pre>
+     *
+     * @param group the argument group to add
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder argumentGroup(@NotNull ArgumentGroup group) {
+        Preconditions.checkNotNull(group, "group");
+        this.argumentGroups.add(group);
+        return this;
+    }
+
+    /**
+     * Fluent alias for {@link #argumentGroup(ArgumentGroup)}.
+     *
+     * @param group the argument group to add
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder withArgumentGroup(@NotNull ArgumentGroup group) {
+        return argumentGroup(group);
+    }
+
+    /**
+     * Add multiple argument groups to this command.
+     *
+     * @param groups the argument groups to add
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder argumentGroups(@NotNull ArgumentGroup... groups) {
+        Preconditions.checkNotNull(groups, "groups");
+        for (ArgumentGroup group : groups) {
+            if (group != null) {
+                this.argumentGroups.add(group);
+            }
+        }
+        return this;
+    }
+
+    /**
+     * Create and add a mutually exclusive argument group.
+     * <p>
+     * Convenience method for creating a group where only one member can be provided.
+     *
+     * @param name    the group name
+     * @param members the argument/flag names in this group
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder mutuallyExclusiveGroup(@NotNull String name, @NotNull String... members) {
+        return argumentGroup(ArgumentGroup.mutuallyExclusive(name, members));
+    }
+
+    /**
+     * Create and add an "at least one required" argument group.
+     * <p>
+     * Convenience method for creating a group where at least one member must be provided.
+     *
+     * @param name    the group name
+     * @param members the argument/flag names in this group
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder atLeastOneGroup(@NotNull String name, @NotNull String... members) {
+        return argumentGroup(ArgumentGroup.atLeastOne(name, members));
+    }
+
     /**
      * Validate the configuration and build the immutable {@link SlashCommand}.
      *
@@ -2008,7 +2094,7 @@ public final class SlashCommandBuilder {
             guards, crossArgumentValidators, exceptionHandler,
             perUserCooldownMillis, perServerCooldownMillis, enableHelp, helpPageSize, messages, sanitizeInputs,
             fuzzySubcommandMatching, fuzzyMatchThreshold, debugMode,
-            flags, keyValues, awaitConfirmation, beforeHooks, afterHooks
+            flags, keyValues, awaitConfirmation, beforeHooks, afterHooks, argumentGroups
         );
 
         // Set parent reference for all subcommands
