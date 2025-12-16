@@ -180,6 +180,175 @@ SlashCommand reset = SlashCommand.create("reseteconomy")
 
 When a player first runs `/reseteconomy`, they'll receive a confirmation message. They must execute the command again within 10 seconds to confirm. This prevents accidental execution of dangerous commands.
 
+#### 12) Interactive prompting for missing arguments
+
+```java
+SlashCommand createShop = SlashCommand.create("createshop")
+    .playersOnly()
+    .argString("name", ArgContext.builder()
+        .interactive(true)
+        .description("Shop name (3-16 characters)")
+        .stringLengthRange(3, 16)
+        .build())
+    .argEnum("type", ShopType.class, ArgContext.builder()
+        .interactive(true)
+        .description("Type of shop")
+        .build())
+    .argDouble("tax", ArgContext.builder()
+        .interactive(true)
+        .optional(true)
+        .description("Tax rate (0-100%)")
+        .doubleRange(0.0, 100.0)
+        .build())
+    .executes((sender, ctx) -> {
+        String name = ctx.require("name", String.class);
+        ShopType type = ctx.require("type", ShopType.class);
+        double tax = ctx.getDoubleOrDefault("tax", 5.0);
+
+        shopService.create(name, type, tax);
+        sender.sendMessage("Shop '" + name + "' created!");
+    })
+    .build();
+```
+
+When a player runs `/createshop` without arguments, they'll be prompted for each missing argument interactively.
+
+#### 13) Argument groups with mutual exclusivity
+
+```java
+SlashCommand export = SlashCommand.create("export")
+    .argString("file")
+    .flag("json", 'j', "Output as JSON")
+    .flag("xml", 'x', "Output as XML")
+    .flag("csv", 'c', "Output as CSV")
+    .flag("verbose", 'v', "Verbose output")
+    .flag("quiet", 'q', "Quiet mode")
+    // Define mutually exclusive groups
+    .mutuallyExclusiveGroup("Format", "json", "xml", "csv")
+    .mutuallyExclusiveGroup("Verbosity", "verbose", "quiet")
+    // Require at least one format
+    .atLeastOneGroup("RequiredFormat", "json", "xml", "csv")
+    .executes((sender, ctx) -> {
+        String file = ctx.require("file", String.class);
+        boolean verbose = ctx.getFlag("verbose");
+
+        String format = ctx.getFlag("json") ? "json"
+            : ctx.getFlag("xml") ? "xml" : "csv";
+
+        exportService.export(file, format, verbose);
+    })
+    .build();
+```
+
+#### 14) Transformation pipeline for input normalization
+
+```java
+SlashCommand register = SlashCommand.create("register")
+    .argString("username", ArgContext.builder()
+        .transformer(Transformer.trim())
+        .transformer(Transformer.lowercase())
+        .transformer(Transformer.replace("[^a-z0-9_]", ""))
+        .transformer(Transformer.truncate(16))
+        .stringLengthRange(3, 16)
+        .build())
+    .argString("nickname", ArgContext.builder()
+        .transformTrim()
+        .transformNormalizeWhitespace()
+        .transformer(Transformer.capitalize())
+        .build())
+    .executes((sender, ctx) -> {
+        // Values are already normalized
+        String username = ctx.require("username", String.class);
+        String nickname = ctx.require("nickname", String.class);
+
+        userService.register(username, nickname);
+    })
+    .build();
+```
+
+#### 15) Permission cascade with subcommands
+
+```java
+// Parent requires "myplugin.admin"
+// Child inherits parent permission AND adds its own
+SlashCommand admin = SlashCommand.create("admin")
+    .permission("myplugin.admin")
+    .subcommand(
+        SlashCommand.create("users")
+            .permission("myplugin.admin.users")  // Requires both permissions
+            .subcommand(
+                SlashCommand.create("ban")
+                    .permission("myplugin.admin.users.ban")  // Requires all three
+                    .argPlayer("target")
+                    .argString("reason", ArgContext.builder().optional(true).greedy(true).build())
+                    .executes((sender, ctx) -> {
+                        Player target = ctx.require("target", Player.class);
+                        String reason = ctx.getStringOrDefault("reason", "No reason");
+                        banService.ban(target, reason);
+                    })
+                    .build()
+            )
+            .executes((sender, ctx) -> {
+                sender.sendMessage("User management. Use /admin users ban <player>");
+            })
+            .build()
+    )
+    .executes((sender, ctx) -> {
+        sender.sendMessage("Admin panel. Use /admin users");
+    })
+    .build();
+```
+
+#### 16) Did-you-mean suggestions for typos
+
+```java
+SlashCommand gamemode = SlashCommand.create("gm")
+    .argString("mode", ArgContext.builder()
+        .didYouMean(true)  // Enable suggestions
+        .completionsPredefined(List.of("survival", "creative", "adventure", "spectator"))
+        .build())
+    .executes((sender, ctx) -> {
+        String mode = ctx.require("mode", String.class);
+        // If user types "survial", they'll see: "Did you mean: survival?"
+        GameMode gm = GameMode.valueOf(mode.toUpperCase());
+        ((Player) sender).setGameMode(gm);
+    })
+    .build();
+```
+
+#### 17) Shortcut expansion with transformers
+
+```java
+Map<String, String> materialShortcuts = Map.of(
+    "dia", "diamond",
+    "g", "gold",
+    "i", "iron",
+    "e", "emerald",
+    "ob", "obsidian"
+);
+
+SlashCommand give = SlashCommand.create("give")
+    .argPlayer("target")
+    .argString("item", ArgContext.builder()
+        .transformer(Transformer.lowercase())
+        .transformer(Transformer.expandShortcuts(materialShortcuts))
+        .build())
+    .argInt("amount", ArgContext.builder()
+        .optional(true)
+        .defaultValue(1)
+        .transformer(Transformer.clampInt(1, 64))
+        .build())
+    .executes((sender, ctx) -> {
+        Player target = ctx.require("target", Player.class);
+        String item = ctx.require("item", String.class);  // "dia" -> "diamond"
+        int amount = ctx.getIntOrDefault("amount", 1);    // Clamped to 1-64
+
+        Material mat = Material.valueOf(item.toUpperCase());
+        target.getInventory().addItem(new ItemStack(mat, amount));
+    })
+    .build();
+```
+
 #### 10) Conditional subcommand registration with subIf()
 
 Register subcommands conditionally based on config, feature flags, or runtime conditions:

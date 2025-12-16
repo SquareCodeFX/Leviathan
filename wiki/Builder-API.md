@@ -166,6 +166,15 @@ Tracked metrics:
 - `addCrossArgumentValidator(CrossArgumentValidator validator)` / `crossValidate(CrossArgumentValidator)` — Validate relationships between arguments after parsing (e.g., `min <= max`).
 - `crossValidateChain(CrossArgumentValidator... validators)` — Add multiple validators at once that all must pass.
 
+#### Argument Groups
+
+- `argumentGroup(ArgumentGroup group)` / `withArgumentGroup(ArgumentGroup)` — Add a pre‑built argument group for validation and help organization.
+- `argumentGroups(ArgumentGroup... groups)` — Add multiple argument groups at once.
+- `mutuallyExclusiveGroup(String name, String... members)` — Shortcut to create and add a mutually exclusive group (only one member can be provided).
+- `atLeastOneGroup(String name, String... members)` — Shortcut to create and add an at-least-one group (at least one member must be provided).
+
+Argument groups are validated after parsing. See [Guards-Validation-Permissions](Guards-Validation-Permissions.md#argument-groups) for details.
+
 #### Exceptions and Diagnostics
 
 - `exceptionHandler(ExceptionHandler)` — Override error handling.
