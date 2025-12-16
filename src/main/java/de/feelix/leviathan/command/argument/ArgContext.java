@@ -3,6 +3,7 @@ package de.feelix.leviathan.command.argument;
 import de.feelix.leviathan.annotations.NotNull;
 import de.feelix.leviathan.annotations.Nullable;
 import de.feelix.leviathan.command.completion.DynamicCompletionContext;
+import de.feelix.leviathan.command.transform.Transformer;
 import de.feelix.leviathan.util.Preconditions;
 
 import java.util.ArrayList;
@@ -258,6 +259,18 @@ public final class ArgContext {
     // Argument description for help/documentation
     private final @Nullable String description;
 
+    // Argument aliases (alternative names for the argument)
+    private final @NotNull List<String> aliases;
+
+    // Transformer pipeline for post-parse value transformation
+    private final @NotNull List<Transformer<?>> transformers;
+
+    // Interactive prompting: prompt user for this argument if missing
+    private final boolean interactive;
+
+    // Argument group name (for grouping in help/errors)
+    private final @Nullable String group;
+
     private ArgContext(boolean optional,
                        boolean greedy,
                        @Nullable String permission,
@@ -279,7 +292,11 @@ public final class ArgContext {
                        @Nullable List<Validator<?>> customValidators,
                        boolean didYouMean,
                        @Nullable Object defaultValue,
-                       @Nullable String description) {
+                       @Nullable String description,
+                       @Nullable List<String> aliases,
+                       @Nullable List<Transformer<?>> transformers,
+                       boolean interactive,
+                       @Nullable String group) {
         this.optional = optional;
         this.greedy = greedy;
         this.permission = (permission == null || permission.isBlank()) ? null : permission;
@@ -306,6 +323,12 @@ public final class ArgContext {
         this.didYouMean = didYouMean;
         this.defaultValue = defaultValue;
         this.description = description;
+        List<String> aliasList = (aliases == null) ? List.of() : new ArrayList<>(aliases);
+        this.aliases = Collections.unmodifiableList(aliasList);
+        List<Transformer<?>> transformerList = (transformers == null) ? List.of() : new ArrayList<>(transformers);
+        this.transformers = Collections.unmodifiableList(transformerList);
+        this.interactive = interactive;
+        this.group = (group == null || group.isBlank()) ? null : group;
     }
 
     public static @NotNull Builder builder() {
@@ -408,6 +431,119 @@ public final class ArgContext {
         return description;
     }
 
+    /**
+     * Get the list of aliases for this argument.
+     * <p>
+     * Aliases allow the argument to be referenced by alternative names in key-value syntax
+     * (e.g., {@code player=Notch} or {@code p=Notch}) and when retrieving values from
+     * the CommandContext.
+     *
+     * @return an immutable list of aliases (empty if none defined)
+     */
+    public @NotNull List<String> aliases() {
+        return aliases;
+    }
+
+    /**
+     * Check if this argument has any aliases defined.
+     *
+     * @return true if at least one alias is defined
+     */
+    public boolean hasAliases() {
+        return !aliases.isEmpty();
+    }
+
+    /**
+     * Check if the given name matches this argument's name or any of its aliases.
+     *
+     * @param name          the primary argument name
+     * @param nameToCheck   the name to check against
+     * @return true if nameToCheck matches the primary name or any alias
+     */
+    public boolean matchesNameOrAlias(@NotNull String name, @NotNull String nameToCheck) {
+        if (name.equalsIgnoreCase(nameToCheck)) {
+            return true;
+        }
+        for (String alias : aliases) {
+            if (alias.equalsIgnoreCase(nameToCheck)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Get the list of transformers for this argument.
+     * <p>
+     * Transformers are applied after parsing to modify the value before validation.
+     *
+     * @return an immutable list of transformers
+     */
+    public @NotNull List<Transformer<?>> transformers() {
+        return transformers;
+    }
+
+    /**
+     * Check if this argument has any transformers.
+     *
+     * @return true if at least one transformer is defined
+     */
+    public boolean hasTransformers() {
+        return !transformers.isEmpty();
+    }
+
+    /**
+     * Apply all transformers to a value.
+     *
+     * @param value the value to transform
+     * @param <T>   the value type
+     * @return the transformed value
+     */
+    @SuppressWarnings("unchecked")
+    public <T> T applyTransformers(T value) {
+        if (transformers.isEmpty() || value == null) {
+            return value;
+        }
+        Object result = value;
+        for (Transformer<?> transformer : transformers) {
+            result = ((Transformer<Object>) transformer).transform(result);
+        }
+        return (T) result;
+    }
+
+    /**
+     * Check if this argument supports interactive prompting.
+     * <p>
+     * When interactive mode is enabled and this argument is missing,
+     * the system will prompt the user for input instead of failing.
+     *
+     * @return true if interactive prompting is enabled
+     */
+    public boolean interactive() {
+        return interactive;
+    }
+
+    /**
+     * Get the argument group name.
+     * <p>
+     * Arguments in the same group are displayed together in help
+     * and can have group-level validation rules.
+     *
+     * @return the group name, or null if not grouped
+     */
+    public @Nullable String group() {
+        return group;
+    }
+
+    /**
+     * Check if this argument belongs to a group.
+     *
+     * @return true if a group is defined
+     */
+    public boolean hasGroup() {
+        return group != null;
+    }
+
     public static final class Builder {
         private boolean optional;
         private boolean greedy;
@@ -433,6 +569,10 @@ public final class ArgContext {
         private boolean didYouMean = false;
         private @Nullable Object defaultValue;
         private @Nullable String description;
+        private @NotNull List<String> aliases = new ArrayList<>();
+        private @NotNull List<Transformer<?>> transformers = new ArrayList<>();
+        private boolean interactive = false;
+        private @Nullable String group;
 
         public @NotNull Builder optional(boolean optional) {
             this.optional = optional;
@@ -667,6 +807,83 @@ public final class ArgContext {
             return description(description);
         }
 
+        // ==================== Argument Aliases ====================
+
+        /**
+         * Set aliases for this argument.
+         * <p>
+         * Aliases allow the argument to be referenced by alternative names in key-value syntax
+         * and when retrieving values from the CommandContext.
+         * <p>
+         * Example:
+         * <pre>{@code
+         * ArgContext.builder()
+         *     .aliases("p", "target", "t")
+         *     .build();
+         *
+         * // All these work:
+         * // /cmd player=Notch
+         * // /cmd p=Notch
+         * // /cmd target=Notch
+         * // ctx.get("player") or ctx.get("p") or ctx.get("target")
+         * }</pre>
+         *
+         * @param aliases the alternative names for this argument
+         * @return this builder
+         */
+        public @NotNull Builder aliases(@NotNull String... aliases) {
+            Preconditions.checkNotNull(aliases, "aliases");
+            this.aliases = new ArrayList<>();
+            for (String alias : aliases) {
+                if (alias != null && !alias.isBlank()) {
+                    this.aliases.add(alias);
+                }
+            }
+            return this;
+        }
+
+        /**
+         * Set aliases for this argument from a list.
+         *
+         * @param aliases the list of alternative names
+         * @return this builder
+         */
+        public @NotNull Builder aliases(@NotNull List<String> aliases) {
+            Preconditions.checkNotNull(aliases, "aliases");
+            this.aliases = new ArrayList<>();
+            for (String alias : aliases) {
+                if (alias != null && !alias.isBlank()) {
+                    this.aliases.add(alias);
+                }
+            }
+            return this;
+        }
+
+        /**
+         * Fluent alias for {@link #aliases(String...)}.
+         * Makes the API read more naturally: {@code withAliases("p", "target")}
+         *
+         * @param aliases the alternative names for this argument
+         * @return this builder
+         */
+        public @NotNull Builder withAliases(@NotNull String... aliases) {
+            return aliases(aliases);
+        }
+
+        /**
+         * Add a single alias to this argument.
+         *
+         * @param alias the alias to add
+         * @return this builder
+         */
+        public @NotNull Builder addAlias(@NotNull String alias) {
+            Preconditions.checkNotNull(alias, "alias");
+            if (!alias.isBlank()) {
+                this.aliases.add(alias);
+            }
+            return this;
+        }
+
         // ==================== String Transformer Shortcuts ====================
 
         /**
@@ -677,10 +894,7 @@ public final class ArgContext {
          * @return this builder
          */
         public @NotNull Builder transformLowercase() {
-            return addValidator(value -> {
-                // This is actually a transformer, not validator - we use custom mechanism
-                return null;
-            });
+            return transformer(Transformer.lowercase());
         }
 
         /**
@@ -691,7 +905,7 @@ public final class ArgContext {
          * @return this builder
          */
         public @NotNull Builder transformUppercase() {
-            return addValidator(value -> null);
+            return transformer(Transformer.uppercase());
         }
 
         /**
@@ -702,7 +916,7 @@ public final class ArgContext {
          * @return this builder
          */
         public @NotNull Builder transformTrim() {
-            return addValidator(value -> null);
+            return transformer(Transformer.trim());
         }
 
         /**
@@ -713,7 +927,18 @@ public final class ArgContext {
          * @return this builder
          */
         public @NotNull Builder transformNormalizeWhitespace() {
-            return addValidator(value -> null);
+            return transformer(Transformer.normalizeWhitespace());
+        }
+
+        /**
+         * Add a transformer that capitalizes the first letter.
+         * <p>
+         * Example: "hello" -> "Hello"
+         *
+         * @return this builder
+         */
+        public @NotNull Builder transformCapitalize() {
+            return transformer(Transformer.capitalize());
         }
 
         // ==================== String Validation Shortcuts ====================
@@ -868,13 +1093,106 @@ public final class ArgContext {
             return this;
         }
 
+        // ==================== Transformer Methods ====================
+
+        /**
+         * Add a transformer to the transformation pipeline.
+         * <p>
+         * Transformers are applied in order after parsing, before validation.
+         *
+         * @param transformer the transformer to add
+         * @return this builder
+         */
+        public @NotNull Builder transformer(@NotNull Transformer<?> transformer) {
+            Preconditions.checkNotNull(transformer, "transformer");
+            this.transformers.add(transformer);
+            return this;
+        }
+
+        /**
+         * Fluent alias for {@link #transformer(Transformer)}.
+         *
+         * @param transformer the transformer to add
+         * @return this builder
+         */
+        public @NotNull Builder withTransformer(@NotNull Transformer<?> transformer) {
+            return transformer(transformer);
+        }
+
+        /**
+         * Add multiple transformers to the pipeline.
+         *
+         * @param transformers the transformers to add
+         * @return this builder
+         */
+        @SafeVarargs
+        public final @NotNull Builder transformers(@NotNull Transformer<?>... transformers) {
+            Preconditions.checkNotNull(transformers, "transformers");
+            for (Transformer<?> t : transformers) {
+                if (t != null) {
+                    this.transformers.add(t);
+                }
+            }
+            return this;
+        }
+
+        // ==================== Interactive Mode ====================
+
+        /**
+         * Enable or disable interactive prompting for this argument.
+         * <p>
+         * When enabled and this argument is missing, the system will
+         * prompt the user for input instead of failing immediately.
+         *
+         * @param interactive true to enable interactive mode
+         * @return this builder
+         */
+        public @NotNull Builder interactive(boolean interactive) {
+            this.interactive = interactive;
+            return this;
+        }
+
+        /**
+         * Fluent alias for {@link #interactive(boolean)} with true.
+         *
+         * @return this builder
+         */
+        public @NotNull Builder interactive() {
+            return interactive(true);
+        }
+
+        // ==================== Argument Groups ====================
+
+        /**
+         * Set the argument group name.
+         * <p>
+         * Arguments in the same group are displayed together in help output.
+         *
+         * @param group the group name
+         * @return this builder
+         */
+        public @NotNull Builder group(@Nullable String group) {
+            this.group = group;
+            return this;
+        }
+
+        /**
+         * Fluent alias for {@link #group(String)}.
+         *
+         * @param group the group name
+         * @return this builder
+         */
+        public @NotNull Builder inGroup(@NotNull String group) {
+            return group(group);
+        }
+
         public @NotNull ArgContext build() {
             return new ArgContext(
                 optional, greedy, permission, completionsPredefined, completionsDynamic,
                 completionsDynamicAsync, completionsPredefinedAsync,
                 intMin, intMax, longMin, longMax, doubleMin, doubleMax, floatMin, floatMax,
                 stringMinLength, stringMaxLength, stringPattern, customValidators, didYouMean,
-                defaultValue, description
+                defaultValue, description, aliases, transformers, interactive, group
             );
         }
     }

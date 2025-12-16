@@ -31,6 +31,7 @@ public final class CommandContext {
     private final Map<String, Object> keyValuePairs;
     private final Map<String, List<Object>> multiValuePairs;
     private final String[] rawArgs;
+    private final Map<String, String> aliasToNameMap; // Maps alias -> primary name
 
     /**
      * Create a new command context.
@@ -56,11 +57,44 @@ public final class CommandContext {
                           @NotNull Map<String, Object> keyValuePairs,
                           @NotNull Map<String, List<Object>> multiValuePairs,
                           @NotNull String[] rawArgs) {
+        this(values, flagValues, keyValuePairs, multiValuePairs, rawArgs, Collections.emptyMap());
+    }
+
+    /**
+     * Create a new command context with flags, key-value pairs, and alias mappings.
+     *
+     * @param values          parsed argument name-to-value mapping
+     * @param flagValues      parsed flag name-to-boolean mapping
+     * @param keyValuePairs   parsed key-value name-to-value mapping (single values)
+     * @param multiValuePairs parsed key-value name-to-list mapping (multiple values)
+     * @param rawArgs         raw argument tokens provided by Bukkit
+     * @param aliasToNameMap  mapping of aliases to primary argument names
+     */
+    public CommandContext(@NotNull Map<String, Object> values,
+                          @NotNull Map<String, Boolean> flagValues,
+                          @NotNull Map<String, Object> keyValuePairs,
+                          @NotNull Map<String, List<Object>> multiValuePairs,
+                          @NotNull String[] rawArgs,
+                          @NotNull Map<String, String> aliasToNameMap) {
         this.values = Map.copyOf(Preconditions.checkNotNull(values, "values"));
         this.flagValues = Map.copyOf(Preconditions.checkNotNull(flagValues, "flagValues"));
         this.keyValuePairs = Map.copyOf(Preconditions.checkNotNull(keyValuePairs, "keyValuePairs"));
         this.multiValuePairs = Map.copyOf(Preconditions.checkNotNull(multiValuePairs, "multiValuePairs"));
         this.rawArgs = Preconditions.checkNotNull(rawArgs, "rawArgs").clone();
+        this.aliasToNameMap = Map.copyOf(Preconditions.checkNotNull(aliasToNameMap, "aliasToNameMap"));
+    }
+
+    /**
+     * Resolve an argument name or alias to the primary name.
+     * If the given name is an alias, returns the primary name.
+     * If not an alias, returns the original name.
+     *
+     * @param nameOrAlias the name or alias to resolve
+     * @return the primary argument name
+     */
+    private @NotNull String resolveName(@NotNull String nameOrAlias) {
+        String resolved = aliasToNameMap.get(nameOrAlias);
+        return resolved != null ? resolved : nameOrAlias;
     }
 
     /**
@@ -71,9 +105,9 @@ public final class CommandContext {
     }
 
     /**
-     * Retrieve an optional typed value by argument name.
+     * Retrieve an optional typed value by argument name or alias.
      *
-     * @param name argument name
+     * @param name argument name or alias
      * @param type expected type class
      * @return Optional of the value if present and assignable to the given type, otherwise empty
      */
@@ -81,16 +115,16 @@ public final class CommandContext {
     public @NotNull <T> Optional<T> optional(@NotNull String name, @NotNull Class<T> type) {
         Preconditions.checkNotNull(name, "name");
         Preconditions.checkNotNull(type, "type");
-        Object o = values.get(name);
+        Object o = values.get(resolveName(name));
         if (o == null) return Optional.empty();
         if (!type.isInstance(o)) return Optional.empty();
         return Optional.of((T) o);
     }
 
     /**
-     * Retrieve a typed value by argument name, returning null when missing or of a different type.
+     * Retrieve a typed value by argument name or alias, returning null when missing or of a different type.
      *
-     * @param name argument name
+     * @param name argument name or alias
      * @param type expected type class
      * @return the value or null
      */
@@ -98,16 +132,16 @@ public final class CommandContext {
     public @Nullable <T> T get(@NotNull String name, @NotNull Class<T> type) {
         Preconditions.checkNotNull(name, "name");
         Preconditions.checkNotNull(type, "type");
-        Object o = values.get(name);
+        Object o = values.get(resolveName(name));
         if (o == null) return null;
         if (!type.isInstance(o)) return null;
         return (T) o;
     }
 
     /**
-     * Strictly retrieve a value by name, throwing if it is missing or of the wrong type.
+     * Strictly retrieve a value by name or alias, throwing if it is missing or of the wrong type.
      *
-     * @param name argument name
+     * @param name argument name or alias
      * @param type expected type class
      * @return non-null value of the requested type
      * @throws ApiMisuseException if missing or type-incompatible
@@ -116,10 +150,11 @@ public final class CommandContext {
     public @NotNull <T> T orThrow(@NotNull String name, @NotNull Class<T> type) {
         Preconditions.checkNotNull(name, "name");
         Preconditions.checkNotNull(type, "type");
-        if (!values.containsKey(name)) {
+        String resolvedName = resolveName(name);
+        if (!values.containsKey(resolvedName)) {
             throw new ApiMisuseException("Required argument '" + name + "' is missing in CommandContext");
         }
-        Object o = values.get(name);
+        Object o = values.get(resolvedName);
         if (!type.isInstance(o)) {
             String actual = (o == null) ? "null" : o.getClass().getName();
             throw new ApiMisuseException(
@@ -136,11 +171,66 @@ public final class CommandContext {
     }
 
     /**
-     * Whether a value with the given name exists in the context.
+     * Whether a value with the given name or alias exists in the context.
      */
     public boolean has(@NotNull String name) {
         Preconditions.checkNotNull(name, "name");
-        return values.containsKey(name);
+        return values.containsKey(resolveName(name));
+    }
+
+    /**
+     * Get the argument value by name or alias without type checking.
+     * <p>
+     * This is a convenience method for quick access when the type is known.
+     *
+     * @param name the argument name or alias
+     * @param <T>  the expected type
+     * @return the value cast to the expected type, or null if not present
+     */
+    @SuppressWarnings("unchecked")
+    public @Nullable <T> T argument(@NotNull String name) {
+        Preconditions.checkNotNull(name, "name");
+        return (T) values.get(resolveName(name));
+    }
+
+    /**
+     * Get all argument values as an unmodifiable map.
+     *
+     * @return unmodifiable view of all argument name-to-value mappings
+     */
+    public @NotNull Map<String, Object> allArguments() {
+        return values;
+    }
+
+    /**
+     * Get all registered alias mappings.
+     *
+     * @return unmodifiable view of alias to primary name mappings
+     */
+    public @NotNull Map<String, String> aliasMap() {
+        return aliasToNameMap;
+    }
+
+    /**
+     * Check if a name is an alias (not a primary name).
+     *
+     * @param name the name to check
+     * @return true if this is an alias for another argument
+     */
+    public boolean isAlias(@NotNull String name) {
+        Preconditions.checkNotNull(name, "name");
+        return aliasToNameMap.containsKey(name);
+    }
+
+    /**
+     * Get the primary name for an alias.
+     *
+     * @param alias the alias
+     * @return the primary name, or the alias itself if not an alias
+     */
+    public @NotNull String getPrimaryName(@NotNull String alias) {
+        Preconditions.checkNotNull(alias, "alias");
+        return resolveName(alias);
     }
 
     /**
@@ -264,7 +354,8 @@ public final class CommandContext {
         private final String name;
 
         private MappingImpl(String name) {
-            this.name = name;
+            // Resolve alias to primary name at construction time
+            this.name = resolveName(name);
         }
 
         @Override
@@ -757,25 +848,27 @@ public final class CommandContext {
 
     /**
      * Get a value as String, converting if necessary.
+     * Supports argument aliases.
      *
-     * @param name the argument name
+     * @param name the argument name or alias
      * @return the string representation, or null if not present
      */
     public @Nullable String getAsString(@NotNull String name) {
         Preconditions.checkNotNull(name, "name");
-        Object value = values.get(name);
+        Object value = values.get(resolveName(name));
         return value != null ? String.valueOf(value) : null;
     }
 
     /**
      * Get a value as Integer, attempting conversion if necessary.
+     * Supports argument aliases.
      *
-     * @param name the argument name
+     * @param name the argument name or alias
      * @return the integer value, or null if not present or not convertible
      */
     public @Nullable Integer getAsInt(@NotNull String name) {
         Preconditions.checkNotNull(name, "name");
-        Object value = values.get(name);
+        Object value = values.get(resolveName(name));
         if (value == null) return null;
         if (value instanceof Integer) return (Integer) value;
         if (value instanceof Number) return ((Number) value).intValue();
@@ -791,13 +884,14 @@ public final class CommandContext {
 
     /**
      * Get a value as Long, attempting conversion if necessary.
+     * Supports argument aliases.
      *
-     * @param name the argument name
+     * @param name the argument name or alias
      * @return the long value, or null if not present or not convertible
      */
     public @Nullable Long getAsLong(@NotNull String name) {
         Preconditions.checkNotNull(name, "name");
-        Object value = values.get(name);
+        Object value = values.get(resolveName(name));
         if (value == null) return null;
         if (value instanceof Long) return (Long) value;
         if (value instanceof Number) return ((Number) value).longValue();
@@ -813,19 +907,36 @@ public final class CommandContext {
 
     /**
      * Get a value as Double, attempting conversion if necessary.
+     * Supports argument aliases.
+     * <p>
+     * Security: This method rejects NaN and Infinity values to prevent
+     * potential issues with special floating-point values.
      *
-     * @param name the argument name
-     * @return the double value, or null if not present or not convertible
+     * @param name the argument name or alias
+     * @return the double value, or null if not present, not convertible, or special value (NaN/Infinity)
      */
     public @Nullable Double getAsDouble(@NotNull String name) {
         Preconditions.checkNotNull(name, "name");
-        Object value = values.get(name);
+        Object value = values.get(resolveName(name));
         if (value == null) return null;
-        if (value instanceof Double) return (Double) value;
-        if (value instanceof Number) return ((Number) value).doubleValue();
+        if (value instanceof Double) {
+            Double d = (Double) value;
+            // Security: Reject special values that could cause unexpected behavior
+            if (Double.isNaN(d) || Double.isInfinite(d)) return null;
+            return d;
+        }
+        if (value instanceof Number) {
+            double d = ((Number) value).doubleValue();
+            // Security: Reject special values that could cause unexpected behavior
+            if (Double.isNaN(d) || Double.isInfinite(d)) return null;
+            return d;
+        }
         if (value instanceof String) {
             try {
-                return Double.parseDouble((String) value);
+                double d = Double.parseDouble((String) value);
+                // Security: Reject special values that could cause unexpected behavior
+                if (Double.isNaN(d) || Double.isInfinite(d)) return null;
+                return d;
             } catch (NumberFormatException e) {
                 return null;
             }
@@ -835,13 +946,14 @@ public final class CommandContext {
 
     /**
      * Get a value as Boolean, attempting conversion if necessary.
+     * Supports argument aliases.
      *
-     * @param name the argument name
+     * @param name the argument name or alias
      * @return the boolean value, or null if not present or not convertible
      */
     public @Nullable Boolean getAsBoolean(@NotNull String name) {
         Preconditions.checkNotNull(name, "name");
-        Object value = values.get(name);
+        Object value = values.get(resolveName(name));
         if (value == null) return null;
         if (value instanceof Boolean) return (Boolean) value;
         if (value instanceof String) {
@@ -861,14 +973,15 @@ public final class CommandContext {
 
     /**
      * Check if all specified arguments are present.
+     * Supports argument aliases.
      *
-     * @param names the argument names to check
+     * @param names the argument names or aliases to check
      * @return true if all specified arguments have values
      */
     public boolean hasAll(@NotNull String... names) {
         Preconditions.checkNotNull(names, "names");
         for (String name : names) {
-            if (name == null || !values.containsKey(name)) {
+            if (name == null || !values.containsKey(resolveName(name))) {
                 return false;
             }
         }
@@ -877,14 +990,15 @@ public final class CommandContext {
 
     /**
      * Check if any of the specified arguments are present.
+     * Supports argument aliases.
      *
-     * @param names the argument names to check
+     * @param names the argument names or aliases to check
      * @return true if at least one of the specified arguments has a value
      */
     public boolean hasAny(@NotNull String... names) {
         Preconditions.checkNotNull(names, "names");
         for (String name : names) {
-            if (name != null && values.containsKey(name)) {
+            if (name != null && values.containsKey(resolveName(name))) {
                 return true;
             }
         }
@@ -905,15 +1019,16 @@ public final class CommandContext {
     /**
      * Require all specified arguments to be present.
      * Throws an exception if any are missing.
+     * Supports argument aliases.
      *
-     * @param names the argument names that must all be present
+     * @param names the argument names or aliases that must all be present
      * @throws ApiMisuseException if any argument is missing
      */
     public void requireAll(@NotNull String... names) {
         Preconditions.checkNotNull(names, "names");
         List<String> missing = new ArrayList<>();
         for (String name : names) {
-            if (name != null && !values.containsKey(name)) {
+            if (name != null && !values.containsKey(resolveName(name))) {
                 missing.add(name);
             }
         }
@@ -939,18 +1054,19 @@ public final class CommandContext {
     /**
      * If a trigger argument is present, require all dependent arguments.
      * This is useful for conditional dependencies.
+     * Supports argument aliases.
      *
-     * @param trigger      the argument that triggers the requirement
-     * @param dependencies arguments required when trigger is present
+     * @param trigger      the argument or alias that triggers the requirement
+     * @param dependencies arguments or aliases required when trigger is present
      * @throws ApiMisuseException if trigger is present but dependencies are missing
      */
     public void requireIfPresent(@NotNull String trigger, @NotNull String... dependencies) {
         Preconditions.checkNotNull(trigger, "trigger");
         Preconditions.checkNotNull(dependencies, "dependencies");
-        if (values.containsKey(trigger)) {
+        if (values.containsKey(resolveName(trigger))) {
             List<String> missing = new ArrayList<>();
             for (String dep : dependencies) {
-                if (dep != null && !values.containsKey(dep)) {
+                if (dep != null && !values.containsKey(resolveName(dep))) {
                     missing.add(dep);
                 }
             }
@@ -964,15 +1080,16 @@ public final class CommandContext {
     /**
      * Require that at most one of the specified arguments is present.
      * Throws an exception if more than one is present.
+     * Supports argument aliases.
      *
-     * @param names the mutually exclusive argument names
+     * @param names the mutually exclusive argument names or aliases
      * @throws ApiMisuseException if more than one argument is present
      */
     public void requireMutuallyExclusive(@NotNull String... names) {
         Preconditions.checkNotNull(names, "names");
         List<String> present = new ArrayList<>();
         for (String name : names) {
-            if (name != null && values.containsKey(name)) {
+            if (name != null && values.containsKey(resolveName(name))) {
                 present.add(name);
             }
         }
@@ -984,9 +1101,10 @@ public final class CommandContext {
     /**
      * Get all values for the specified argument names that are present.
      * Useful for gathering related optional arguments.
+     * Supports argument aliases. The map keys will be the names as provided (not resolved to primary).
      *
      * @param type  the expected type for all values
-     * @param names the argument names to gather
+     * @param names the argument names or aliases to gather
      * @param <T>   the type
      * @return a map of name to value for present arguments
      */
@@ -996,10 +1114,13 @@ public final class CommandContext {
         Preconditions.checkNotNull(names, "names");
         Map<String, T> result = new LinkedHashMap<>();
         for (String name : names) {
-            if (name != null && values.containsKey(name)) {
-                Object value = values.get(name);
-                if (type.isInstance(value)) {
-                    result.put(name, (T) value);
+            if (name != null) {
+                String resolvedName = resolveName(name);
+                if (values.containsKey(resolvedName)) {
+                    Object value = values.get(resolvedName);
+                    if (type.isInstance(value)) {
+                        result.put(name, (T) value);
+                    }
                 }
             }
         }

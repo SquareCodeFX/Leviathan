@@ -283,6 +283,7 @@ public final class ArgParsers {
 
     /**
      * Parser for double-precision floating point numbers.
+     * Rejects special values (NaN, Infinity, -Infinity) for security.
      *
      * @return an ArgumentParser that parses {@code double} values
      */
@@ -298,7 +299,12 @@ public final class ArgParsers {
                 Preconditions.checkNotNull(input, "input");
                 Preconditions.checkNotNull(sender, "sender");
                 try {
-                    return ParseResult.success(Double.parseDouble(input));
+                    double value = Double.parseDouble(input);
+                    // Security: Reject special values that could cause unexpected behavior
+                    if (Double.isNaN(value) || Double.isInfinite(value)) {
+                        return ParseResult.error("special values (NaN, Infinity) are not allowed");
+                    }
+                    return ParseResult.success(value);
                 } catch (NumberFormatException e) {
                     return ParseResult.error("not a valid number");
                 }
@@ -315,6 +321,7 @@ public final class ArgParsers {
 
     /**
      * Parser for single-precision floating point numbers.
+     * Rejects special values (NaN, Infinity, -Infinity) for security.
      *
      * @return an ArgumentParser that parses {@code float} values
      */
@@ -330,7 +337,12 @@ public final class ArgParsers {
                 Preconditions.checkNotNull(input, "input");
                 Preconditions.checkNotNull(sender, "sender");
                 try {
-                    return ParseResult.success(Float.parseFloat(input));
+                    float value = Float.parseFloat(input);
+                    // Security: Reject special values that could cause unexpected behavior
+                    if (Float.isNaN(value) || Float.isInfinite(value)) {
+                        return ParseResult.error("special values (NaN, Infinity) are not allowed");
+                    }
+                    return ParseResult.success(value);
                 } catch (NumberFormatException e) {
                     return ParseResult.error("not a valid number");
                 }
@@ -779,6 +791,13 @@ public final class ArgParsers {
             // Try to parse as pure number (interpreted as seconds)
             try {
                 long seconds = Long.parseLong(trimmed);
+                if (seconds < 0) {
+                    return ParseResult.error("duration values cannot be negative");
+                }
+                // Security: Check for overflow when converting to milliseconds
+                if (!returnSeconds && seconds > Long.MAX_VALUE / 1000) {
+                    return ParseResult.error("duration value too large - would cause overflow");
+                }
                 long result = returnSeconds ? seconds : seconds * 1000;
                 return ParseResult.success(result);
             } catch (NumberFormatException ignored) {
@@ -827,13 +846,23 @@ public final class ArgParsers {
                 if (matchedUnit == null) {
                     if (remaining.isEmpty()) {
                         // No unit at end - treat as seconds
-                        totalMillis += (long) (value * 1000);
+                        long addition = (long) (value * 1000);
+                        // Security: Check for overflow before addition
+                        if (addition < 0 || (Long.MAX_VALUE - totalMillis < addition)) {
+                            return ParseResult.error("duration value too large - would cause overflow");
+                        }
+                        totalMillis += addition;
                     } else {
                         return ParseResult.error("unknown time unit at '" + remaining + "'. " +
                             "Valid units: s, m, h, d, w, mo, y");
                     }
                 } else {
-                    totalMillis += (long) (value * UNIT_MILLIS.get(matchedUnit));
+                    long addition = (long) (value * UNIT_MILLIS.get(matchedUnit));
+                    // Security: Check for overflow before addition
+                    if (addition < 0 || (Long.MAX_VALUE - totalMillis < addition)) {
+                        return ParseResult.error("duration value too large - would cause overflow");
+                    }
+                    totalMillis += addition;
                     remaining = remaining.substring(matchedUnit.length());
                 }
             }

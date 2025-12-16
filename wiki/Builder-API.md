@@ -45,7 +45,9 @@ cmd.register(plugin);
 - `validateOnTab(boolean)` — Validate inputs during tab completion for smarter suggestions.
 - `sanitizeInputs(boolean)` — Normalize/trim user inputs; see Overview.
 - `fuzzySubcommandMatching(boolean)` — Suggest closest subcommand if unknown.
+- `fuzzyMatchThreshold(double)` — Set similarity threshold (0.0-1.0) for fuzzy matching. Default is 0.6.
 - `awaitConfirmation(boolean)` — Require the user to execute the command twice within a timeout period to confirm execution. Useful for destructive or irreversible commands.
+- `debugMode(boolean)` — Enable diagnostic logging (e.g., fuzzy match results). Disabled by default for production.
 
 #### Arguments
 
@@ -54,6 +56,7 @@ Positional arguments are declared in order. Supported convenience builders:
 - `argInt(String)`, `argLong(String)`, `argDouble(String)`, `argFloat(String)`, `argBoolean(String)`
 - `argString(String)` — By default consumes a single token; configure `ArgContext` for greedy etc.
 - `argUUID(String)`
+- `argDuration(String)` — Parses time strings like `30s`, `5m`, `2h`, `1d`, `1w`, `1mo`, `1y`, and combinations like `2h30m` to milliseconds.
 - Bukkit types: `argPlayer(String)`, `argOfflinePlayer(String)`, `argWorld(String)`, `argMaterial(String)`
 - Enums: `argEnum(String, Class<E>)`
 - Ranges/length: `argIntRange(String, min, max)`, `argLongRange(...)`, `argDoubleRange(...)`, `argFloatRange(...)`, `argStringLength(String, min, max)`
@@ -88,6 +91,8 @@ Retrieve at runtime via `CommandContext.getKeyValue*(...)` or `getKeyValue(name,
 #### Subcommands
 
 - `sub(SlashCommand... subs)` / `withSubcommands(...)` — Attach subcommands. Subcommands can have their own args/flags/etc. They inherit plugin registration under the parent.
+- `subIf(BooleanSupplier condition, SlashCommand... subs)` — Conditionally register subcommands based on a predicate. Useful for feature-flag or config-dependent registration.
+- `subIf(JavaPlugin plugin, Predicate<JavaPlugin> condition, SlashCommand... subs)` — Conditionally register subcommands with plugin access in the condition.
 - `parent(SlashCommandBuilder parentBuilder)` — Register this command as a subcommand to the specified parent builder. This is the reverse operation of `sub()`, allowing a subcommand to register itself to its parent instead of the parent registering its children.
 
 #### Execution
@@ -103,11 +108,72 @@ Retrieve at runtime via `CommandContext.getKeyValue*(...)` or `getKeyValue(name,
 - `perUserCooldown(long cooldownMillis)` — Per‑sender throttling (by UUID or name depending on sender type).
 - `perServerCooldown(long cooldownMillis)` — Global throttling across all senders.
 
+#### Metrics
+
+- `enableMetrics(boolean)` — Enable execution metrics collection. Default: false.
+
+When enabled, access metrics via `SlashCommand.metrics()`:
+
+```java
+SlashCommand cmd = SlashCommand.create("example")
+    .enableMetrics(true)
+    .executes(ctx -> { /* ... */ })
+    .build();
+
+// Later, retrieve metrics
+CommandMetrics metrics = cmd.metrics();
+
+// Get individual statistics
+long total = metrics.getTotalExecutions();
+long successful = metrics.getSuccessfulExecutions();
+long failed = metrics.getFailedExecutions();
+double successRate = metrics.getSuccessRate();  // 0-100%
+double avgTime = metrics.getAverageExecutionTimeMs();
+long minTime = metrics.getMinExecutionTimeMs();
+long maxTime = metrics.getMaxExecutionTimeMs();
+long firstExec = metrics.getFirstExecutionTime();  // Timestamp
+long lastExec = metrics.getLastExecutionTime();    // Timestamp
+
+// Get error count by type
+long permErrors = metrics.getErrorCount(ErrorType.NO_PERMISSION);
+long validationErrors = metrics.getErrorCount(ErrorType.VALIDATION_FAILED);
+
+// Get all metrics as a map (useful for serialization)
+Map<String, Object> snapshot = metrics.getSnapshot();
+
+// Reset metrics
+metrics.reset();
+
+// toString() for quick overview
+System.out.println(metrics);
+// Output: CommandMetrics{total=150, success=142, failed=8, successRate=94.7%, avgTime=12.3ms}
+```
+
+Tracked metrics:
+- Total/successful/failed executions
+- Success rate percentage
+- Execution time (average, min, max)
+- First and last execution timestamps
+- Errors by type (permission, validation, parsing, etc.)
+
 #### Guards and Validation
 
 - `require(Class<? extends CommandSender> type)` — Built‑in guard ensuring sender is instance of `type`. Provides a default error message.
 - `require(Guard... guards)` — Provide custom guard(s) executed before parsing or execution.
-- `addCrossArgumentValidator(CrossArgumentValidator validator)` — Validate relationships between arguments after parsing (e.g., `min <= max`).
+- `requirePermission(String permission)` — Shortcut to add a permission-based guard.
+- `requireAnyPermission(String... permissions)` — Require that the sender has at least one of the specified permissions.
+- `requireAllPermissions(String... permissions)` — Require that the sender has all of the specified permissions.
+- `addCrossArgumentValidator(CrossArgumentValidator validator)` / `crossValidate(CrossArgumentValidator)` — Validate relationships between arguments after parsing (e.g., `min <= max`).
+- `crossValidateChain(CrossArgumentValidator... validators)` — Add multiple validators at once that all must pass.
+
+#### Argument Groups
+
+- `argumentGroup(ArgumentGroup group)` / `withArgumentGroup(ArgumentGroup)` — Add a pre‑built argument group for validation and help organization.
+- `argumentGroups(ArgumentGroup... groups)` — Add multiple argument groups at once.
+- `mutuallyExclusiveGroup(String name, String... members)` — Shortcut to create and add a mutually exclusive group (only one member can be provided).
+- `atLeastOneGroup(String name, String... members)` — Shortcut to create and add an at-least-one group (at least one member must be provided).
+
+Argument groups are validated after parsing. See [Guards-Validation-Permissions](Guards-Validation-Permissions.md#argument-groups) for details.
 
 #### Exceptions and Diagnostics
 

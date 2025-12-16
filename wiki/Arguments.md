@@ -8,6 +8,7 @@ Leviathan provides a rich, type‑safe argument system. You declare positional a
 - Text: `argString`
 - Boolean: `argBoolean`
 - UUID: `argUUID`
+- Duration: `argDuration` — Parses time strings to milliseconds
 - Bukkit types: `argPlayer`, `argOfflinePlayer`, `argWorld`, `argMaterial`
 - Enums: `argEnum(name, Class<E>)`
 
@@ -74,6 +75,50 @@ SlashCommand give = SlashCommand.create("give")
     .build();
 ```
 
+#### Duration arguments
+
+`argDuration(name)` parses human-readable time strings into milliseconds. Supported formats:
+
+- `30s` — 30 seconds
+- `5m` — 5 minutes
+- `2h` — 2 hours
+- `1d` — 1 day
+- `1w` — 1 week
+- `1mo` — 1 month (30 days)
+- `1y` — 1 year (365 days)
+- Combinations: `2h30m`, `1d12h`, `1w2d`
+
+Example:
+
+```java
+SlashCommand tempban = SlashCommand.create("tempban")
+    .argPlayer("target")
+    .argDuration("duration")
+    .argString("reason", ArgContext.builder().optional(true).greedy(true).build())
+    .executes((sender, ctx) -> {
+        Player target = ctx.get("target", Player.class);
+        long durationMs = ctx.get("duration", Long.class);
+        String reason = ctx.getStringOrDefault("reason", "No reason");
+
+        // Ban player for the specified duration
+        banService.ban(target, durationMs, reason);
+        sender.sendMessage("Banned " + target.getName() + " for " + formatDuration(durationMs));
+    })
+    .build();
+```
+
+With `ArgContext` for validation:
+
+```java
+SlashCommand mute = SlashCommand.create("mute")
+    .argPlayer("target")
+    .argDuration("duration", ArgContext.builder()
+        .description("How long to mute the player (e.g., 30m, 2h, 1d)")
+        .build())
+    .executes((sender, ctx) -> { /* ... */ })
+    .build();
+```
+
 #### Page arguments
 
 `argPage()`, `argPage(name)`, and `argPage(name, defaultPage)` integrate with the pagination utilities. The parsed value is an `int` page index respecting your configured defaults.
@@ -107,6 +152,75 @@ ArgContext ctx = ArgContext.builder()
     .description("The target player name")   // Description shown in help
     .build();
 ```
+
+##### Argument Aliases
+
+Define alternative names for arguments so they can be accessed in `CommandContext` using any of their names:
+
+```java
+// Using ArgContext builder
+ArgContext playerCtx = ArgContext.builder()
+    .aliases("p", "target", "t")             // Define aliases
+    .description("The target player")
+    .build();
+
+SlashCommand cmd = SlashCommand.create("teleport")
+    .arg("player", ArgParsers.PLAYER, playerCtx)
+    .executes((sender, ctx) -> {
+        // All of these return the same value:
+        Player p1 = ctx.get("player", Player.class); // Primary name
+        Player p2 = ctx.get("p", Player.class);      // Alias
+        Player p3 = ctx.get("target", Player.class); // Alias
+        Player p4 = ctx.get("t", Player.class);      // Alias
+    })
+    .build();
+```
+
+Or use fluent methods:
+
+```java
+// Add all aliases at once
+ArgContext ctx1 = ArgContext.builder()
+    .withAliases("p", "target", "t")
+    .build();
+
+// Add aliases one at a time
+ArgContext ctx2 = ArgContext.builder()
+    .addAlias("p")
+    .addAlias("target")
+    .addAlias("t")
+    .build();
+```
+
+Using the fluent Arg API:
+
+```java
+SlashCommand cmd = SlashCommand.create("give")
+    .arg(Arg.of("player", ArgParsers.PLAYER)
+        .withAliases("p", "target"))
+    .arg(Arg.of("amount", ArgParsers.INT)
+        .withAlias("amt")
+        .withAlias("n"))
+    .executes((sender, ctx) -> {
+        // Access by alias
+        Player p = ctx.get("p", Player.class);
+        int amount = ctx.getIntOrDefault("n", 1);
+    })
+    .build();
+```
+
+**Alias Methods on Arg:**
+
+| Method | Description |
+|--------|-------------|
+| `aliases()` | Get list of all aliases |
+| `hasAliases()` | Check if argument has any aliases |
+| `matchesNameOrAlias(name)` | Check if name matches primary or any alias |
+| `allNames()` | Get primary name + all aliases as a list |
+| `withAliases(...)` | Create copy of Arg with specified aliases |
+| `withAlias(alias)` | Create copy of Arg with an additional alias |
+
+See [CommandContext-API](CommandContext-API.md#argument-aliases) for full details on accessing arguments by alias.
 
 ##### Descriptions for Help
 
@@ -356,4 +470,408 @@ ArgContext ctx = ArgContext.builder()
     .build();
 ```
 
+#### String Validation Shortcuts
+
+ArgContext provides convenient shortcut methods for common string validation patterns:
+
+```java
+// Require valid email format
+ArgContext emailCtx = ArgContext.builder()
+    .requireEmail()
+    .build();
+
+// Require alphanumeric only (letters and digits)
+ArgContext alphaCtx = ArgContext.builder()
+    .requireAlphanumeric()
+    .build();
+
+// Require valid identifier (letters, digits, underscores, starts with letter/underscore)
+ArgContext identCtx = ArgContext.builder()
+    .requireIdentifier()
+    .build();
+
+// Require valid Minecraft username (3-16 chars, letters/digits/underscores)
+ArgContext mcCtx = ArgContext.builder()
+    .requireMinecraftUsername()
+    .build();
+
+// Require valid URL
+ArgContext urlCtx = ArgContext.builder()
+    .requireUrl()
+    .build();
+
+// Require no whitespace
+ArgContext noSpaceCtx = ArgContext.builder()
+    .requireNoWhitespace()
+    .build();
+```
+
+These shortcuts are equivalent to calling `stringPattern()` with the appropriate regex.
+
+#### Transformation Pipeline
+
+Transformers modify parsed argument values after parsing but before validation. They're useful for normalizing input, expanding shortcuts, formatting values, and more.
+
+##### Transformer Interface
+
+```java
+@FunctionalInterface
+public interface Transformer<T> {
+    @Nullable T transform(@Nullable T value);
+}
+```
+
+##### Built-in String Transformers
+
+```java
+// Trim whitespace
+ArgContext trimCtx = ArgContext.builder()
+    .transformer(Transformer.trim())
+    .build();
+
+// Convert to lowercase
+ArgContext lowerCtx = ArgContext.builder()
+    .transformer(Transformer.lowercase())
+    .build();
+
+// Convert to uppercase
+ArgContext upperCtx = ArgContext.builder()
+    .transformer(Transformer.uppercase())
+    .build();
+
+// Normalize whitespace (trim + collapse multiple spaces)
+ArgContext normalizeCtx = ArgContext.builder()
+    .transformer(Transformer.normalizeWhitespace())
+    .build();
+
+// Strip all whitespace
+ArgContext stripCtx = ArgContext.builder()
+    .transformer(Transformer.stripWhitespace())
+    .build();
+
+// Capitalize first letter
+ArgContext capCtx = ArgContext.builder()
+    .transformer(Transformer.capitalize())
+    .build();
+```
+
+##### Shortcut Methods
+
+ArgContext.Builder provides convenient shortcuts:
+
+```java
+ArgContext ctx = ArgContext.builder()
+    .transformTrim()               // Same as transformer(Transformer.trim())
+    .transformLowercase()          // Same as transformer(Transformer.lowercase())
+    .transformUppercase()          // Same as transformer(Transformer.uppercase())
+    .transformNormalizeWhitespace() // Same as transformer(Transformer.normalizeWhitespace())
+    .build();
+```
+
+##### String Manipulation Transformers
+
+```java
+// Replace pattern with replacement
+Transformer<String> noNumbers = Transformer.replace("[0-9]", "");
+
+// Add prefix
+Transformer<String> prefixed = Transformer.prefix("user_");
+
+// Add suffix
+Transformer<String> suffixed = Transformer.suffix("_v2");
+
+// Truncate to max length
+Transformer<String> short = Transformer.truncate(16);
+
+// Pad to min length
+Transformer<String> padded = Transformer.pad(8, '0', true);  // Left-pad with zeros
+```
+
+##### Shortcut Expansion
+
+Expand abbreviations to full values:
+
+```java
+Map<String, String> shortcuts = Map.of(
+    "dia", "diamond",
+    "g", "gold",
+    "i", "iron",
+    "e", "emerald"
+);
+
+ArgContext ctx = ArgContext.builder()
+    .transformer(Transformer.expandShortcuts(shortcuts))
+    .build();
+
+// User types: /give player dia
+// Transformed to: /give player diamond
+```
+
+##### Numeric Transformers
+
+Clamp and round numeric values:
+
+```java
+// Clamp integers to range
+ArgContext intCtx = ArgContext.builder()
+    .transformer(Transformer.clampInt(1, 100))
+    .build();
+
+// Clamp longs
+ArgContext longCtx = ArgContext.builder()
+    .transformer(Transformer.clampLong(0L, 1_000_000L))
+    .build();
+
+// Clamp doubles
+ArgContext doubleCtx = ArgContext.builder()
+    .transformer(Transformer.clampDouble(0.0, 1.0))
+    .build();
+
+// Round to decimal places
+ArgContext roundedCtx = ArgContext.builder()
+    .transformer(Transformer.round(2))  // 2 decimal places
+    .build();
+```
+
+##### Chaining Transformers
+
+Apply multiple transformations in sequence:
+
+```java
+// Chain with andThen()
+Transformer<String> pipeline = Transformer.trim()
+    .andThen(Transformer.lowercase())
+    .andThen(Transformer.replace("\\s+", "_"));
+
+// Or add multiple transformers to ArgContext
+ArgContext ctx = ArgContext.builder()
+    .transformer(Transformer.trim())
+    .transformer(Transformer.lowercase())
+    .transformer(Transformer.expandShortcuts(shortcuts))
+    .build();
+```
+
+##### Custom Transformers
+
+Create custom transformation logic:
+
+```java
+// Using static factory
+Transformer<String> custom = Transformer.of(value -> {
+    if ("me".equalsIgnoreCase(value)) {
+        return player.getName();
+    }
+    return value;
+});
+
+// Using lambda directly
+ArgContext ctx = ArgContext.builder()
+    .transformer(value -> value == null ? null : value.replace("-", ""))
+    .build();
+
+// Identity transformer (no-op)
+Transformer<String> noOp = Transformer.identity();
+```
+
+##### Applying Transformers
+
+Transformers are automatically applied when accessing values through `ArgContext`:
+
+```java
+ArgContext ctx = /* ... with transformers ... */;
+
+// Apply all transformers to a value
+Object original = "  HELLO World  ";
+Object transformed = ctx.applyTransformers(original);
+// Result depends on configured transformers
+
+// Check if transformers are configured
+boolean hasTransformers = ctx.hasTransformers();
+```
+
+##### Example: Username Normalization
+
+```java
+SlashCommand register = SlashCommand.create("register")
+    .argString("username", ArgContext.builder()
+        .transformer(Transformer.trim())
+        .transformer(Transformer.lowercase())
+        .transformer(Transformer.replace("[^a-z0-9_]", ""))
+        .transformer(Transformer.truncate(16))
+        .stringLengthRange(3, 16)
+        .requireAlphanumeric()
+        .build())
+    .executes((sender, ctx) -> {
+        // Username is already normalized
+        String username = ctx.require("username", String.class);
+        // ...
+    })
+    .build();
+```
+
+##### Example: Price Formatting
+
+```java
+SlashCommand setprice = SlashCommand.create("setprice")
+    .argDouble("price", ArgContext.builder()
+        .transformer(Transformer.clampDouble(0.01, 1_000_000.0))
+        .transformer(Transformer.round(2))
+        .build())
+    .executes((sender, ctx) -> {
+        double price = ctx.require("price", Double.class);
+        // Price is clamped and rounded to 2 decimals
+    })
+    .build();
+```
+
+#### Completion Helpers
+
+Convenience methods for adding completions:
+
+```java
+// Add a single completion
+ArgContext ctx1 = ArgContext.builder()
+    .addCompletion("option1")
+    .addCompletion("option2")
+    .build();
+
+// Add multiple completions at once
+ArgContext ctx2 = ArgContext.builder()
+    .addCompletions("easy", "normal", "hard")
+    .build();
+
+// Generate completions from an enum
+ArgContext ctx3 = ArgContext.builder()
+    .completionsFromEnum(GameMode.class)
+    .build();
+
+// Add range hint for numeric arguments
+ArgContext ctx4 = ArgContext.builder()
+    .rangeHint(1, 100)  // Shows "[1-100]" as hint
+    .intRange(1, 100)   // Actual validation
+    .build();
+```
+
+#### Fluent Aliases
+
+ArgContext.Builder provides fluent aliases for better readability:
+
+```java
+ArgContext ctx = ArgContext.builder()
+    .withPermission("admin.use")       // Same as permission()
+    .withCompletions(List.of("a", "b")) // Same as completionsPredefined()
+    .withDescription("The target")     // Same as description()
+    .withDynamicCompletions(provider)  // Same as completionsDynamic()
+    .withAsyncDynamicCompletions(prov) // Same as completionsDynamicAsync()
+    .withAsyncCompletions(supplier)    // Same as completionsPredefinedAsync()
+    .build();
+```
+
 For advanced tab-completion features including async completions and permission-filtered suggestions, see [Advanced Completions](Advanced-Completions.md).
+
+### Custom ArgumentParser Interface
+
+For full control over argument parsing, implement the `ArgumentParser<T>` interface:
+
+```java
+public interface ArgumentParser<T> {
+    /** Short type name for error messages (e.g., "int", "uuid") */
+    @NotNull String getTypeName();
+
+    /** Parse input to target type. Never returns null. */
+    @NotNull ParseResult<T> parse(@NotNull String input, @NotNull CommandSender sender);
+
+    /** Provide tab-completion suggestions. Never returns null. */
+    @NotNull List<String> complete(@NotNull String input, @NotNull CommandSender sender);
+}
+```
+
+**Contract requirements:**
+- Implementations must be **stateless and thread-safe**
+- `parse()` must never return null — always return a `ParseResult`
+- `complete()` must return a non-null list (possibly empty)
+
+#### Creating a Custom Parser
+
+```java
+public class UUIDParser implements ArgumentParser<UUID> {
+
+    @Override
+    public @NotNull String getTypeName() {
+        return "uuid";
+    }
+
+    @Override
+    public @NotNull ParseResult<UUID> parse(@NotNull String input, @NotNull CommandSender sender) {
+        try {
+            UUID uuid = UUID.fromString(input);
+            return ParseResult.success(uuid);
+        } catch (IllegalArgumentException e) {
+            return ParseResult.failure("Invalid UUID format");
+        }
+    }
+
+    @Override
+    public @NotNull List<String> complete(@NotNull String input, @NotNull CommandSender sender) {
+        return List.of();  // UUIDs are too complex to suggest
+    }
+}
+```
+
+#### Using Custom Parsers
+
+```java
+private static final UUIDParser UUID_PARSER = new UUIDParser();
+
+SlashCommand lookup = SlashCommand.create("lookup")
+    .arg("id", UUID_PARSER, ArgContext.builder()
+        .description("The unique identifier")
+        .build())
+    .executes((sender, ctx) -> {
+        UUID id = ctx.require("id", UUID.class);
+        // Use the parsed UUID...
+    })
+    .build();
+```
+
+#### ParseResult
+
+```java
+// Successful parse
+ParseResult.success(value);
+
+// Failed parse with error message
+ParseResult.failure("Error message");
+
+// Check result
+if (result.isSuccess()) {
+    T value = result.value();
+} else {
+    String error = result.errorMessage();
+}
+```
+
+#### Context-Aware Parser Example
+
+```java
+public class HomeParser implements ArgumentParser<Location> {
+
+    @Override
+    public @NotNull ParseResult<Location> parse(@NotNull String input, @NotNull CommandSender sender) {
+        if (!(sender instanceof Player player)) {
+            return ParseResult.failure("This argument requires a player");
+        }
+        Location home = homeService.getHome(player.getUniqueId(), input);
+        if (home == null) {
+            return ParseResult.failure("Home '" + input + "' not found");
+        }
+        return ParseResult.success(home);
+    }
+
+    @Override
+    public @NotNull List<String> complete(@NotNull String input, @NotNull CommandSender sender) {
+        if (!(sender instanceof Player player)) return List.of();
+        return homeService.getHomeNames(player.getUniqueId());
+    }
+}
+```

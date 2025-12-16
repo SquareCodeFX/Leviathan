@@ -27,6 +27,31 @@ Builder helpers:
 - `playersOnly()` — Shortcut ensuring the sender is a `Player`.
 - `require(Class<? extends CommandSender> type)` — Ensure the sender is an instance of `type`. Provides a default message.
 - `require(Guard... guards)` — Add custom guards.
+- `requirePermission(String permission)` — Shortcut to add a permission-based guard.
+- `requireAnyPermission(String... permissions)` — Require at least one of the specified permissions.
+- `requireAllPermissions(String... permissions)` — Require all of the specified permissions.
+
+##### Permission Shortcut Guards
+
+```java
+// Single permission
+SlashCommand admin = SlashCommand.create("admin")
+    .requirePermission("myplugin.admin")
+    .executes(ctx -> { /* ... */ })
+    .build();
+
+// Any of multiple permissions (OR logic)
+SlashCommand moderate = SlashCommand.create("moderate")
+    .requireAnyPermission("myplugin.admin", "myplugin.moderator", "myplugin.helper")
+    .executes(ctx -> { /* ... */ })
+    .build();
+
+// All permissions required (AND logic)
+SlashCommand superadmin = SlashCommand.create("superadmin")
+    .requireAllPermissions("myplugin.admin", "myplugin.superadmin")
+    .executes(ctx -> { /* ... */ })
+    .build();
+```
 
 Example custom guard:
 
@@ -219,6 +244,204 @@ SlashCommand deleteWorld = SlashCommand.create("deleteworld")
 - High-impact commands (server restart, economy reset)
 
 The confirmation message can be customized via the `MessageProvider.awaitConfirmation()` method.
+
+#### Permission Cascade
+
+When using subcommands, you can configure permissions to cascade from parent to child commands. This means a subcommand inherits the permission requirements of its parent.
+
+##### How It Works
+
+With permission cascade enabled:
+1. Each command in the hierarchy can define its own permission
+2. When checking permissions, all permissions from parent to child must be satisfied
+3. The effective permission combines all permissions in the chain
+
+##### Example
+
+```java
+// Parent command requires "myplugin.admin"
+SlashCommand admin = SlashCommand.create("admin")
+    .permission("myplugin.admin")
+    .subcommand(
+        // Subcommand requires both "myplugin.admin" AND "myplugin.admin.users"
+        SlashCommand.create("users")
+            .permission("myplugin.admin.users")
+            .subcommand(
+                // Requires all three: myplugin.admin, myplugin.admin.users, myplugin.admin.users.ban
+                SlashCommand.create("ban")
+                    .permission("myplugin.admin.users.ban")
+                    .argPlayer("target")
+                    .executes((sender, ctx) -> { /* ... */ })
+                    .build()
+            )
+            .executes((sender, ctx) -> { /* ... */ })
+            .build()
+    )
+    .executes((sender, ctx) -> { /* ... */ })
+    .build();
+```
+
+##### Permission Cascade API
+
+Access cascade information programmatically:
+
+```java
+SlashCommand cmd = /* ... */;
+
+// Get the effective permission for this command only
+String effective = cmd.effectivePermission();
+
+// Get ALL required permissions (from root to this command)
+List<String> allPerms = cmd.allRequiredPermissions();
+// For the "ban" subcommand above: ["myplugin.admin", "myplugin.admin.users", "myplugin.admin.users.ban"]
+
+// Check if sender has all required permissions in the cascade
+boolean hasAll = cmd.hasEffectivePermission(sender);
+
+// Check if this command is a subcommand
+boolean isSub = cmd.isSubcommand();
+
+// Access parent command
+SlashCommand parent = cmd.parent();
+```
+
+##### Use Cases
+
+Permission cascade is useful for:
+- **Admin hierarchies**: `/admin users ban`, `/admin config reload`
+- **Nested features**: `/shop manage items add`
+- **Role-based access**: Different staff levels access different subcommand depths
+
+#### Argument Groups
+
+Argument groups allow you to organize related arguments together and apply group-level constraints.
+
+##### Creating Groups
+
+Use `ArgumentGroup` to define logical groups:
+
+```java
+// Simple group for organization
+ArgumentGroup outputGroup = ArgumentGroup.of("Output Options", "format", "output", "verbose");
+
+// Mutually exclusive group (only one can be provided)
+ArgumentGroup targetGroup = ArgumentGroup.mutuallyExclusive("Target Selection", "player", "all", "world");
+
+// At-least-one group (at least one must be provided)
+ArgumentGroup filterGroup = ArgumentGroup.atLeastOne("Filters", "type", "name", "owner");
+```
+
+##### Group Builder
+
+For more control, use the builder:
+
+```java
+ArgumentGroup group = ArgumentGroup.builder("Connection Options")
+    .description("Options for database connection")
+    .members("host", "port", "database", "user", "password")
+    .allRequired(true)     // All members must be provided together
+    .build();
+
+ArgumentGroup exclusive = ArgumentGroup.builder("Output Format")
+    .description("Choose one output format")
+    .members("json", "xml", "csv", "yaml")
+    .mutuallyExclusive(true)
+    .atLeastOne(true)      // Require exactly one
+    .build();
+```
+
+##### Using Groups in Commands
+
+Add groups to commands for validation and help organization:
+
+```java
+SlashCommand export = SlashCommand.create("export")
+    .argString("file")
+    .flag("json", 'j', "Output as JSON")
+    .flag("xml", 'x', "Output as XML")
+    .flag("csv", 'c', "Output as CSV")
+    .flag("verbose", 'v', "Verbose output")
+    .flag("quiet", 'q', "Quiet mode")
+    .argumentGroup(ArgumentGroup.mutuallyExclusive("Format", "json", "xml", "csv"))
+    .argumentGroup(ArgumentGroup.mutuallyExclusive("Verbosity", "verbose", "quiet"))
+    .executes((sender, ctx) -> { /* ... */ })
+    .build();
+```
+
+##### Builder Shortcuts
+
+```java
+SlashCommand cmd = SlashCommand.create("cmd")
+    // Add a mutually exclusive group
+    .mutuallyExclusiveGroup("Target", "player", "all")
+
+    // Add an at-least-one group
+    .atLeastOneGroup("Filters", "name", "type", "owner")
+
+    // Add multiple groups
+    .argumentGroups(group1, group2, group3)
+
+    .executes((sender, ctx) -> { /* ... */ })
+    .build();
+```
+
+##### Accessing Groups
+
+Query argument groups at runtime:
+
+```java
+SlashCommand cmd = /* ... */;
+
+// Get all argument groups
+List<ArgumentGroup> groups = cmd.argumentGroups();
+
+// Get a specific group by name
+ArgumentGroup formatGroup = cmd.getArgumentGroup("Format");
+
+// Get all arguments belonging to a group
+List<Arg<?>> formatArgs = cmd.getArgumentsInGroup("Format");
+```
+
+##### ArgumentGroup Properties
+
+```java
+ArgumentGroup group = /* ... */;
+
+// Basic info
+String name = group.name();
+String desc = group.description();
+List<String> members = group.memberNames();
+int size = group.size();
+
+// Constraints
+boolean atLeastOne = group.isAtLeastOneRequired();
+boolean exclusive = group.isMutuallyExclusive();
+boolean allRequired = group.isAllRequired();
+
+// Membership
+boolean contains = group.contains("format");
+```
+
+##### Combining with Cross-Argument Validation
+
+Argument groups complement cross-argument validators:
+
+```java
+SlashCommand cmd = SlashCommand.create("transfer")
+    .argInt("amount").optional(true)
+    .flag("all", 'a', "Transfer all")
+    .flag("half", 'h', "Transfer half")
+
+    // Document the exclusivity in help
+    .argumentGroup(ArgumentGroup.mutuallyExclusive("Amount", "amount", "all", "half"))
+
+    // Enforce it with validation
+    .crossValidate(CrossArgumentValidator.mutuallyExclusive("amount", "all", "half"))
+    .crossValidate(CrossArgumentValidator.requiresAny("amount", "all", "half"))
+
+    .executes((sender, ctx) -> { /* ... */ })
+    .build();
+```
 
 #### Cross-Argument Validation
 

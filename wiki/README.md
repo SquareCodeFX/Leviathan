@@ -21,5 +21,7 @@ Advanced Topics:
 - [Progress Tracking (ProgressBar, ProgressReporter)](Progress-Tracking.md)
 - [CommandContext API (accessors, streaming, type conversion)](CommandContext-API.md)
 - [Execution Hooks (before/after hooks, logging, metrics)](Execution-Hooks.md)
+- [Parsing API (split parsing from execution)](Parsing-API.md)
+- [Interactive Prompting (conversational argument gathering)](Interactive-Prompting.md)
 
 If you're new, read the Overview and then Builder API. The rest are deep dives you can consult as needed.

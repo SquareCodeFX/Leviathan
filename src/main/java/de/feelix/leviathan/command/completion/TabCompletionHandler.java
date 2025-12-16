@@ -651,7 +651,7 @@ public final class TabCompletionHandler {
         if (pendingKeyValueKey != null) {
             KeyValue<?> kv = findKeyValueByKey(keyValues, pendingKeyValueKey);
             if (kv != null) {
-                return generateKeyValueCompletions(kv, currentToken, sender);
+                return generateKeyValueCompletions(kv, currentToken, sender, messages);
             }
         }
 
@@ -687,7 +687,7 @@ public final class TabCompletionHandler {
             // Find matching key-value
             KeyValue<?> kv = findKeyValueByKey(keyValues, keyOnly);
             if (kv != null) {
-                List<String> valueCompletions = generateKeyValueCompletions(kv, valuePart, sender);
+                List<String> valueCompletions = generateKeyValueCompletions(kv, valuePart, sender, messages);
                 // Prepend the key and separator to each value completion
                 return valueCompletions.stream()
                     .map(v -> keyPart + separator + v)
@@ -718,7 +718,7 @@ public final class TabCompletionHandler {
                         String suggestion = "--" + longForm;
                         // Add description as hint if available
                         if (flag.description() != null && !flag.description().isEmpty()) {
-                            suggestion += " §7(" + flag.description() + ")";
+                            suggestion += messages.tabCompletionHint(flag.description());
                         }
                         completions.add(suggestion);
                     }
@@ -763,7 +763,7 @@ public final class TabCompletionHandler {
                         hints.add("multi");
                     }
 
-                    suggestion += " §7(" + String.join(", ", hints) + ")";
+                    suggestion += messages.tabCompletionHint(String.join(", ", hints));
                     completions.add(suggestion);
                 }
             }
@@ -793,7 +793,7 @@ public final class TabCompletionHandler {
                         String suggestion = "-" + shortForm;
                         // Add description as hint if available
                         if (flag.description() != null && !flag.description().isEmpty()) {
-                            suggestion += " §7(" + flag.description() + ")";
+                            suggestion += messages.tabCompletionHint(flag.description());
                         }
                         completions.add(suggestion);
                     }
@@ -831,7 +831,7 @@ public final class TabCompletionHandler {
                         hints.add("multi");
                     }
 
-                    suggestion += " §7(" + String.join(", ", hints) + ")";
+                    suggestion += messages.tabCompletionHint(String.join(", ", hints));
                     completions.add(suggestion);
                 }
             }
@@ -877,12 +877,14 @@ public final class TabCompletionHandler {
      * @param kv           the key-value definition
      * @param partialValue the partial value typed so far
      * @param sender       the command sender
+     * @param messages     the message provider
      * @return list of value completions
      */
     private static @NotNull List<String> generateKeyValueCompletions(
         @NotNull KeyValue<?> kv,
         @NotNull String partialValue,
-        @NotNull CommandSender sender) {
+        @NotNull CommandSender sender,
+        @NotNull MessageProvider messages) {
 
         List<String> completions = new ArrayList<>();
 
@@ -897,7 +899,7 @@ public final class TabCompletionHandler {
             String defaultStr = kv.defaultValue().toString();
             if (defaultStr.toLowerCase(Locale.ROOT).startsWith(partialValue.toLowerCase(Locale.ROOT))) {
                 if (!completions.contains(defaultStr)) {
-                    completions.add(defaultStr + " §7(default)");
+                    completions.add(defaultStr + messages.tabCompletionDefaultHint());
                 }
             }
         }

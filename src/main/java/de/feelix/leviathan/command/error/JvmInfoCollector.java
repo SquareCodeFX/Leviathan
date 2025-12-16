@@ -6,8 +6,9 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryUsage;
 import java.lang.management.RuntimeMXBean;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 
 /**
  * Collector for JVM-related diagnostic information.
@@ -70,14 +71,16 @@ public final class JvmInfoCollector {
 
     /**
      * Collects and appends JVM details to the provided StringBuilder.
+     * <p>
+     * Note: This method uses DateTimeFormatter which is thread-safe, unlike SimpleDateFormat.
      *
      * @param report     the StringBuilder to append to
      * @param separator  the separator string to use
-     * @param dateFormat the date format for timestamps
+     * @param dateFormat the date format for timestamps (must be thread-safe DateTimeFormatter)
      */
     public static void appendJvmDetails(@NotNull StringBuilder report,
                                         @NotNull String separator,
-                                        @NotNull SimpleDateFormat dateFormat) {
+                                        @NotNull DateTimeFormatter dateFormat) {
         report.append("\n").append(separator).append("\n");
         report.append("  JVM DETAILS\n");
         report.append(separator).append("\n");
@@ -124,12 +127,14 @@ public final class JvmInfoCollector {
     }
 
     private static void appendRuntimeInfo(@NotNull StringBuilder report,
-                                          @NotNull SimpleDateFormat dateFormat) {
+                                          @NotNull DateTimeFormatter dateFormat) {
         RuntimeMXBean runtime = getRuntimeMxBean();
 
         report.append("\n  Runtime Info:\n");
         report.append("    Uptime     : ").append(formatDuration(runtime.getUptime())).append("\n");
-        report.append("    Start Time : ").append(dateFormat.format(new Date(startTime))).append("\n");
+        // Thread-safe: DateTimeFormatter.format() is thread-safe unlike SimpleDateFormat
+        report.append("    Start Time : ").append(
+            dateFormat.format(Instant.ofEpochMilli(startTime).atZone(ZoneId.systemDefault()))).append("\n");
         report.append("    Processors : ").append(AVAILABLE_PROCESSORS).append("\n");
     }
 

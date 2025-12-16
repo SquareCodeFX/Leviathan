@@ -553,4 +553,287 @@ public interface MessageProvider {
     String paginationNavigationBar(@NotNull java.util.List<Integer> visiblePages, int currentPage, int totalPages,
                                    boolean showStartEllipsis, boolean showEndEllipsis,
                                    @NotNull de.feelix.leviathan.command.pagination.config.PaginationConfig config);
+
+    // Interactive Prompting Messages
+
+    /**
+     * Prefix for interactive prompt messages.
+     *
+     * @return the prompt prefix (e.g., "§e[Interactive] §f")
+     */
+    @NotNull
+    String interactivePromptPrefix();
+
+    /**
+     * Message prompting user for an argument value.
+     *
+     * @param argumentName the name of the argument
+     * @param description  the argument description (may be null)
+     * @return the prompt message
+     */
+    @NotNull
+    String interactivePromptForArgument(@NotNull String argumentName, @NotNull String description);
+
+    /**
+     * Message showing available options during interactive prompting.
+     *
+     * @param options comma-separated list of options
+     * @return the options message
+     */
+    @NotNull
+    String interactivePromptOptions(@NotNull String options);
+
+    /**
+     * Message showing how to cancel an interactive session.
+     *
+     * @param cancelWord the word to type to cancel (e.g., "cancel")
+     * @return the cancel hint message
+     */
+    @NotNull
+    String interactivePromptCancelHint(@NotNull String cancelWord);
+
+    /**
+     * Message when interactive session times out.
+     *
+     * @return the timeout message
+     */
+    @NotNull
+    String interactiveSessionTimeout();
+
+    /**
+     * Message when interactive session is cancelled by user.
+     *
+     * @return the cancelled message
+     */
+    @NotNull
+    String interactiveSessionCancelled();
+
+    /**
+     * Message when a value is accepted during interactive prompting.
+     *
+     * @return the value accepted message
+     */
+    @NotNull
+    String interactiveValueAccepted();
+
+    /**
+     * Message when user tries to skip a required argument.
+     *
+     * @return the skip not allowed message
+     */
+    @NotNull
+    String interactiveSkipNotAllowed();
+
+    /**
+     * Message when all interactive values are collected and command will execute.
+     *
+     * @return the completion message
+     */
+    @NotNull
+    String interactiveSessionComplete();
+
+    /**
+     * Message when user provides invalid input during interactive prompting.
+     *
+     * @return the invalid input message
+     */
+    @NotNull
+    String interactiveInvalidInput();
+
+    // Argument Group Validation Messages
+
+    /**
+     * Message when mutually exclusive arguments are provided together.
+     *
+     * @param groupName   the name of the argument group
+     * @param members     comma-separated list of group members
+     * @param provided    comma-separated list of provided arguments
+     * @return the error message
+     */
+    @NotNull
+    String argumentGroupMutuallyExclusive(@NotNull String groupName, @NotNull String members, @NotNull String provided);
+
+    /**
+     * Message when at least one argument from a group is required but none provided.
+     *
+     * @param groupName the name of the argument group
+     * @param members   comma-separated list of group members
+     * @return the error message
+     */
+    @NotNull
+    String argumentGroupAtLeastOneRequired(@NotNull String groupName, @NotNull String members);
+
+    /**
+     * Message when all arguments in a group are required but only some provided.
+     *
+     * @param groupName the name of the argument group
+     * @param members   comma-separated list of group members
+     * @return the error message
+     */
+    @NotNull
+    String argumentGroupAllRequired(@NotNull String groupName, @NotNull String members);
+
+    // Interactive Prompting Error Messages
+
+    /**
+     * Message when parsing fails during interactive input.
+     *
+     * @param errorMessage the error message from the parser
+     * @return the formatted error message
+     */
+    @NotNull
+    String interactiveParseError(@NotNull String errorMessage);
+
+    /**
+     * Separator between options in interactive prompt (e.g., "§7, §f").
+     *
+     * @return the options separator
+     */
+    @NotNull
+    String interactiveOptionsSeparator();
+
+    // Validation Aggregator Messages
+
+    /**
+     * Header for validation errors list.
+     *
+     * @return the validation errors header
+     */
+    @NotNull
+    String validationErrorsHeader();
+
+    /**
+     * Format a single validation error with field name and message.
+     *
+     * @param fieldName the field/argument name
+     * @param message   the validation error message
+     * @return the formatted error
+     */
+    @NotNull
+    String validationErrorFormat(@NotNull String fieldName, @NotNull String message);
+
+    // Help Formatter Messages
+
+    /**
+     * Header for command help display.
+     *
+     * @param commandPath the full command path
+     * @return the formatted header
+     */
+    @NotNull
+    String helpCommandHeader(@NotNull String commandPath);
+
+    /**
+     * Description line in help display.
+     *
+     * @param description the command description
+     * @return the formatted description
+     */
+    @NotNull
+    String helpDescription(@NotNull String description);
+
+    /**
+     * Usage line in help display.
+     *
+     * @param commandPath  the full command path
+     * @param usagePattern the usage pattern
+     * @return the formatted usage line
+     */
+    @NotNull
+    String helpUsageLine(@NotNull String commandPath, @NotNull String usagePattern);
+
+    /**
+     * Prefix for argument descriptions in help.
+     *
+     * @return the argument prefix (e.g., "§7 - ")
+     */
+    @NotNull
+    String helpArgumentPrefix();
+
+    /**
+     * Hint for getting more help about subcommands.
+     *
+     * @param commandPath the base command path
+     * @return the help hint message
+     */
+    @NotNull
+    String helpSubcommandHint(@NotNull String commandPath);
+
+    // Help Section Headers
+
+    /**
+     * Section header for arguments in help display.
+     *
+     * @return the arguments section header (e.g., "§e§lArguments:")
+     */
+    @NotNull
+    String helpSectionArguments();
+
+    /**
+     * Section header for flags in help display.
+     *
+     * @return the flags section header (e.g., "§e§lFlags:")
+     */
+    @NotNull
+    String helpSectionFlags();
+
+    /**
+     * Section header for options/key-values in help display.
+     *
+     * @return the options section header (e.g., "§e§lOptions:")
+     */
+    @NotNull
+    String helpSectionOptions();
+
+    /**
+     * Indicator for optional arguments/options in help.
+     *
+     * @return the optional indicator (e.g., "§8(optional)")
+     */
+    @NotNull
+    String helpOptionalIndicator();
+
+    /**
+     * Indicator for required arguments/options in help.
+     *
+     * @return the required indicator (e.g., "§c(required)")
+     */
+    @NotNull
+    String helpRequiredIndicator();
+
+    /**
+     * Indicator for default value in help.
+     *
+     * @param defaultValue the default value
+     * @return the default indicator (e.g., "§8(default: value)")
+     */
+    @NotNull
+    String helpDefaultIndicator(@NotNull String defaultValue);
+
+    /**
+     * Separator between argument name and type in help.
+     *
+     * @return the type separator (e.g., " §8- §f")
+     */
+    @NotNull
+    String helpTypeSeparator();
+
+    // Tab Completion Hints
+
+    /**
+     * Format for tab completion hint with description.
+     *
+     * @param description the description text
+     * @return the formatted hint (e.g., " §7(description)")
+     */
+    @NotNull
+    String tabCompletionHint(@NotNull String description);
+
+    /**
+     * Format for tab completion default value indicator.
+     *
+     * @return the default indicator for tab completion (e.g., " §7(default)")
+     */
+    @NotNull
+    String tabCompletionDefaultHint();
 }
