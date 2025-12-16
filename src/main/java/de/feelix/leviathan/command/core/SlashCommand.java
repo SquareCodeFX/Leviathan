@@ -1059,8 +1059,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                     ArgContext argCtx = arg.context();
                     if (argCtx.didYouMean() && !argCtx.completionsPredefined().isEmpty()) {
                         try {
-                            SuggestionEngine.Suggestion suggestion = SuggestionEngine.suggestArgument(token, arg);
-                            if (suggestion.hasMatch()) {
+                            SuggestionEngine.Suggestion suggestion = SuggestionEngine.suggestArgument(token, argCtx.completionsPredefined());
+                            if (suggestion.hasSuggestions()) {
                                 sender.sendMessage(messages.didYouMean(String.join(", ", suggestion.suggestions())));
                             }
                         } catch (Throwable t) {

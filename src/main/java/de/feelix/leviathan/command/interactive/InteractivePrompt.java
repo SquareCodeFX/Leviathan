@@ -293,9 +293,9 @@ public final class InteractivePrompt {
         @SuppressWarnings("unchecked")
         private @Nullable Object parseInput(@NotNull Arg<?> arg, @NotNull String input) {
             try {
-                var result = arg.parser().parse(player, input);
+                var result = arg.parser().parse(input, player);
                 if (result.isSuccess()) {
-                    return result.value();
+                    return result.value().orElse(null);
                 }
                 return null;
             } catch (Exception e) {

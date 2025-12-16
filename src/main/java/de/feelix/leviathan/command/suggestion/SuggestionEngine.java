@@ -2,6 +2,8 @@ package de.feelix.leviathan.command.suggestion;
 
 import de.feelix.leviathan.annotations.NotNull;
 import de.feelix.leviathan.annotations.Nullable;
+import de.feelix.leviathan.command.argument.Arg;
+import de.feelix.leviathan.command.core.SlashCommand;
 import de.feelix.leviathan.util.Preconditions;
 import de.feelix.leviathan.util.StringSimilarity;
 
@@ -9,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Engine for generating "Did you mean...?" suggestions when parsing fails.
@@ -105,6 +108,39 @@ public final class SuggestionEngine {
     }
 
     /**
+     * Generate suggestions for argument values from an Arg's completions.
+     *
+     * @param input the invalid argument value
+     * @param arg   the argument with predefined completions
+     * @return a Suggestion containing similar values
+     */
+    public static @NotNull Suggestion suggestArgument(@NotNull String input, @NotNull Arg<?> arg) {
+        Preconditions.checkNotNull(arg, "arg");
+        List<String> completions = arg.context().completionsPredefined();
+        if (completions.isEmpty()) {
+            return Suggestion.empty(input);
+        }
+        return suggest(input, completions, DEFAULT_MAX_SUGGESTIONS, DEFAULT_MIN_SIMILARITY);
+    }
+
+    /**
+     * Generate suggestions for subcommand names from a parent command.
+     *
+     * @param input         the invalid subcommand input
+     * @param parentCommand the parent command containing subcommands
+     * @return a Suggestion containing similar subcommand names
+     */
+    public static @NotNull Suggestion suggestSubcommand(@NotNull String input,
+                                                         @NotNull SlashCommand parentCommand) {
+        Preconditions.checkNotNull(parentCommand, "parentCommand");
+        Set<String> subcommandNames = parentCommand.subcommands().keySet();
+        if (subcommandNames.isEmpty()) {
+            return Suggestion.empty(input);
+        }
+        return suggest(input, subcommandNames, DEFAULT_MAX_SUGGESTIONS, 0.5);
+    }
+
+    /**
      * Format suggestions as a user-friendly message.
      *
      * @param suggestion the suggestion to format
@@ -142,6 +178,37 @@ public final class SuggestionEngine {
          */
         public boolean hasSuggestions() {
             return !suggestions.isEmpty();
+        }
+
+        /**
+         * Check if there are any suggestions (alias for hasSuggestions).
+         *
+         * @return true if at least one suggestion exists
+         */
+        public boolean hasMatch() {
+            return hasSuggestions();
+        }
+
+        /**
+         * Get suggestions as an immutable set.
+         *
+         * @return a set of suggestions (no duplicates)
+         */
+        public @NotNull Set<String> suggestionsAsSet() {
+            return Set.copyOf(suggestions);
+        }
+
+        /**
+         * Format suggestions with a custom prefix message.
+         *
+         * @param prefix the prefix message (e.g., "Unknown value: foo")
+         * @return formatted message with suggestions appended
+         */
+        public @NotNull String formatMessage(@NotNull String prefix) {
+            if (suggestions.isEmpty()) {
+                return prefix;
+            }
+            return prefix + ". Did you mean: " + formatted() + "?";
         }
 
         /**
