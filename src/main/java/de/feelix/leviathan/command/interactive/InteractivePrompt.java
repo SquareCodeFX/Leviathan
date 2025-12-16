@@ -4,6 +4,8 @@ import de.feelix.leviathan.annotations.NotNull;
 import de.feelix.leviathan.annotations.Nullable;
 import de.feelix.leviathan.command.argument.Arg;
 import de.feelix.leviathan.command.core.CommandContext;
+import de.feelix.leviathan.command.message.DefaultMessageProvider;
+import de.feelix.leviathan.command.message.MessageProvider;
 import de.feelix.leviathan.util.Preconditions;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -61,17 +63,39 @@ public final class InteractivePrompt {
             @NotNull List<Arg<?>> missingArgs,
             @NotNull Consumer<Map<String, Object>> onComplete,
             @NotNull Runnable onCancel) {
+        return startSession(plugin, player, missingArgs, onComplete, onCancel, new DefaultMessageProvider());
+    }
+
+    /**
+     * Start a new interactive prompt session for a player with custom messages.
+     *
+     * @param plugin      the plugin instance
+     * @param player      the player to prompt
+     * @param missingArgs the arguments that need to be collected
+     * @param onComplete  callback when all arguments are collected
+     * @param onCancel    callback when session is cancelled
+     * @param messages    the message provider for customizable messages
+     * @return the created session
+     */
+    public static @NotNull PromptSession startSession(
+            @NotNull JavaPlugin plugin,
+            @NotNull Player player,
+            @NotNull List<Arg<?>> missingArgs,
+            @NotNull Consumer<Map<String, Object>> onComplete,
+            @NotNull Runnable onCancel,
+            @NotNull MessageProvider messages) {
 
         Preconditions.checkNotNull(plugin, "plugin");
         Preconditions.checkNotNull(player, "player");
         Preconditions.checkNotNull(missingArgs, "missingArgs");
         Preconditions.checkNotNull(onComplete, "onComplete");
         Preconditions.checkNotNull(onCancel, "onCancel");
+        Preconditions.checkNotNull(messages, "messages");
 
         // Cancel any existing session
         cancelSession(player);
 
-        PromptSession session = new PromptSession(plugin, player, missingArgs, onComplete, onCancel);
+        PromptSession session = new PromptSession(plugin, player, missingArgs, onComplete, onCancel, messages);
         activeSessions.put(player.getUniqueId(), session);
         session.start();
 
@@ -155,6 +179,7 @@ public final class InteractivePrompt {
         private final List<Arg<?>> missingArgs;
         private final Consumer<Map<String, Object>> onComplete;
         private final Runnable onCancel;
+        private final MessageProvider messages;
         private final Map<String, Object> collectedValues;
         private final long startTime;
         private final long timeoutMillis;
@@ -164,12 +189,14 @@ public final class InteractivePrompt {
         private boolean cancelled = false;
 
         private PromptSession(JavaPlugin plugin, Player player, List<Arg<?>> missingArgs,
-                              Consumer<Map<String, Object>> onComplete, Runnable onCancel) {
+                              Consumer<Map<String, Object>> onComplete, Runnable onCancel,
+                              MessageProvider messages) {
             this.plugin = plugin;
             this.player = player;
             this.missingArgs = new ArrayList<>(missingArgs);
             this.onComplete = onComplete;
             this.onCancel = onCancel;
+            this.messages = messages;
             this.collectedValues = new LinkedHashMap<>();
             this.startTime = System.currentTimeMillis();
             this.timeoutMillis = DEFAULT_TIMEOUT_SECONDS * 1000;
@@ -214,21 +241,16 @@ public final class InteractivePrompt {
          */
         private @NotNull String buildPromptMessage(@NotNull Arg<?> arg) {
             StringBuilder sb = new StringBuilder();
-            sb.append("§e[Interactive] §fPlease enter a value for §b").append(arg.name());
-
-            if (arg.context().description() != null) {
-                sb.append(" §7(").append(arg.context().description()).append(")");
-            }
-
-            sb.append("§f:");
+            String description = arg.context().description() != null ? arg.context().description() : "";
+            sb.append(messages.interactivePromptForArgument(arg.name(), description));
 
             // Show completions if available
             List<String> completions = arg.context().completionsPredefined();
             if (!completions.isEmpty() && completions.size() <= 10) {
-                sb.append("\n§7Options: §f").append(String.join("§7, §f", completions));
+                sb.append("\n").append(messages.interactivePromptOptions(String.join(messages.interactiveOptionsSeparator(), completions)));
             }
 
-            sb.append("\n§7Type '§ccancel§7' to abort.");
+            sb.append("\n").append(messages.interactivePromptCancelHint("cancel"));
 
             return sb.toString();
         }
@@ -258,7 +280,7 @@ public final class InteractivePrompt {
                     promptCurrentArg();
                     return true;
                 } else {
-                    player.sendMessage("§cThis argument is required and cannot be skipped.");
+                    player.sendMessage(messages.interactiveSkipNotAllowed());
                     return true;
                 }
             }
@@ -274,14 +296,14 @@ public final class InteractivePrompt {
                     if (currentArgIndex >= missingArgs.size()) {
                         complete();
                     } else {
-                        player.sendMessage("§a✓ §7Value accepted.");
+                        player.sendMessage(messages.interactiveValueAccepted());
                         promptCurrentArg();
                     }
                 } else {
-                    player.sendMessage("§cInvalid input. Please try again.");
+                    player.sendMessage(messages.interactiveInvalidInput());
                 }
             } catch (Exception e) {
-                player.sendMessage("§cError: " + e.getMessage());
+                player.sendMessage(messages.interactiveParseError(e.getMessage()));
             }
 
             return true;
@@ -309,7 +331,7 @@ public final class InteractivePrompt {
         private void complete() {
             active = false;
             activeSessions.remove(player.getUniqueId());
-            player.sendMessage("§a[Interactive] §fAll values collected. Executing command...");
+            player.sendMessage(messages.interactiveSessionComplete());
             onComplete.accept(collectedValues);
         }
 
@@ -321,7 +343,7 @@ public final class InteractivePrompt {
             cancelled = true;
             active = false;
             activeSessions.remove(player.getUniqueId());
-            player.sendMessage("§c[Interactive] §fSession cancelled.");
+            player.sendMessage(messages.interactiveSessionCancelled());
             onCancel.run();
         }
 
@@ -333,7 +355,7 @@ public final class InteractivePrompt {
             cancelled = true;
             active = false;
             activeSessions.remove(player.getUniqueId());
-            player.sendMessage("§c[Interactive] §fSession timed out.");
+            player.sendMessage(messages.interactiveSessionTimeout());
             onCancel.run();
         }
 

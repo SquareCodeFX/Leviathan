@@ -3,6 +3,8 @@ package de.feelix.leviathan.command.validation;
 import de.feelix.leviathan.annotations.NotNull;
 import de.feelix.leviathan.annotations.Nullable;
 import de.feelix.leviathan.command.core.CommandContext;
+import de.feelix.leviathan.command.message.DefaultMessageProvider;
+import de.feelix.leviathan.command.message.MessageProvider;
 import de.feelix.leviathan.util.Preconditions;
 
 import java.util.*;
@@ -95,6 +97,17 @@ public final class ValidationAggregator {
          */
         public @NotNull String formatColored() {
             return "§c" + fieldName + "§7: §f" + message;
+        }
+
+        /**
+         * Format error string with colors using a MessageProvider.
+         *
+         * @param messages the message provider for formatting
+         * @return formatted error string
+         */
+        public @NotNull String formatColored(@NotNull MessageProvider messages) {
+            Preconditions.checkNotNull(messages, "messages");
+            return messages.validationErrorFormat(fieldName, message);
         }
 
         @Override
@@ -545,29 +558,53 @@ public final class ValidationAggregator {
      * @param sender the sender to send errors to
      */
     public void sendErrors(@NotNull org.bukkit.command.CommandSender sender) {
+        sendErrors(sender, new DefaultMessageProvider());
+    }
+
+    /**
+     * Send all error messages to a command sender using custom messages.
+     *
+     * @param sender   the sender to send errors to
+     * @param messages the message provider for formatting
+     */
+    public void sendErrors(@NotNull org.bukkit.command.CommandSender sender, @NotNull MessageProvider messages) {
         Preconditions.checkNotNull(sender, "sender");
+        Preconditions.checkNotNull(messages, "messages");
         if (errors.isEmpty()) return;
 
-        sender.sendMessage("§c§lValidation Errors:");
+        sender.sendMessage(messages.validationErrorsHeader());
         for (ValidationError error : errors) {
-            sender.sendMessage("  " + error.formatColored());
+            sender.sendMessage("  " + error.formatColored(messages));
         }
     }
 
     /**
-     * Send all error messages with a header.
+     * Send all error messages with a custom header.
      *
      * @param sender the sender to send errors to
      * @param header header message
      */
-    public void sendErrors(@NotNull org.bukkit.command.CommandSender sender, @NotNull String header) {
+    public void sendErrorsWithHeader(@NotNull org.bukkit.command.CommandSender sender, @NotNull String header) {
+        sendErrorsWithHeader(sender, header, new DefaultMessageProvider());
+    }
+
+    /**
+     * Send all error messages with a custom header using custom messages.
+     *
+     * @param sender   the sender to send errors to
+     * @param header   header message
+     * @param messages the message provider for formatting
+     */
+    public void sendErrorsWithHeader(@NotNull org.bukkit.command.CommandSender sender, @NotNull String header,
+                                     @NotNull MessageProvider messages) {
         Preconditions.checkNotNull(sender, "sender");
         Preconditions.checkNotNull(header, "header");
+        Preconditions.checkNotNull(messages, "messages");
         if (errors.isEmpty()) return;
 
         sender.sendMessage(header);
         for (ValidationError error : errors) {
-            sender.sendMessage("  " + error.formatColored());
+            sender.sendMessage("  " + error.formatColored(messages));
         }
     }
 
