@@ -8,6 +8,7 @@ import de.feelix.leviathan.command.argument.ArgumentGroup;
 import de.feelix.leviathan.command.argument.ArgumentParser;
 import de.feelix.leviathan.command.argument.ParseResult;
 import de.feelix.leviathan.command.suggestion.SuggestionEngine;
+import de.feelix.leviathan.command.interactive.InteractivePrompt;
 import de.feelix.leviathan.command.parsing.CommandParseError;
 import de.feelix.leviathan.command.parsing.CommandParseResult;
 import de.feelix.leviathan.command.parsing.ParseOptions;
@@ -736,7 +737,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         Preconditions.checkNotNull(sender, "sender");
         Preconditions.checkNotNull(label, "label");
         Preconditions.checkNotNull(providedArgs, "providedArgs");
-        if (permission != null && !permission.isEmpty() && !sender.hasPermission(permission)) {
+        // Permission cascade: check all permissions from parent commands down to this one
+        if (!hasEffectivePermission(sender)) {
             sendErrorMessage(sender, ErrorType.PERMISSION, messages.noPermission(), null);
             return true;
         }
@@ -1052,15 +1054,14 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                 String errorMsg = messages.invalidArgumentValue(arg.name(), parser.getTypeName(), msg);
                 sendErrorMessage(sender, ErrorType.PARSING, errorMsg, null);
 
-                // Did-You-Mean suggestions (only shown if main error was sent)
+                // Did-You-Mean suggestions using SuggestionEngine (only shown if main error was sent)
                 if (sendErrors) {
                     ArgContext argCtx = arg.context();
                     if (argCtx.didYouMean() && !argCtx.completionsPredefined().isEmpty()) {
                         try {
-                            List<String> suggestions = StringSimilarity.findSimilar(
-                                token, argCtx.completionsPredefined());
-                            if (!suggestions.isEmpty()) {
-                                sender.sendMessage(messages.didYouMean(String.join(", ", suggestions)));
+                            SuggestionEngine.Suggestion suggestion = SuggestionEngine.suggestArgument(token, arg);
+                            if (suggestion.hasMatch()) {
+                                sender.sendMessage(messages.didYouMean(String.join(", ", suggestion.suggestions())));
                             }
                         } catch (Throwable t) {
                             // Silently ignore errors in suggestion generation - it's non-critical
@@ -1081,7 +1082,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                 parsedValue = sanitizeString((String) parsedValue);
             }
 
-            // Apply transformation if transformer is present
+            // Apply transformation if transformer is present (legacy Function-based)
             if (arg.transformer() != null && parsedValue != null) {
                 try {
                     @SuppressWarnings("unchecked")
@@ -1093,6 +1094,23 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                     if (plugin != null) {
                         plugin.getLogger()
                             .severe("Transformation failed for argument '" + arg.name() + "': " + t.getMessage());
+                        logException(t);
+                    }
+                    return true;
+                }
+            }
+
+            // Apply transformers from ArgContext (new Transformer interface)
+            ArgContext argCtxForTransform = arg.context();
+            if (argCtxForTransform.hasTransformers() && parsedValue != null) {
+                try {
+                    parsedValue = argCtxForTransform.applyTransformers(parsedValue);
+                } catch (Throwable t) {
+                    String errorMsg = messages.argumentTransformationError(arg.name());
+                    sendErrorMessage(sender, ErrorType.INTERNAL_ERROR, errorMsg, t);
+                    if (plugin != null) {
+                        plugin.getLogger()
+                            .severe("ArgContext transformation failed for argument '" + arg.name() + "': " + t.getMessage());
                         logException(t);
                     }
                     return true;
@@ -1130,8 +1148,12 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         }
 
         // Validate that all required arguments were provided (accounting for conditions and permissions)
+        // Also collect missing interactive arguments for potential interactive prompting
+        List<Arg<?>> missingInteractiveArgs = new ArrayList<>();
+        boolean hasMissingRequired = false;
+
         for (Arg<?> arg : args) {
-            if (!arg.optional() && !values.containsKey(arg.name())) {
+            if (!values.containsKey(arg.name())) {
                 // Check if this arg was skipped due to condition
                 boolean skippedByCondition = false;
                 if (arg.condition() != null) {
@@ -1144,22 +1166,70 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                 }
 
                 // Check if this arg was skipped due to permission
-                // Note: Required args with missing permission should have already failed during parsing (line 699-704)
-                // This should never be true for required args, but we check for safety
                 boolean skippedByPermission = false;
-                if (arg.optional() && arg.permission() != null && !arg.permission().isEmpty()
+                if (arg.permission() != null && !arg.permission().isEmpty()
                     && !sender.hasPermission(arg.permission())) {
-                    skippedByPermission = true;
+                    skippedByPermission = arg.optional(); // Only skip if optional
                 }
 
-                // If not skipped by condition or permission, it's truly missing
+                // If not skipped, check if it's missing
                 if (!skippedByCondition && !skippedByPermission) {
-                    sendErrorMessage(
-                        sender, ErrorType.USAGE,
-                        messages.insufficientArguments(fullCommandPath(label), usage()), null);
-                    return true;
+                    if (!arg.optional()) {
+                        hasMissingRequired = true;
+                    }
+                    // Collect args with interactive mode enabled
+                    if (arg.context().interactive()) {
+                        missingInteractiveArgs.add(arg);
+                    }
                 }
             }
+        }
+
+        // If there are missing required arguments, try interactive prompting first
+        if (hasMissingRequired) {
+            // Check if interactive prompting is available (sender is Player, plugin is set, has interactive args)
+            if (sender instanceof Player player && plugin != null && !missingInteractiveArgs.isEmpty()) {
+                // Filter to only required missing args that support interactive mode
+                List<Arg<?>> requiredInteractiveArgs = missingInteractiveArgs.stream()
+                    .filter(a -> !a.optional())
+                    .collect(Collectors.toList());
+
+                if (!requiredInteractiveArgs.isEmpty()) {
+                    // Start interactive prompt session
+                    final Map<String, Object> currentValues = new LinkedHashMap<>(values);
+                    final Map<String, Boolean> finalFlagValues = flagValues;
+                    final Map<String, Object> finalKvPairs = keyValuePairs;
+                    final Map<String, List<Object>> finalMultiPairs = multiValuePairs;
+                    final String finalLabel = label;
+
+                    InteractivePrompt.startSession(
+                        plugin,
+                        player,
+                        requiredInteractiveArgs,
+                        collectedValues -> {
+                            // Merge collected values with existing values
+                            currentValues.putAll(collectedValues);
+                            // Re-execute with complete values
+                            CommandContext ctx = new CommandContext(currentValues, finalFlagValues, finalKvPairs, finalMultiPairs, providedArgs, cachedAliasMap);
+                            try {
+                                executeAction(player, ctx, finalLabel);
+                            } catch (Throwable t) {
+                                sendErrorMessage(player, ErrorType.INTERNAL_ERROR, messages.internalError(), t);
+                            }
+                        },
+                        () -> {
+                            // Session cancelled - do nothing
+                        }
+                    );
+                    return true; // Return early - command will continue via interactive session
+                }
+            }
+
+            // No interactive prompting available - show error
+            sendErrorMessage(
+                sender, ErrorType.USAGE,
+                messages.insufficientArguments(fullCommandPath(label), usage()), null);
+            return true;
         }
 
         // Apply default values for missing optional arguments
@@ -1195,6 +1265,47 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                     return true;
                 }
                 if (error != null) {
+                    sendErrorMessage(sender, ErrorType.CROSS_VALIDATION, messages.crossValidationFailed(error), null);
+                    return true;
+                }
+            }
+        }
+
+        // Argument group validation
+        if (!argumentGroups.isEmpty()) {
+            CommandContext groupCtx = new CommandContext(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
+            for (ArgumentGroup group : argumentGroups) {
+                // Count how many members of this group are present
+                int presentCount = 0;
+                List<String> presentNames = new ArrayList<>();
+                for (String memberName : group.memberNames()) {
+                    if (groupCtx.has(memberName) || groupCtx.getFlag(memberName)) {
+                        presentCount++;
+                        presentNames.add(memberName);
+                    }
+                }
+
+                // Check mutually exclusive constraint
+                if (group.isMutuallyExclusive() && presentCount > 1) {
+                    String error = "Arguments in group '" + group.name() + "' are mutually exclusive. Only one of "
+                                   + String.join(", ", group.memberNames()) + " can be provided. Found: "
+                                   + String.join(", ", presentNames);
+                    sendErrorMessage(sender, ErrorType.CROSS_VALIDATION, messages.crossValidationFailed(error), null);
+                    return true;
+                }
+
+                // Check at-least-one constraint
+                if (group.isAtLeastOneRequired() && presentCount == 0) {
+                    String error = "At least one of " + String.join(", ", group.memberNames())
+                                   + " (from group '" + group.name() + "') must be provided.";
+                    sendErrorMessage(sender, ErrorType.CROSS_VALIDATION, messages.crossValidationFailed(error), null);
+                    return true;
+                }
+
+                // Check all-required constraint
+                if (group.isAllRequired() && presentCount > 0 && presentCount < group.memberNames().size()) {
+                    String error = "When using group '" + group.name() + "', all members must be provided: "
+                                   + String.join(", ", group.memberNames());
                     sendErrorMessage(sender, ErrorType.CROSS_VALIDATION, messages.crossValidationFailed(error), null);
                     return true;
                 }
@@ -1445,6 +1556,65 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
             }
         }
         return true;
+    }
+
+    /**
+     * Execute the command action directly with a pre-built context.
+     * This is used by InteractivePrompt to execute the command after all arguments are collected.
+     *
+     * @param sender the command sender
+     * @param ctx    the command context with all values
+     * @param label  the command label
+     */
+    private void executeAction(@NotNull CommandSender sender, @NotNull CommandContext ctx, @NotNull String label) {
+        if (action == null) {
+            return;
+        }
+
+        // Execute before hooks
+        for (ExecutionHook.Before beforeHook : beforeHooks) {
+            try {
+                ExecutionHook.BeforeResult beforeResult = beforeHook.execute(sender, ctx);
+                if (beforeResult != null && beforeResult.shouldAbort()) {
+                    if (beforeResult.message() != null) {
+                        sender.sendMessage(beforeResult.message());
+                    }
+                    return;
+                }
+            } catch (Throwable t) {
+                sendErrorMessage(sender, ErrorType.INTERNAL_ERROR, messages.internalError(), t);
+                return;
+            }
+        }
+
+        long startTime = System.currentTimeMillis();
+        boolean executionSuccess = false;
+        Throwable executionException = null;
+
+        try {
+            action.execute(sender, ctx);
+            executionSuccess = true;
+        } catch (Throwable t) {
+            executionException = (t.getCause() != null) ? t.getCause() : t;
+            sendErrorMessage(sender, ErrorType.EXECUTION, messages.executionError(), executionException);
+        } finally {
+            // Execute after hooks
+            long executionTime = System.currentTimeMillis() - startTime;
+            ExecutionHook.AfterContext afterContext = executionSuccess
+                ? ExecutionHook.AfterContext.success(executionTime)
+                : ExecutionHook.AfterContext.failure(executionException, executionTime);
+
+            for (ExecutionHook.After afterHook : afterHooks) {
+                try {
+                    afterHook.execute(sender, ctx, afterContext);
+                } catch (Throwable t) {
+                    if (plugin != null) {
+                        plugin.getLogger()
+                            .warning("After hook threw an exception for command '" + name + "': " + t.getMessage());
+                    }
+                }
+            }
+        }
     }
 
     // ==================== Parse-Only Methods ====================
