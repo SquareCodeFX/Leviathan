@@ -247,7 +247,7 @@ public final class InteractivePrompt {
             // Show completions if available
             List<String> completions = arg.context().completionsPredefined();
             if (!completions.isEmpty() && completions.size() <= 10) {
-                sb.append("\n").append(messages.interactivePromptOptions(String.join("§7, §f", completions)));
+                sb.append("\n").append(messages.interactivePromptOptions(String.join(messages.interactiveOptionsSeparator(), completions)));
             }
 
             sb.append("\n").append(messages.interactivePromptCancelHint("cancel"));
@@ -303,7 +303,7 @@ public final class InteractivePrompt {
                     player.sendMessage(messages.interactiveInvalidInput());
                 }
             } catch (Exception e) {
-                player.sendMessage("§cError: " + e.getMessage());
+                player.sendMessage(messages.interactiveParseError(e.getMessage()));
             }
 
             return true;

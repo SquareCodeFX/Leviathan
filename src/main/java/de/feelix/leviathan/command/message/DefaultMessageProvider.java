@@ -488,4 +488,55 @@ public class DefaultMessageProvider implements MessageProvider {
     public @NotNull String argumentGroupAllRequired(@NotNull String groupName, @NotNull String members) {
         return "§cWhen using group '§f" + groupName + "§c', all members must be provided: §f" + members;
     }
+
+    // Interactive Prompting Error Messages
+
+    @Override
+    public @NotNull String interactiveParseError(@NotNull String errorMessage) {
+        return "§cError: " + errorMessage;
+    }
+
+    @Override
+    public @NotNull String interactiveOptionsSeparator() {
+        return "§7, §f";
+    }
+
+    // Validation Aggregator Messages
+
+    @Override
+    public @NotNull String validationErrorsHeader() {
+        return "§c§lValidation Errors:";
+    }
+
+    @Override
+    public @NotNull String validationErrorFormat(@NotNull String fieldName, @NotNull String message) {
+        return "§c" + fieldName + "§7: §f" + message;
+    }
+
+    // Help Formatter Messages
+
+    @Override
+    public @NotNull String helpCommandHeader(@NotNull String commandPath) {
+        return "§6§l" + commandPath.toUpperCase() + "§r\n";
+    }
+
+    @Override
+    public @NotNull String helpDescription(@NotNull String description) {
+        return "§7" + description + "\n";
+    }
+
+    @Override
+    public @NotNull String helpUsageLine(@NotNull String commandPath, @NotNull String usagePattern) {
+        return "§eUsage: §f/" + commandPath + " " + usagePattern + "\n";
+    }
+
+    @Override
+    public @NotNull String helpArgumentPrefix() {
+        return "§7 - ";
+    }
+
+    @Override
+    public @NotNull String helpSubcommandHint(@NotNull String commandPath) {
+        return "§8Use /" + commandPath + " help <subcommand> for more info";
+    }
 }

@@ -672,4 +672,90 @@ public interface MessageProvider {
      */
     @NotNull
     String argumentGroupAllRequired(@NotNull String groupName, @NotNull String members);
+
+    // Interactive Prompting Error Messages
+
+    /**
+     * Message when parsing fails during interactive input.
+     *
+     * @param errorMessage the error message from the parser
+     * @return the formatted error message
+     */
+    @NotNull
+    String interactiveParseError(@NotNull String errorMessage);
+
+    /**
+     * Separator between options in interactive prompt (e.g., "§7, §f").
+     *
+     * @return the options separator
+     */
+    @NotNull
+    String interactiveOptionsSeparator();
+
+    // Validation Aggregator Messages
+
+    /**
+     * Header for validation errors list.
+     *
+     * @return the validation errors header
+     */
+    @NotNull
+    String validationErrorsHeader();
+
+    /**
+     * Format a single validation error with field name and message.
+     *
+     * @param fieldName the field/argument name
+     * @param message   the validation error message
+     * @return the formatted error
+     */
+    @NotNull
+    String validationErrorFormat(@NotNull String fieldName, @NotNull String message);
+
+    // Help Formatter Messages
+
+    /**
+     * Header for command help display.
+     *
+     * @param commandPath the full command path
+     * @return the formatted header
+     */
+    @NotNull
+    String helpCommandHeader(@NotNull String commandPath);
+
+    /**
+     * Description line in help display.
+     *
+     * @param description the command description
+     * @return the formatted description
+     */
+    @NotNull
+    String helpDescription(@NotNull String description);
+
+    /**
+     * Usage line in help display.
+     *
+     * @param commandPath  the full command path
+     * @param usagePattern the usage pattern
+     * @return the formatted usage line
+     */
+    @NotNull
+    String helpUsageLine(@NotNull String commandPath, @NotNull String usagePattern);
+
+    /**
+     * Prefix for argument descriptions in help.
+     *
+     * @return the argument prefix (e.g., "§7 - ")
+     */
+    @NotNull
+    String helpArgumentPrefix();
+
+    /**
+     * Hint for getting more help about subcommands.
+     *
+     * @param commandPath the base command path
+     * @return the help hint message
+     */
+    @NotNull
+    String helpSubcommandHint(@NotNull String commandPath);
 }
