@@ -1617,7 +1617,7 @@ public final class SlashCommandBuilder {
      */
     public @NotNull SlashCommandBuilder require(@NotNull Class<? extends CommandSender> type) {
         Preconditions.checkNotNull(type, "type");
-        final MessageProvider msgProvider = this.messages;
+        final MessageProvider msgProvider = this.messages != null ? this.messages : new DefaultMessageProvider();
         this.guards.add(new Guard() {
             @Override
             public boolean test(@NotNull CommandSender sender) {
@@ -1626,10 +1626,7 @@ public final class SlashCommandBuilder {
 
             @Override
             public @NotNull String errorMessage() {
-                if (msgProvider != null) {
-                    return msgProvider.requiresType(type.getSimpleName());
-                }
-                return "§cThis command requires a " + type.getSimpleName() + ".";
+                return msgProvider.requiresType(type.getSimpleName());
             }
         });
         return this;
