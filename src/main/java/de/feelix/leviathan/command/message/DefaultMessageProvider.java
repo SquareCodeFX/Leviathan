@@ -539,4 +539,53 @@ public class DefaultMessageProvider implements MessageProvider {
     public @NotNull String helpSubcommandHint(@NotNull String commandPath) {
         return "§8Use /" + commandPath + " help <subcommand> for more info";
     }
+
+    // Help Section Headers
+
+    @Override
+    public @NotNull String helpSectionArguments() {
+        return "§e§lArguments:";
+    }
+
+    @Override
+    public @NotNull String helpSectionFlags() {
+        return "§e§lFlags:";
+    }
+
+    @Override
+    public @NotNull String helpSectionOptions() {
+        return "§e§lOptions:";
+    }
+
+    @Override
+    public @NotNull String helpOptionalIndicator() {
+        return "§8(optional)";
+    }
+
+    @Override
+    public @NotNull String helpRequiredIndicator() {
+        return "§c(required)";
+    }
+
+    @Override
+    public @NotNull String helpDefaultIndicator(@NotNull String defaultValue) {
+        return "§8(default: " + defaultValue + ")";
+    }
+
+    @Override
+    public @NotNull String helpTypeSeparator() {
+        return " §8- §f";
+    }
+
+    // Tab Completion Hints
+
+    @Override
+    public @NotNull String tabCompletionHint(@NotNull String description) {
+        return " §7(" + description + ")";
+    }
+
+    @Override
+    public @NotNull String tabCompletionDefaultHint() {
+        return " §7(default)";
+    }
 }

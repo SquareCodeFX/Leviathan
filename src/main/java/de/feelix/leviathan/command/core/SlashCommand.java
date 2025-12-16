@@ -3136,7 +3136,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         }
 
         if (!visibleArgs.isEmpty()) {
-            help.append("\n\n§e§lArguments:");
+            help.append("\n\n").append(messages.helpSectionArguments());
             for (Arg<?> arg : visibleArgs) {
                 help.append("\n  §7");
                 if (arg.optional()) {
@@ -3144,9 +3144,9 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                 } else {
                     help.append("<").append(arg.name()).append(">");
                 }
-                help.append(" §8- §f").append(arg.parser().getTypeName());
+                help.append(messages.helpTypeSeparator()).append(arg.parser().getTypeName());
                 if (arg.description() != null && !arg.description().isEmpty()) {
-                    help.append(" §7- ").append(arg.description());
+                    help.append(messages.helpArgumentPrefix()).append(arg.description());
                 }
             }
         }
@@ -3160,7 +3160,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         }
 
         if (!visibleFlags.isEmpty()) {
-            help.append("\n\n§e§lFlags:");
+            help.append("\n\n").append(messages.helpSectionFlags());
             for (Flag flag : visibleFlags) {
                 help.append("\n  §7");
                 if (flag.shortForm() != null) {
@@ -3173,7 +3173,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                     help.append("--").append(flag.longForm());
                 }
                 if (flag.description() != null && !flag.description().isEmpty()) {
-                    help.append(" §8- §f").append(flag.description());
+                    help.append(messages.helpTypeSeparator()).append(flag.description());
                 }
             }
         }
@@ -3187,17 +3187,17 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         }
 
         if (!visibleKeyValues.isEmpty()) {
-            help.append("\n\n§e§lOptions:");
+            help.append("\n\n").append(messages.helpSectionOptions());
             for (KeyValue<?> kv : visibleKeyValues) {
                 help.append("\n  §7--").append(kv.key()).append("=<value>");
                 if (!kv.required()) {
                     if (kv.defaultValue() != null) {
-                        help.append(" §8(default: ").append(kv.defaultValue()).append(")");
+                        help.append(" ").append(messages.helpDefaultIndicator(String.valueOf(kv.defaultValue())));
                     } else {
-                        help.append(" §8(optional)");
+                        help.append(" ").append(messages.helpOptionalIndicator());
                     }
                 } else {
-                    help.append(" §c(required)");
+                    help.append(" ").append(messages.helpRequiredIndicator());
                 }
                 if (kv.description() != null && !kv.description().isEmpty()) {
                     help.append("\n    §f").append(kv.description());

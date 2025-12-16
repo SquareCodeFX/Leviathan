@@ -758,4 +758,82 @@ public interface MessageProvider {
      */
     @NotNull
     String helpSubcommandHint(@NotNull String commandPath);
+
+    // Help Section Headers
+
+    /**
+     * Section header for arguments in help display.
+     *
+     * @return the arguments section header (e.g., "§e§lArguments:")
+     */
+    @NotNull
+    String helpSectionArguments();
+
+    /**
+     * Section header for flags in help display.
+     *
+     * @return the flags section header (e.g., "§e§lFlags:")
+     */
+    @NotNull
+    String helpSectionFlags();
+
+    /**
+     * Section header for options/key-values in help display.
+     *
+     * @return the options section header (e.g., "§e§lOptions:")
+     */
+    @NotNull
+    String helpSectionOptions();
+
+    /**
+     * Indicator for optional arguments/options in help.
+     *
+     * @return the optional indicator (e.g., "§8(optional)")
+     */
+    @NotNull
+    String helpOptionalIndicator();
+
+    /**
+     * Indicator for required arguments/options in help.
+     *
+     * @return the required indicator (e.g., "§c(required)")
+     */
+    @NotNull
+    String helpRequiredIndicator();
+
+    /**
+     * Indicator for default value in help.
+     *
+     * @param defaultValue the default value
+     * @return the default indicator (e.g., "§8(default: value)")
+     */
+    @NotNull
+    String helpDefaultIndicator(@NotNull String defaultValue);
+
+    /**
+     * Separator between argument name and type in help.
+     *
+     * @return the type separator (e.g., " §8- §f")
+     */
+    @NotNull
+    String helpTypeSeparator();
+
+    // Tab Completion Hints
+
+    /**
+     * Format for tab completion hint with description.
+     *
+     * @param description the description text
+     * @return the formatted hint (e.g., " §7(description)")
+     */
+    @NotNull
+    String tabCompletionHint(@NotNull String description);
+
+    /**
+     * Format for tab completion default value indicator.
+     *
+     * @return the default indicator for tab completion (e.g., " §7(default)")
+     */
+    @NotNull
+    String tabCompletionDefaultHint();
 }
