@@ -53,6 +53,8 @@ public final class ChoiceArg<T> {
     private final boolean caseSensitive;
     private final String description;
     private final ArgumentParser<T> parser;
+    // Pre-built lowercase lookup for O(1) case-insensitive matching
+    private final Map<String, Choice<T>> lowerCaseChoices;
 
     private ChoiceArg(Builder<T> builder) {
         this.name = builder.name;
@@ -60,6 +62,18 @@ public final class ChoiceArg<T> {
         this.choiceKeys = Collections.unmodifiableList(new ArrayList<>(builder.choices.keySet()));
         this.caseSensitive = builder.caseSensitive;
         this.description = builder.description;
+
+        // Build lowercase lookup map for efficient case-insensitive matching
+        if (!caseSensitive) {
+            Map<String, Choice<T>> lowerMap = new HashMap<>();
+            for (Map.Entry<String, Choice<T>> entry : builder.choices.entrySet()) {
+                lowerMap.put(entry.getKey().toLowerCase(Locale.ROOT), entry.getValue());
+            }
+            this.lowerCaseChoices = Collections.unmodifiableMap(lowerMap);
+        } else {
+            this.lowerCaseChoices = null;
+        }
+
         this.parser = createParser();
     }
 
@@ -276,13 +290,8 @@ public final class ChoiceArg<T> {
         if (caseSensitive) {
             return choices.get(key);
         }
-        String lowerKey = key.toLowerCase(Locale.ROOT);
-        for (Map.Entry<String, Choice<T>> entry : choices.entrySet()) {
-            if (entry.getKey().toLowerCase(Locale.ROOT).equals(lowerKey)) {
-                return entry.getValue();
-            }
-        }
-        return null;
+        // Use pre-built lowercase map for O(1) lookup instead of O(n) linear search
+        return lowerCaseChoices.get(key.toLowerCase(Locale.ROOT));
     }
 
     private ArgumentParser<T> createParser() {
