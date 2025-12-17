@@ -72,6 +72,18 @@ public final class ChoiceArg<T> {
         }
         this.caseSensitive = builder.caseSensitive;
         this.description = builder.description;
+
+        // Build lowercase lookup map for efficient case-insensitive matching
+        if (!caseSensitive) {
+            Map<String, Choice<T>> lowerMap = new HashMap<>();
+            for (Map.Entry<String, Choice<T>> entry : builder.choices.entrySet()) {
+                lowerMap.put(entry.getKey().toLowerCase(Locale.ROOT), entry.getValue());
+            }
+            this.lowerCaseChoices = Collections.unmodifiableMap(lowerMap);
+        } else {
+            this.lowerCaseChoices = null;
+        }
+
         this.parser = createParser();
     }
 

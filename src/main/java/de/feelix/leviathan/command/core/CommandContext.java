@@ -85,6 +85,57 @@ public final class CommandContext {
     }
 
     /**
+     * Create a lightweight context for internal use (validation, conditions).
+     * This avoids defensive copying for performance when the context is short-lived
+     * and the source maps won't be modified.
+     * <p>
+     * <b>Warning:</b> Only use this for internal, short-lived contexts where the
+     * source maps are guaranteed not to be modified during the context's lifetime.
+     *
+     * @param values         parsed positional argument values (not copied)
+     * @param flagValues     parsed flag values (not copied)
+     * @param keyValuePairs  parsed key-value pairs (not copied)
+     * @param multiValuePairs parsed multi-value pairs (not copied)
+     * @param rawArgs        raw argument tokens (not copied)
+     * @param aliasToNameMap mapping of aliases to primary names (not copied)
+     * @return a lightweight context wrapping the provided maps directly
+     */
+    static CommandContext createInternal(@NotNull Map<String, Object> values,
+                                         @NotNull Map<String, Boolean> flagValues,
+                                         @NotNull Map<String, Object> keyValuePairs,
+                                         @NotNull Map<String, List<Object>> multiValuePairs,
+                                         @NotNull String[] rawArgs,
+                                         @NotNull Map<String, String> aliasToNameMap) {
+        return new CommandContext(values, flagValues, keyValuePairs, multiValuePairs, rawArgs, aliasToNameMap, false);
+    }
+
+    // Private constructor for internal lightweight contexts
+    private CommandContext(@NotNull Map<String, Object> values,
+                           @NotNull Map<String, Boolean> flagValues,
+                           @NotNull Map<String, Object> keyValuePairs,
+                           @NotNull Map<String, List<Object>> multiValuePairs,
+                           @NotNull String[] rawArgs,
+                           @NotNull Map<String, String> aliasToNameMap,
+                           boolean defensiveCopy) {
+        if (defensiveCopy) {
+            this.values = Map.copyOf(Preconditions.checkNotNull(values, "values"));
+            this.flagValues = Map.copyOf(Preconditions.checkNotNull(flagValues, "flagValues"));
+            this.keyValuePairs = Map.copyOf(Preconditions.checkNotNull(keyValuePairs, "keyValuePairs"));
+            this.multiValuePairs = Map.copyOf(Preconditions.checkNotNull(multiValuePairs, "multiValuePairs"));
+            this.rawArgs = Preconditions.checkNotNull(rawArgs, "rawArgs").clone();
+            this.aliasToNameMap = Map.copyOf(Preconditions.checkNotNull(aliasToNameMap, "aliasToNameMap"));
+        } else {
+            // Lightweight: wrap directly without copying (for internal short-lived contexts)
+            this.values = Collections.unmodifiableMap(Preconditions.checkNotNull(values, "values"));
+            this.flagValues = Collections.unmodifiableMap(Preconditions.checkNotNull(flagValues, "flagValues"));
+            this.keyValuePairs = Collections.unmodifiableMap(Preconditions.checkNotNull(keyValuePairs, "keyValuePairs"));
+            this.multiValuePairs = Collections.unmodifiableMap(Preconditions.checkNotNull(multiValuePairs, "multiValuePairs"));
+            this.rawArgs = Preconditions.checkNotNull(rawArgs, "rawArgs"); // No clone for internal use
+            this.aliasToNameMap = Collections.unmodifiableMap(Preconditions.checkNotNull(aliasToNameMap, "aliasToNameMap"));
+        }
+    }
+
+    /**
      * Resolve an argument name or alias to the primary name.
      * If the given name is an alias, returns the primary name.
      * If not an alias, returns the original name.

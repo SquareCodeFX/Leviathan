@@ -7,6 +7,7 @@ import de.feelix.leviathan.exceptions.ParsingException;
 import org.bukkit.command.CommandSender;
 
 import java.util.*;
+import java.util.regex.Pattern;
 
 /**
  * Parser for extracting flags and key-value pairs from command arguments.
@@ -394,8 +395,9 @@ public final class FlagAndKeyValueParser {
 
         if (kv.multipleValues()) {
             // Split by separator and parse each value
-            // Use Pattern.quote to handle regex special characters in separator
-            String[] parts = value.split(java.util.regex.Pattern.quote(kv.valueSeparator()));
+            // Use pre-compiled pattern for performance (avoids repeated Pattern.quote() calls)
+            Pattern separatorPattern = separatorPatterns.get(kv.name());
+            String[] parts = separatorPattern != null ? separatorPattern.split(value) : new String[]{value};
             List<Object> parsedValues = new ArrayList<>();
 
             // If this key already has values (e.g., from defaults), append to them
