@@ -205,6 +205,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
     private final boolean debugMode;
     final List<Flag> flags;
     final List<KeyValue<?>> keyValues;
+    // Cached parser instance to avoid rebuilding HashMap caches on every execute()
+    private final FlagAndKeyValueParser cachedFlagKvParser;
     private final boolean awaitConfirmation;
     private final List<ExecutionHook.Before> beforeHooks;
     private final List<ExecutionHook.After> afterHooks;
@@ -616,6 +618,10 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         this.debugMode = debugMode;
         this.flags = List.copyOf(flags == null ? List.of() : flags);
         this.keyValues = List.copyOf(keyValues == null ? List.of() : keyValues);
+        // Cache the parser to avoid rebuilding internal HashMap caches on every execute()
+        this.cachedFlagKvParser = (!this.flags.isEmpty() || !this.keyValues.isEmpty())
+            ? new FlagAndKeyValueParser(this.flags, this.keyValues)
+            : null;
         this.awaitConfirmation = awaitConfirmation;
         this.beforeHooks = List.copyOf(beforeHooks == null ? List.of() : beforeHooks);
         this.afterHooks = List.copyOf(afterHooks == null ? List.of() : afterHooks);
@@ -965,7 +971,10 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         // Auto help: display help message when enabled and no arguments provided
         if (enableHelp && processedArgs.length == 0) {
             // Show help if command has subcommands or required arguments
-            int required = (int) args.stream().filter(a -> !a.optional()).count();
+            int required = 0;
+            for (Arg<?> arg : args) {
+                if (!arg.optional()) required++;
+            }
             if (!subcommands.isEmpty() || required > 0) {
                 generateHelpMessage(label, 1, sender);
                 return true;
@@ -1037,9 +1046,9 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         Map<String, List<Object>> multiValuePairs = Collections.emptyMap();
         String[] positionalArgs = processedArgs;
 
-        if (!flags.isEmpty() || !keyValues.isEmpty()) {
-            FlagAndKeyValueParser flagKvParser = new FlagAndKeyValueParser(flags, keyValues);
-            FlagAndKeyValueParser.ParsedResult flagKvResult = flagKvParser.parse(processedArgs, sender);
+        if (cachedFlagKvParser != null) {
+            // Use cached parser to avoid rebuilding internal HashMap caches
+            FlagAndKeyValueParser.ParsedResult flagKvResult = cachedFlagKvParser.parse(processedArgs, sender);
 
             if (!flagKvResult.isSuccess()) {
                 // Report first error from flag/key-value parsing

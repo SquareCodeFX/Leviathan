@@ -88,11 +88,17 @@ public final class CommandContext {
      * Resolve an argument name or alias to the primary name.
      * If the given name is an alias, returns the primary name.
      * If not an alias, returns the original name.
+     * <p>
+     * Optimized with fast-path: skips HashMap lookup when no aliases are defined (common case).
      *
      * @param nameOrAlias the name or alias to resolve
      * @return the primary argument name
      */
     private @NotNull String resolveName(@NotNull String nameOrAlias) {
+        // Fast-path: skip lookup when no aliases are defined (most commands don't use aliases)
+        if (aliasToNameMap.isEmpty()) {
+            return nameOrAlias;
+        }
         String resolved = aliasToNameMap.get(nameOrAlias);
         return resolved != null ? resolved : nameOrAlias;
     }
@@ -810,10 +816,13 @@ public final class CommandContext {
     @SuppressWarnings("unchecked")
     public @NotNull <T> Optional<T> getFirstByType(@NotNull Class<T> type) {
         Preconditions.checkNotNull(type, "type");
-        return values.values().stream()
-            .filter(type::isInstance)
-            .map(o -> (T) o)
-            .findFirst();
+        // Optimized: simple loop instead of stream for small collections
+        for (Object value : values.values()) {
+            if (type.isInstance(value)) {
+                return Optional.of((T) value);
+            }
+        }
+        return Optional.empty();
     }
 
     /**
@@ -826,10 +835,14 @@ public final class CommandContext {
     @SuppressWarnings("unchecked")
     public @NotNull <T> List<T> getAllByType(@NotNull Class<T> type) {
         Preconditions.checkNotNull(type, "type");
-        return values.values().stream()
-            .filter(type::isInstance)
-            .map(o -> (T) o)
-            .collect(Collectors.toList());
+        // Optimized: simple loop instead of stream for small collections
+        List<T> result = new ArrayList<>();
+        for (Object value : values.values()) {
+            if (type.isInstance(value)) {
+                result.add((T) value);
+            }
+        }
+        return result;
     }
 
     /**
