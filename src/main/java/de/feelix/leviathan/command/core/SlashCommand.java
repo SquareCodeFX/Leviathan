@@ -50,6 +50,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.*;
+import java.util.regex.Pattern;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -81,6 +82,9 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
     // Lazy cleanup for confirmations
     private static final java.util.concurrent.atomic.AtomicLong confirmationOpCount = new java.util.concurrent.atomic.AtomicLong(0);
     private static final int CONFIRMATION_CLEANUP_INTERVAL = 20; // Clean every N operations
+
+    // Cached regex pattern for whitespace normalization (avoids recompilation on every call)
+    private static final Pattern WHITESPACE_PATTERN = Pattern.compile("\\s+");
 
     /**
      * Clean up expired confirmation entries.
@@ -628,6 +632,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
     /**
      * Sanitizes a string input by removing or escaping potentially dangerous characters.
      * This helps prevent injection attacks (SQL, command, XSS) when processing user input.
+     * <p>
+     * Optimized to perform sanitization, trimming, and whitespace collapsing in a single pass.
      *
      * @param input the raw input string to sanitize
      * @return the sanitized string
@@ -638,6 +644,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         }
 
         StringBuilder result = new StringBuilder(input.length());
+        boolean lastWasSpace = true; // Start true to skip leading spaces (trim)
+
         for (int i = 0; i < input.length(); i++) {
             char c = input.charAt(i);
             switch (c) {
@@ -676,36 +684,53 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                 // Escape HTML/XML special characters
                 case '<':
                     result.append("&lt;");
+                    lastWasSpace = false;
                     break;
                 case '>':
                     result.append("&gt;");
+                    lastWasSpace = false;
                     break;
                 case '&':
                     result.append("&amp;");
+                    lastWasSpace = false;
                     break;
                 case '"':
                     result.append("&quot;");
+                    lastWasSpace = false;
                     break;
                 case '\'':
                     result.append("&#39;");
+                    lastWasSpace = false;
                     break;
                 // Escape backslash
                 case '\\':
                     result.append("\\\\");
+                    lastWasSpace = false;
                     break;
-                // Allow tabs and newlines but normalize multiple spaces
+                // Normalize whitespace: tabs, newlines, carriage returns, and spaces
                 case '\t':
                 case '\n':
                 case '\r':
-                    result.append(' ');
+                case ' ':
+                    // Collapse consecutive whitespace into a single space
+                    if (!lastWasSpace) {
+                        result.append(' ');
+                        lastWasSpace = true;
+                    }
                     break;
                 default:
                     result.append(c);
+                    lastWasSpace = false;
             }
         }
 
-        // Trim and collapse multiple consecutive spaces
-        return result.toString().trim().replaceAll("\\s+", " ");
+        // Remove trailing space (trim)
+        int len = result.length();
+        if (len > 0 && result.charAt(len - 1) == ' ') {
+            result.setLength(len - 1);
+        }
+
+        return result.toString();
     }
 
     /**

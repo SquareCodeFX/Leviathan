@@ -134,6 +134,12 @@ public final class FlagAndKeyValueParser {
     private final List<Flag> flags;
     private final List<KeyValue<?>> keyValues;
 
+    // Cached lookups for O(1) flag/key-value access (built once at construction time)
+    private final Map<Character, Flag> shortFormCache;
+    private final Map<String, Flag> longFormCache;        // lowercase keys
+    private final Map<String, Flag> negatedLongFormCache; // lowercase keys
+    private final Map<String, KeyValue<?>> keyValueCache; // lowercase keys
+
     /**
      * Create a new parser with the given flags and key-values.
      *
@@ -143,6 +149,28 @@ public final class FlagAndKeyValueParser {
     public FlagAndKeyValueParser(@NotNull List<Flag> flags, @NotNull List<KeyValue<?>> keyValues) {
         this.flags = new ArrayList<>(flags);
         this.keyValues = new ArrayList<>(keyValues);
+
+        // Build cached lookup maps for O(1) access instead of O(n) linear search
+        this.shortFormCache = new HashMap<>();
+        this.longFormCache = new HashMap<>();
+        this.negatedLongFormCache = new HashMap<>();
+
+        for (Flag flag : flags) {
+            if (flag.shortForm() != null) {
+                shortFormCache.put(flag.shortForm(), flag);
+            }
+            if (flag.longForm() != null) {
+                longFormCache.put(flag.longForm().toLowerCase(java.util.Locale.ROOT), flag);
+                if (flag.supportsNegation()) {
+                    negatedLongFormCache.put(("no-" + flag.longForm()).toLowerCase(java.util.Locale.ROOT), flag);
+                }
+            }
+        }
+
+        this.keyValueCache = new HashMap<>();
+        for (KeyValue<?> kv : keyValues) {
+            keyValueCache.put(kv.key().toLowerCase(java.util.Locale.ROOT), kv);
+        }
     }
 
     /**
@@ -450,50 +478,34 @@ public final class FlagAndKeyValueParser {
 
     /**
      * Find a flag by its short form character.
+     * Uses O(1) HashMap lookup instead of O(n) linear search.
      */
     private @Nullable Flag findFlagByShortForm(char c) {
-        for (Flag flag : flags) {
-            if (flag.matchesShort(c)) {
-                return flag;
-            }
-        }
-        return null;
+        return shortFormCache.get(c);
     }
 
     /**
      * Find a flag by its long form string.
+     * Uses O(1) HashMap lookup instead of O(n) linear search.
      */
     private @Nullable Flag findFlagByLongForm(@NotNull String form) {
-        for (Flag flag : flags) {
-            if (flag.matchesLong(form)) {
-                return flag;
-            }
-        }
-        return null;
+        return longFormCache.get(form.toLowerCase(java.util.Locale.ROOT));
     }
 
     /**
      * Find a flag by its negated long form string (no-xxx).
+     * Uses O(1) HashMap lookup instead of O(n) linear search.
      */
     private @Nullable Flag findFlagByNegatedLongForm(@NotNull String form) {
-        for (Flag flag : flags) {
-            if (flag.matchesNegatedLong(form)) {
-                return flag;
-            }
-        }
-        return null;
+        return negatedLongFormCache.get(form.toLowerCase(java.util.Locale.ROOT));
     }
 
     /**
      * Find a key-value by its key string.
+     * Uses O(1) HashMap lookup instead of O(n) linear search.
      */
     private @Nullable KeyValue<?> findKeyValueByKey(@NotNull String key) {
-        for (KeyValue<?> kv : keyValues) {
-            if (kv.matchesKey(key)) {
-                return kv;
-            }
-        }
-        return null;
+        return keyValueCache.get(key.toLowerCase(java.util.Locale.ROOT));
     }
 
     /**

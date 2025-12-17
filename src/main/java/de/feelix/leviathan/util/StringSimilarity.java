@@ -36,6 +36,20 @@ public final class StringSimilarity {
      * @return the Levenshtein distance
      */
     public static int levenshteinDistance(@NotNull String s1, @NotNull String s2) {
+        return levenshteinDistanceWithThreshold(s1, s2, Integer.MAX_VALUE);
+    }
+
+    /**
+     * Calculate the Levenshtein distance with early termination if distance exceeds threshold.
+     * This optimization significantly improves performance when searching for similar strings,
+     * as it avoids computing the full distance matrix when a string is clearly dissimilar.
+     *
+     * @param s1        first string
+     * @param s2        second string
+     * @param threshold maximum distance threshold; if exceeded, returns threshold + 1
+     * @return the Levenshtein distance, or threshold + 1 if distance exceeds threshold
+     */
+    public static int levenshteinDistanceWithThreshold(@NotNull String s1, @NotNull String s2, int threshold) {
         Preconditions.checkNotNull(s1, "s1");
         Preconditions.checkNotNull(s2, "s2");
 
@@ -49,6 +63,11 @@ public final class StringSimilarity {
         int len1 = lower1.length();
         int len2 = lower2.length();
 
+        // Early termination: if length difference exceeds threshold, they can't be similar enough
+        if (Math.abs(len1 - len2) > threshold) {
+            return threshold + 1;
+        }
+
         if (len1 == 0) return len2;
         if (len2 == 0) return len1;
 
@@ -60,16 +79,26 @@ public final class StringSimilarity {
             prev[j] = j;
         }
 
-        // Calculate distances
+        // Calculate distances with early termination
         for (int i = 1; i <= len1; i++) {
             curr[0] = i;
+            int rowMin = curr[0]; // Track minimum value in current row
+
             for (int j = 1; j <= len2; j++) {
                 int cost = (lower1.charAt(i - 1) == lower2.charAt(j - 1)) ? 0 : 1;
                 curr[j] = Math.min(
                     Math.min(curr[j - 1] + 1, prev[j] + 1),
                     prev[j - 1] + cost
                 );
+                rowMin = Math.min(rowMin, curr[j]);
             }
+
+            // Early termination: if minimum in row exceeds threshold, no path can lead to
+            // a distance <= threshold
+            if (rowMin > threshold) {
+                return threshold + 1;
+            }
+
             // Swap arrays
             int[] temp = prev;
             prev = curr;
@@ -100,6 +129,9 @@ public final class StringSimilarity {
 
     /**
      * Find the most similar strings from a list of candidates.
+     * <p>
+     * Optimized with early termination: candidates that cannot meet the similarity threshold
+     * are rejected early without computing the full Levenshtein distance matrix.
      *
      * @param input          the input string to compare
      * @param candidates     list of candidate strings
@@ -119,10 +151,26 @@ public final class StringSimilarity {
         }
 
         List<SimilarityResult> results = new ArrayList<>();
+        int inputLen = Math.min(input.length(), MAX_STRING_LENGTH);
+
         for (String candidate : candidates) {
             if (candidate == null || candidate.isEmpty()) continue;
-            double sim = similarity(input, candidate);
-            if (sim >= minSimilarity) {
+
+            int candidateLen = Math.min(candidate.length(), MAX_STRING_LENGTH);
+            int maxLen = Math.max(inputLen, candidateLen);
+            if (maxLen == 0) continue;
+
+            // Calculate maximum allowed distance for minSimilarity threshold
+            // similarity = 1.0 - (distance / maxLen)
+            // minSimilarity <= 1.0 - (distance / maxLen)
+            // distance <= (1.0 - minSimilarity) * maxLen
+            int maxAllowedDistance = (int) ((1.0 - minSimilarity) * maxLen);
+
+            // Use threshold-based calculation for early termination
+            int distance = levenshteinDistanceWithThreshold(input, candidate, maxAllowedDistance);
+
+            if (distance <= maxAllowedDistance) {
+                double sim = 1.0 - ((double) distance / maxLen);
                 results.add(new SimilarityResult(candidate, sim));
             }
         }
