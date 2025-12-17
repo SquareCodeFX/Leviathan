@@ -8,6 +8,7 @@ import org.bukkit.command.CommandSender;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.regex.Pattern;
 
 /**
  * A variadic argument that accepts multiple values of the same type and returns them as a List.
@@ -53,9 +54,13 @@ import java.util.List;
  */
 public final class VariadicArg<T> {
 
+    // Cached pattern for whitespace splitting (avoids recompilation on every parse)
+    private static final Pattern WHITESPACE_PATTERN = Pattern.compile("\\s+");
+
     private final String name;
     private final ArgumentParser<T> elementParser;
     private final String delimiter;
+    private final Pattern delimiterPattern; // Cached compiled delimiter pattern
     private final int minCount;
     private final int maxCount;
     private final boolean allowDuplicates;
@@ -66,6 +71,10 @@ public final class VariadicArg<T> {
         this.name = builder.name;
         this.elementParser = builder.elementParser;
         this.delimiter = builder.delimiter;
+        // Pre-compile delimiter pattern once at construction time
+        this.delimiterPattern = (builder.delimiter != null)
+            ? Pattern.compile(Pattern.quote(builder.delimiter))
+            : null;
         this.minCount = builder.minCount;
         this.maxCount = builder.maxCount;
         this.allowDuplicates = builder.allowDuplicates;
@@ -236,13 +245,13 @@ public final class VariadicArg<T> {
                     return ParseResult.success(Collections.emptyList());
                 }
 
-                // Split input by delimiter
+                // Split input by delimiter using cached patterns (avoids Pattern recompilation)
                 String[] parts;
-                if (delimiter != null) {
-                    parts = input.split(java.util.regex.Pattern.quote(delimiter));
+                if (delimiterPattern != null) {
+                    parts = delimiterPattern.split(input);
                 } else {
                     // Space-delimited (already split by Bukkit, but may be rejoined for greedy)
-                    parts = input.split("\\s+");
+                    parts = WHITESPACE_PATTERN.split(input);
                 }
 
                 List<T> results = new ArrayList<>();

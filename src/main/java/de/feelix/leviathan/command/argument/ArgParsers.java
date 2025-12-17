@@ -30,11 +30,17 @@ public final class ArgParsers {
     );
 
     private static List<String> startingWith(String prefix, Collection<String> options) {
-        String low = prefix.toLowerCase(Locale.ROOT);
-        return options.stream()
-            .filter(s -> s.toLowerCase(Locale.ROOT).startsWith(low))
-            .sorted()
-            .collect(Collectors.toList());
+        // Optimized: simple loop instead of stream, with pre-computed lowercase prefix
+        String lowPrefix = prefix.toLowerCase(Locale.ROOT);
+        List<String> result = new ArrayList<>();
+        for (String option : options) {
+            // Most options are already lowercase (e.g., MATERIAL_COMPLETIONS), so check both cases
+            if (option.toLowerCase(Locale.ROOT).startsWith(lowPrefix)) {
+                result.add(option);
+            }
+        }
+        Collections.sort(result);
+        return result;
     }
 
     /**

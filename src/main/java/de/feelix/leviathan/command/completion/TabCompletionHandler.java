@@ -487,11 +487,13 @@ public final class TabCompletionHandler {
     /**
      * Filter completions by prefix and sort them.
      * Enhanced to support smart filtering: exact matches first, then prefix matches, then substring matches.
+     * <p>
+     * Optimized to use a single list with priority-based sorting instead of multiple intermediate lists.
      */
     private static @NotNull List<String> filterAndSort(@NotNull List<String> completions, @NotNull String prefix) {
         if (prefix == null || prefix.isEmpty()) {
             // No prefix - return all completions sorted
-            List<String> result = new ArrayList<>();
+            List<String> result = new ArrayList<>(completions.size());
             for (String s : completions) {
                 if (s != null) {
                     result.add(s);
@@ -501,39 +503,33 @@ public final class TabCompletionHandler {
             return result;
         }
 
-        String pfxLow = prefix.toLowerCase(Locale.ROOT);
-        List<String> exactMatches = new ArrayList<>();
-        List<String> prefixMatches = new ArrayList<>();
-        List<String> substringMatches = new ArrayList<>();
+        final String pfxLow = prefix.toLowerCase(Locale.ROOT);
 
+        // Filter and collect matching completions in a single pass
+        List<String> result = new ArrayList<>();
         for (String s : completions) {
             if (s == null) continue;
             String sLow = s.toLowerCase(Locale.ROOT);
-
-            // Exact match (case-insensitive)
-            if (sLow.equals(pfxLow)) {
-                exactMatches.add(s);
-            }
-            // Prefix match
-            else if (sLow.startsWith(pfxLow)) {
-                prefixMatches.add(s);
-            }
-            // Substring match (for better discoverability)
-            else if (sLow.contains(pfxLow)) {
-                substringMatches.add(s);
+            // Include if exact, prefix, or substring match
+            if (sLow.equals(pfxLow) || sLow.startsWith(pfxLow) || sLow.contains(pfxLow)) {
+                result.add(s);
             }
         }
 
-        // Sort each category
-        Collections.sort(exactMatches);
-        Collections.sort(prefixMatches);
-        Collections.sort(substringMatches);
+        // Sort with priority: exact (0) > prefix (1) > substring (2), then alphabetically
+        result.sort((a, b) -> {
+            String aLow = a.toLowerCase(Locale.ROOT);
+            String bLow = b.toLowerCase(Locale.ROOT);
 
-        // Combine: exact first, then prefix, then substring
-        List<String> result = new ArrayList<>();
-        result.addAll(exactMatches);
-        result.addAll(prefixMatches);
-        result.addAll(substringMatches);
+            // Determine priority: 0 = exact, 1 = prefix, 2 = substring
+            int aPriority = aLow.equals(pfxLow) ? 0 : (aLow.startsWith(pfxLow) ? 1 : 2);
+            int bPriority = bLow.equals(pfxLow) ? 0 : (bLow.startsWith(pfxLow) ? 1 : 2);
+
+            if (aPriority != bPriority) {
+                return Integer.compare(aPriority, bPriority);
+            }
+            return a.compareToIgnoreCase(b);
+        });
 
         return result;
     }
@@ -689,9 +685,11 @@ public final class TabCompletionHandler {
             if (kv != null) {
                 List<String> valueCompletions = generateKeyValueCompletions(kv, valuePart, sender, messages);
                 // Prepend the key and separator to each value completion
-                return valueCompletions.stream()
-                    .map(v -> keyPart + separator + v)
-                    .collect(java.util.stream.Collectors.toList());
+                List<String> result = new ArrayList<>(valueCompletions.size());
+                for (String v : valueCompletions) {
+                    result.add(keyPart + separator + v);
+                }
+                return result;
             }
         }
 
@@ -839,27 +837,34 @@ public final class TabCompletionHandler {
             // Also suggest -- prefix for flags/key-values when typing empty or partial
             if (currentToken.isEmpty() || "-".startsWith(tokenLower)) {
                 // Add -- as a completion hint if there are unused flags or key-values
-                boolean hasAvailableFlags = flags.stream().anyMatch(flag -> {
+                // Optimized: use simple loops instead of stream().anyMatch() for small collections
+                boolean hasAvailableFlags = false;
+                for (Flag flag : flags) {
                     if (flag.permission() != null && !flag.permission().isEmpty()
                         && !sender.hasPermission(flag.permission())) {
-                        return false;
+                        continue;
                     }
-                    if (flag.longForm() != null) {
-                        return !usedFlags.contains(flag.longForm().toLowerCase(Locale.ROOT));
+                    String checkKey = flag.longForm() != null
+                        ? flag.longForm().toLowerCase(Locale.ROOT)
+                        : flag.name().toLowerCase(Locale.ROOT);
+                    if (!usedFlags.contains(checkKey)) {
+                        hasAvailableFlags = true;
+                        break;
                     }
-                    return !usedFlags.contains(flag.name().toLowerCase(Locale.ROOT));
-                });
+                }
 
-                boolean hasAvailableKeyValues = keyValues.stream().anyMatch(kv -> {
+                boolean hasAvailableKeyValues = false;
+                for (KeyValue<?> kv : keyValues) {
                     if (kv.permission() != null && !kv.permission().isEmpty()
                         && !sender.hasPermission(kv.permission())) {
-                        return false;
+                        continue;
                     }
                     if (!kv.multipleValues() && usedKeyValues.contains(kv.key().toLowerCase(Locale.ROOT))) {
-                        return false;
+                        continue;
                     }
-                    return true;
-                });
+                    hasAvailableKeyValues = true;
+                    break;
+                }
 
                 if (hasAvailableFlags || hasAvailableKeyValues) {
                     completions.add("--");

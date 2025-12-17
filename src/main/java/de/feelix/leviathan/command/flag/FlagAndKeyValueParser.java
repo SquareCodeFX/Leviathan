@@ -135,14 +135,11 @@ public final class FlagAndKeyValueParser {
     private final List<Flag> flags;
     private final List<KeyValue<?>> keyValues;
 
-    // Pre-built lookup maps for O(1) access instead of O(n) linear search
-    private final Map<Character, Flag> shortFormLookup;
-    private final Map<String, Flag> longFormLookup;       // lowercase keys
-    private final Map<String, Flag> negatedLongFormLookup; // lowercase keys (e.g., "no-confirm")
-    private final Map<String, KeyValue<?>> keyValueLookup; // lowercase keys
-
-    // Pre-compiled patterns for multi-value separators (avoid repeated Pattern.quote() calls)
-    private final Map<String, Pattern> separatorPatterns;
+    // Cached lookups for O(1) flag/key-value access (built once at construction time)
+    private final Map<Character, Flag> shortFormCache;
+    private final Map<String, Flag> longFormCache;        // lowercase keys
+    private final Map<String, Flag> negatedLongFormCache; // lowercase keys
+    private final Map<String, KeyValue<?>> keyValueCache; // lowercase keys
 
     /**
      * Create a new parser with the given flags and key-values.
@@ -154,31 +151,26 @@ public final class FlagAndKeyValueParser {
         this.flags = new ArrayList<>(flags);
         this.keyValues = new ArrayList<>(keyValues);
 
-        // Build lookup maps for O(1) access
-        this.shortFormLookup = new HashMap<>();
-        this.longFormLookup = new HashMap<>();
-        this.negatedLongFormLookup = new HashMap<>();
+        // Build cached lookup maps for O(1) access instead of O(n) linear search
+        this.shortFormCache = new HashMap<>();
+        this.longFormCache = new HashMap<>();
+        this.negatedLongFormCache = new HashMap<>();
 
         for (Flag flag : flags) {
             if (flag.shortForm() != null) {
-                shortFormLookup.put(flag.shortForm(), flag);
+                shortFormCache.put(flag.shortForm(), flag);
             }
             if (flag.longForm() != null) {
-                longFormLookup.put(flag.longForm().toLowerCase(Locale.ROOT), flag);
+                longFormCache.put(flag.longForm().toLowerCase(java.util.Locale.ROOT), flag);
                 if (flag.supportsNegation()) {
-                    negatedLongFormLookup.put(("no-" + flag.longForm()).toLowerCase(Locale.ROOT), flag);
+                    negatedLongFormCache.put(("no-" + flag.longForm()).toLowerCase(java.util.Locale.ROOT), flag);
                 }
             }
         }
 
-        this.keyValueLookup = new HashMap<>();
-        this.separatorPatterns = new HashMap<>();
+        this.keyValueCache = new HashMap<>();
         for (KeyValue<?> kv : keyValues) {
-            keyValueLookup.put(kv.key().toLowerCase(Locale.ROOT), kv);
-            // Pre-compile separator pattern for multi-value key-values
-            if (kv.multipleValues() && kv.valueSeparator() != null) {
-                separatorPatterns.put(kv.name(), Pattern.compile(Pattern.quote(kv.valueSeparator())));
-            }
+            keyValueCache.put(kv.key().toLowerCase(java.util.Locale.ROOT), kv);
         }
     }
 
@@ -491,7 +483,7 @@ public final class FlagAndKeyValueParser {
      * Uses O(1) HashMap lookup instead of O(n) linear search.
      */
     private @Nullable Flag findFlagByShortForm(char c) {
-        return shortFormLookup.get(c);
+        return shortFormCache.get(c);
     }
 
     /**
@@ -499,7 +491,7 @@ public final class FlagAndKeyValueParser {
      * Uses O(1) HashMap lookup instead of O(n) linear search.
      */
     private @Nullable Flag findFlagByLongForm(@NotNull String form) {
-        return longFormLookup.get(form.toLowerCase(Locale.ROOT));
+        return longFormCache.get(form.toLowerCase(java.util.Locale.ROOT));
     }
 
     /**
@@ -507,7 +499,7 @@ public final class FlagAndKeyValueParser {
      * Uses O(1) HashMap lookup instead of O(n) linear search.
      */
     private @Nullable Flag findFlagByNegatedLongForm(@NotNull String form) {
-        return negatedLongFormLookup.get(form.toLowerCase(Locale.ROOT));
+        return negatedLongFormCache.get(form.toLowerCase(java.util.Locale.ROOT));
     }
 
     /**
@@ -515,7 +507,7 @@ public final class FlagAndKeyValueParser {
      * Uses O(1) HashMap lookup instead of O(n) linear search.
      */
     private @Nullable KeyValue<?> findKeyValueByKey(@NotNull String key) {
-        return keyValueLookup.get(key.toLowerCase(Locale.ROOT));
+        return keyValueCache.get(key.toLowerCase(java.util.Locale.ROOT));
     }
 
     /**
