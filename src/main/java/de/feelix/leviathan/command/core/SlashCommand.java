@@ -78,6 +78,76 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
     private static final Map<String, Long> pendingConfirmations = new java.util.concurrent.ConcurrentHashMap<>();
     private static final long CONFIRMATION_TIMEOUT_MILLIS = 10000L; // 10 seconds
 
+    // Lazy cleanup for confirmations
+    private static final java.util.concurrent.atomic.AtomicLong confirmationOpCount = new java.util.concurrent.atomic.AtomicLong(0);
+    private static final int CONFIRMATION_CLEANUP_INTERVAL = 20; // Clean every N operations
+
+    /**
+     * Clean up expired confirmation entries.
+     * Called automatically via lazy cleanup, but can also be called manually.
+     *
+     * @return the number of expired entries removed
+     */
+    public static int cleanupExpiredConfirmations() {
+        final long currentTime = System.currentTimeMillis();
+        int[] removed = {0};
+        pendingConfirmations.entrySet().removeIf(entry -> {
+            if (entry.getValue() < currentTime) {
+                removed[0]++;
+                return true;
+            }
+            return false;
+        });
+        return removed[0];
+    }
+
+    /**
+     * Get the number of pending confirmations.
+     * Useful for monitoring and diagnostics.
+     *
+     * @return the count of pending confirmations
+     */
+    public static int getPendingConfirmationCount() {
+        return pendingConfirmations.size();
+    }
+
+    /**
+     * Clear all pending confirmations.
+     * Use with caution - primarily for plugin shutdown.
+     */
+    public static void clearAllConfirmations() {
+        pendingConfirmations.clear();
+    }
+
+    /**
+     * Clear pending confirmation for a specific sender.
+     * Useful when a player disconnects.
+     *
+     * @param senderName the name of the sender to clear confirmations for
+     * @return the number of confirmations cleared
+     */
+    public static int clearConfirmationsForSender(String senderName) {
+        int[] removed = {0};
+        pendingConfirmations.entrySet().removeIf(entry -> {
+            if (entry.getKey().endsWith(":" + senderName)) {
+                removed[0]++;
+                return true;
+            }
+            return false;
+        });
+        return removed[0];
+    }
+
+    /**
+     * Perform lazy cleanup of expired confirmations.
+     */
+    private static void lazyConfirmationCleanup() {
+        long ops = confirmationOpCount.incrementAndGet();
+        if (ops % CONFIRMATION_CLEANUP_INTERVAL == 0) {
+            cleanupExpiredConfirmations();
+        }
+    }
+
     /**
      * Create a new builder for a command with the given name.
      *
@@ -671,6 +741,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         Preconditions.checkNotNull(label, "label");
         Preconditions.checkNotNull(providedArgs, "providedArgs");
         try {
+            // Lazy cleanup of expired confirmations to prevent memory leaks
+            lazyConfirmationCleanup();
             return execute(sender, label, providedArgs);
         } catch (Throwable t) {
             // Top-level catch to ensure no exception escapes from command execution

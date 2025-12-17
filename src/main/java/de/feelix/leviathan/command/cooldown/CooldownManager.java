@@ -29,14 +29,14 @@ public final class CooldownManager {
 
     // Lazy cleanup: track operations and clean periodically
     private static final AtomicLong operationCount = new AtomicLong(0);
-    private static final int CLEANUP_INTERVAL_OPS = 100; // Clean every N operations
+    private static final int CLEANUP_INTERVAL_OPS = 25; // Clean every N operations (reduced from 100 to prevent memory buildup)
 
     // Statistics
     private static final AtomicLong totalCleanedEntries = new AtomicLong(0);
     private static final AtomicLong lastCleanupTime = new AtomicLong(0);
 
-    // Grace period after cooldown expires before cleanup (1 minute)
-    private static final long CLEANUP_GRACE_PERIOD_MS = 60 * 1000L;
+    // Grace period after cooldown expires before cleanup (30 seconds - reduced from 60 to prevent memory buildup)
+    private static final long CLEANUP_GRACE_PERIOD_MS = 30 * 1000L;
 
     private CooldownManager() {
         // Utility class - prevent instantiation
@@ -416,5 +416,23 @@ public final class CooldownManager {
     public static long getRemainingServerCooldown(@NotNull String commandName, long cooldownMillis) {
         CooldownResult result = checkServerCooldown(commandName, cooldownMillis);
         return result.isOnCooldown() ? result.remainingMillis() : 0L;
+    }
+
+    /**
+     * Clear all cooldowns for a specific user across all commands.
+     * Useful for cleanup when a player disconnects.
+     *
+     * @param userId user identifier to clear cooldowns for
+     * @return the number of cooldown entries removed
+     */
+    public static int clearAllCooldownsForUser(@NotNull String userId) {
+        Preconditions.checkNotNull(userId, "userId");
+        int removed = 0;
+        for (Map<String, Long> userCooldowns : perUserCooldowns.values()) {
+            if (userCooldowns.remove(userId) != null) {
+                removed++;
+            }
+        }
+        return removed;
     }
 }
