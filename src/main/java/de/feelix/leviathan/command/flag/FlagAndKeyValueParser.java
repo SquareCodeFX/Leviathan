@@ -7,6 +7,7 @@ import de.feelix.leviathan.exceptions.ParsingException;
 import org.bukkit.command.CommandSender;
 
 import java.util.*;
+import java.util.regex.Pattern;
 
 /**
  * Parser for extracting flags and key-value pairs from command arguments.
@@ -134,6 +135,15 @@ public final class FlagAndKeyValueParser {
     private final List<Flag> flags;
     private final List<KeyValue<?>> keyValues;
 
+    // Pre-built lookup maps for O(1) access instead of O(n) linear search
+    private final Map<Character, Flag> shortFormLookup;
+    private final Map<String, Flag> longFormLookup;       // lowercase keys
+    private final Map<String, Flag> negatedLongFormLookup; // lowercase keys (e.g., "no-confirm")
+    private final Map<String, KeyValue<?>> keyValueLookup; // lowercase keys
+
+    // Pre-compiled patterns for multi-value separators (avoid repeated Pattern.quote() calls)
+    private final Map<String, Pattern> separatorPatterns;
+
     /**
      * Create a new parser with the given flags and key-values.
      *
@@ -143,6 +153,33 @@ public final class FlagAndKeyValueParser {
     public FlagAndKeyValueParser(@NotNull List<Flag> flags, @NotNull List<KeyValue<?>> keyValues) {
         this.flags = new ArrayList<>(flags);
         this.keyValues = new ArrayList<>(keyValues);
+
+        // Build lookup maps for O(1) access
+        this.shortFormLookup = new HashMap<>();
+        this.longFormLookup = new HashMap<>();
+        this.negatedLongFormLookup = new HashMap<>();
+
+        for (Flag flag : flags) {
+            if (flag.shortForm() != null) {
+                shortFormLookup.put(flag.shortForm(), flag);
+            }
+            if (flag.longForm() != null) {
+                longFormLookup.put(flag.longForm().toLowerCase(Locale.ROOT), flag);
+                if (flag.supportsNegation()) {
+                    negatedLongFormLookup.put(("no-" + flag.longForm()).toLowerCase(Locale.ROOT), flag);
+                }
+            }
+        }
+
+        this.keyValueLookup = new HashMap<>();
+        this.separatorPatterns = new HashMap<>();
+        for (KeyValue<?> kv : keyValues) {
+            keyValueLookup.put(kv.key().toLowerCase(Locale.ROOT), kv);
+            // Pre-compile separator pattern for multi-value key-values
+            if (kv.multipleValues() && kv.valueSeparator() != null) {
+                separatorPatterns.put(kv.name(), Pattern.compile(Pattern.quote(kv.valueSeparator())));
+            }
+        }
     }
 
     /**
@@ -366,8 +403,9 @@ public final class FlagAndKeyValueParser {
 
         if (kv.multipleValues()) {
             // Split by separator and parse each value
-            // Use Pattern.quote to handle regex special characters in separator
-            String[] parts = value.split(java.util.regex.Pattern.quote(kv.valueSeparator()));
+            // Use pre-compiled pattern for performance (avoids repeated Pattern.quote() calls)
+            Pattern separatorPattern = separatorPatterns.get(kv.name());
+            String[] parts = separatorPattern != null ? separatorPattern.split(value) : new String[]{value};
             List<Object> parsedValues = new ArrayList<>();
 
             // If this key already has values (e.g., from defaults), append to them
@@ -450,50 +488,34 @@ public final class FlagAndKeyValueParser {
 
     /**
      * Find a flag by its short form character.
+     * Uses O(1) HashMap lookup instead of O(n) linear search.
      */
     private @Nullable Flag findFlagByShortForm(char c) {
-        for (Flag flag : flags) {
-            if (flag.matchesShort(c)) {
-                return flag;
-            }
-        }
-        return null;
+        return shortFormLookup.get(c);
     }
 
     /**
      * Find a flag by its long form string.
+     * Uses O(1) HashMap lookup instead of O(n) linear search.
      */
     private @Nullable Flag findFlagByLongForm(@NotNull String form) {
-        for (Flag flag : flags) {
-            if (flag.matchesLong(form)) {
-                return flag;
-            }
-        }
-        return null;
+        return longFormLookup.get(form.toLowerCase(Locale.ROOT));
     }
 
     /**
      * Find a flag by its negated long form string (no-xxx).
+     * Uses O(1) HashMap lookup instead of O(n) linear search.
      */
     private @Nullable Flag findFlagByNegatedLongForm(@NotNull String form) {
-        for (Flag flag : flags) {
-            if (flag.matchesNegatedLong(form)) {
-                return flag;
-            }
-        }
-        return null;
+        return negatedLongFormLookup.get(form.toLowerCase(Locale.ROOT));
     }
 
     /**
      * Find a key-value by its key string.
+     * Uses O(1) HashMap lookup instead of O(n) linear search.
      */
     private @Nullable KeyValue<?> findKeyValueByKey(@NotNull String key) {
-        for (KeyValue<?> kv : keyValues) {
-            if (kv.matchesKey(key)) {
-                return kv;
-            }
-        }
-        return null;
+        return keyValueLookup.get(key.toLowerCase(Locale.ROOT));
     }
 
     /**

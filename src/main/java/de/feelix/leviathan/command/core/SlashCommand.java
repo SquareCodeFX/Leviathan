@@ -1079,7 +1079,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
             // Evaluate conditional argument
             if (arg.condition() != null) {
                 // Include flags and key-values in the context for condition evaluation
-                CommandContext tempCtx = new CommandContext(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
+                CommandContext tempCtx = CommandContext.createInternal(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
                 try {
                     if (!arg.condition().test(tempCtx)) {
                         // Condition is false, skip this argument entirely (don't consume token)
@@ -1124,7 +1124,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                 boolean willBeSkippedByCondition = false;
                 if (futureArg.condition() != null) {
                     try {
-                        CommandContext tempCtx = new CommandContext(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
+                        CommandContext tempCtx = CommandContext.createInternal(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
                         willBeSkippedByCondition = !futureArg.condition().test(tempCtx);
                     } catch (Throwable ignored) {
                         // If we can't evaluate, assume it won't be skipped
@@ -1288,7 +1288,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                 boolean skippedByCondition = false;
                 if (arg.condition() != null) {
                     try {
-                        CommandContext tempCtx = new CommandContext(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
+                        CommandContext tempCtx = CommandContext.createInternal(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
                         skippedByCondition = !arg.condition().test(tempCtx);
                     } catch (Throwable ignored) {
                         // If condition evaluation fails here, we already handled it during parsing
@@ -1378,7 +1378,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
 
         // Cross-argument validation: validate relationships between multiple arguments
         if (!crossArgumentValidators.isEmpty()) {
-            CommandContext tempCtx = new CommandContext(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
+            CommandContext tempCtx = CommandContext.createInternal(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
             for (CrossArgumentValidator validator : crossArgumentValidators) {
                 String error;
                 try {
@@ -1916,7 +1916,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
 
             // Evaluate conditional argument
             if (arg.condition() != null) {
-                CommandContext tempCtx = new CommandContext(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
+                CommandContext tempCtx = CommandContext.createInternal(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
                 try {
                     if (!arg.condition().test(tempCtx)) {
                         argIndex++;
@@ -1950,7 +1950,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                 boolean willBeSkippedByCondition = false;
                 if (futureArg.condition() != null) {
                     try {
-                        CommandContext tempCtx = new CommandContext(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
+                        CommandContext tempCtx = CommandContext.createInternal(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
                         willBeSkippedByCondition = !futureArg.condition().test(tempCtx);
                     } catch (Throwable ignored) {
                     }
@@ -2049,7 +2049,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                 boolean skippedByCondition = false;
                 if (arg.condition() != null) {
                     try {
-                        CommandContext tempCtx = new CommandContext(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
+                        CommandContext tempCtx = CommandContext.createInternal(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
                         skippedByCondition = !arg.condition().test(tempCtx);
                     } catch (Throwable ignored) {
                     }
@@ -2083,7 +2083,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
 
         // Cross-argument validation
         if (!crossArgumentValidators.isEmpty()) {
-            CommandContext tempCtx = new CommandContext(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
+            CommandContext tempCtx = CommandContext.createInternal(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
             for (CrossArgumentValidator validator : crossArgumentValidators) {
                 String error;
                 try {
@@ -2340,7 +2340,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
 
             // Evaluate conditional argument
             if (arg.condition() != null) {
-                CommandContext tempCtx = new CommandContext(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
+                CommandContext tempCtx = CommandContext.createInternal(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
                 try {
                     if (!arg.condition().test(tempCtx)) {
                         argIndex++;
@@ -2380,7 +2380,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                 boolean willBeSkippedByCondition = false;
                 if (futureArg.condition() != null) {
                     try {
-                        CommandContext tempCtx = new CommandContext(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
+                        CommandContext tempCtx = CommandContext.createInternal(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
                         willBeSkippedByCondition = !futureArg.condition().test(tempCtx);
                     } catch (Throwable ignored) {
                     }
@@ -2512,7 +2512,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                 boolean skippedByCondition = false;
                 if (arg.condition() != null) {
                     try {
-                        CommandContext tempCtx = new CommandContext(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
+                        CommandContext tempCtx = CommandContext.createInternal(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
                         skippedByCondition = !arg.condition().test(tempCtx);
                     } catch (Throwable ignored) {
                     }
@@ -2550,7 +2550,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
 
         // Cross-argument validation
         if (!crossArgumentValidators.isEmpty()) {
-            CommandContext tempCtx = new CommandContext(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
+            CommandContext tempCtx = CommandContext.createInternal(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
             for (CrossArgumentValidator validator : crossArgumentValidators) {
                 String error;
                 try {
