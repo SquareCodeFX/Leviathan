@@ -14,6 +14,9 @@ import de.feelix.leviathan.command.parsing.CommandParseResult;
 import de.feelix.leviathan.command.parsing.ParseOptions;
 import de.feelix.leviathan.command.parsing.PartialParseOptions;
 import de.feelix.leviathan.command.parsing.PartialParseResult;
+import de.feelix.leviathan.command.parsing.QuotedStringTokenizer;
+import de.feelix.leviathan.command.permission.PermissionCascadeMode;
+import de.feelix.leviathan.command.permission.PermissionCascade;
 import de.feelix.leviathan.command.async.CancellationToken;
 import de.feelix.leviathan.command.async.Progress;
 import de.feelix.leviathan.command.completion.TabCompletionHandler;
@@ -132,6 +135,9 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
     private final List<ExecutionHook.Before> beforeHooks;
     private final List<ExecutionHook.After> afterHooks;
     private final List<ArgumentGroup> argumentGroups;
+    private final boolean enableQuotedStrings;
+    private final PermissionCascadeMode permissionCascadeMode;
+    private final String permissionPrefix;
     JavaPlugin plugin;
     private boolean subOnly = false;
     @Nullable
@@ -261,19 +267,41 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
     /**
      * Check if a sender has the effective permission for this command.
      * <p>
-     * This checks both the command's own permission and any inherited parent permissions.
+     * This checks permissions based on the configured {@link PermissionCascadeMode}:
+     * <ul>
+     *   <li>{@code NONE}: Only checks this command's permission</li>
+     *   <li>{@code INHERIT}: Checks all parent permissions first, then this command's</li>
+     *   <li>{@code WILDCARD}: Also checks wildcard permissions (e.g., "admin.*")</li>
+     *   <li>{@code INHERIT_FALLBACK}: Uses parent permission if no own permission set</li>
+     *   <li>{@code AUTO_PREFIX}: Same as INHERIT (auto-generation happens at build time)</li>
+     * </ul>
      *
      * @param sender the command sender to check
      * @return true if the sender has permission
      */
     public boolean hasEffectivePermission(@NotNull org.bukkit.command.CommandSender sender) {
         Preconditions.checkNotNull(sender, "sender");
-        // Check parent permission first
-        if (parent != null && !parent.hasEffectivePermission(sender)) {
-            return false;
+
+        PermissionCascade.ParentPermissionChecker parentChecker = null;
+        if (parent != null) {
+            parentChecker = parent::hasEffectivePermission;
         }
-        // Check own permission
-        return permission == null || sender.hasPermission(permission);
+
+        return PermissionCascade.hasPermission(sender, permission, parentChecker, permissionCascadeMode);
+    }
+
+    /**
+     * @return the permission cascade mode for this command
+     */
+    public @NotNull PermissionCascadeMode permissionCascadeMode() {
+        return permissionCascadeMode;
+    }
+
+    /**
+     * @return the permission prefix for auto-generated permissions, or null
+     */
+    public @Nullable String permissionPrefix() {
+        return permissionPrefix;
     }
 
     /**
@@ -392,6 +420,13 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
     }
 
     /**
+     * @return true if quoted string parsing is enabled for this command
+     */
+    public boolean enableQuotedStrings() {
+        return enableQuotedStrings;
+    }
+
+    /**
      * @return an immutable list of argument definitions
      */
     public @NotNull List<Arg<?>> args() {
@@ -477,7 +512,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                  boolean fuzzySubcommandMatching, double fuzzyMatchThreshold, boolean debugMode,
                  List<Flag> flags, List<KeyValue<?>> keyValues, boolean awaitConfirmation,
                  List<ExecutionHook.Before> beforeHooks, List<ExecutionHook.After> afterHooks,
-                 List<ArgumentGroup> argumentGroups) {
+                 List<ArgumentGroup> argumentGroups, boolean enableQuotedStrings,
+                 PermissionCascadeMode permissionCascadeMode, @Nullable String permissionPrefix) {
         this.name = Preconditions.checkNotNull(name, "name");
         this.aliases = List.copyOf(aliases == null ? List.of() : aliases);
         this.description = (description == null) ? "" : description;
@@ -510,6 +546,9 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         this.beforeHooks = List.copyOf(beforeHooks == null ? List.of() : beforeHooks);
         this.afterHooks = List.copyOf(afterHooks == null ? List.of() : afterHooks);
         this.argumentGroups = List.copyOf(argumentGroups == null ? List.of() : argumentGroups);
+        this.enableQuotedStrings = enableQuotedStrings;
+        this.permissionCascadeMode = permissionCascadeMode != null ? permissionCascadeMode : PermissionCascadeMode.INHERIT;
+        this.permissionPrefix = permissionPrefix;
         // Pre-compute usage string for performance
         this.cachedUsage = computeUsageString();
         // Pre-compute alias map for argument alias support
@@ -737,6 +776,23 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         Preconditions.checkNotNull(sender, "sender");
         Preconditions.checkNotNull(label, "label");
         Preconditions.checkNotNull(providedArgs, "providedArgs");
+
+        // Handle quoted string parsing if enabled
+        String[] effectiveArgs = providedArgs;
+        if (enableQuotedStrings && providedArgs.length > 0) {
+            QuotedStringTokenizer.TokenizeResult tokenResult = QuotedStringTokenizer.tokenize(providedArgs);
+            if (!tokenResult.isSuccess()) {
+                // Report parsing error for unclosed quotes
+                sendErrorMessage(sender, ErrorType.PARSING, messages.quotedStringError(tokenResult.error()), null);
+                return true;
+            }
+            effectiveArgs = tokenResult.tokens().toArray(new String[0]);
+        }
+
+        // Use effectiveArgs from here on instead of providedArgs for argument parsing
+        // (providedArgs is still kept for raw context access)
+        final String[] processedArgs = effectiveArgs;
+
         // Permission cascade: check all permissions from parent commands down to this one
         if (!hasEffectivePermission(sender)) {
             sendErrorMessage(sender, ErrorType.PERMISSION, messages.noPermission(), null);
@@ -810,7 +866,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         }
 
         // Auto help: display help message when enabled and no arguments provided
-        if (enableHelp && providedArgs.length == 0) {
+        if (enableHelp && processedArgs.length == 0) {
             // Show help if command has subcommands or required arguments
             int required = (int) args.stream().filter(a -> !a.optional()).count();
             if (!subcommands.isEmpty() || required > 0) {
@@ -820,8 +876,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         }
 
         // Automatic subcommand routing: if the first token matches a registered subcommand, delegate to it
-        if (!subcommands.isEmpty() && providedArgs.length >= 1) {
-            String first = providedArgs[0].toLowerCase(Locale.ROOT);
+        if (!subcommands.isEmpty() && processedArgs.length >= 1) {
+            String first = processedArgs[0].toLowerCase(Locale.ROOT);
             SlashCommand sub = subcommands.get(first);
 
             // Check if first argument is a page number for help pagination
@@ -852,8 +908,10 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
 
             if (sub != null) {
                 // Safety check: ensure we have arguments to pass
-                String[] remaining = providedArgs.length > 1
-                    ? Arrays.copyOfRange(providedArgs, 1, providedArgs.length)
+                // For subcommand execution, we pass the raw remaining args (not processed)
+                // since the subcommand will do its own quote processing if enabled
+                String[] remaining = processedArgs.length > 1
+                    ? Arrays.copyOfRange(processedArgs, 1, processedArgs.length)
                     : new String[0];
                 try {
                     return sub.execute(sender, sub.name(), remaining);
@@ -876,15 +934,15 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
             }
         }
 
-        // Parse flags and key-value pairs from provided arguments FIRST
+        // Parse flags and key-value pairs from processed arguments FIRST
         Map<String, Boolean> flagValues = Collections.emptyMap();
         Map<String, Object> keyValuePairs = Collections.emptyMap();
         Map<String, List<Object>> multiValuePairs = Collections.emptyMap();
-        String[] positionalArgs = providedArgs;
-        
+        String[] positionalArgs = processedArgs;
+
         if (!flags.isEmpty() || !keyValues.isEmpty()) {
             FlagAndKeyValueParser flagKvParser = new FlagAndKeyValueParser(flags, keyValues);
-            FlagAndKeyValueParser.ParsedResult flagKvResult = flagKvParser.parse(providedArgs, sender);
+            FlagAndKeyValueParser.ParsedResult flagKvResult = flagKvParser.parse(processedArgs, sender);
 
             if (!flagKvResult.isSuccess()) {
                 // Report first error from flag/key-value parsing

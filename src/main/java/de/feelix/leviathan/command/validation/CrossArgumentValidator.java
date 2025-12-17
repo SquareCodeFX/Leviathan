@@ -355,4 +355,300 @@ public interface CrossArgumentValidator {
             return null;
         };
     }
+
+    // ==================== ARGUMENT DEPENDENCY METHODS ====================
+
+    /**
+     * Creates a validator that ensures an argument can only be used if a dependency argument is present.
+     * <p>
+     * Example: "output-file" can only be used if "save" flag is present.
+     * <pre>{@code
+     * .crossValidate(CrossArgumentValidator.dependsOn("output-file", "save"))
+     * // Valid:   /cmd --save --output-file=file.txt
+     * // Invalid: /cmd --output-file=file.txt (without --save)
+     * }</pre>
+     *
+     * @param dependentArg the argument that has a dependency
+     * @param dependencyArg the argument that must be present for dependentArg to be used
+     * @return a dependency validator
+     */
+    static @NotNull CrossArgumentValidator dependsOn(@NotNull String dependentArg, @NotNull String dependencyArg) {
+        if (dependentArg == null || dependencyArg == null) {
+            throw new IllegalArgumentException("Both dependent and dependency argument names must be provided");
+        }
+        return context -> {
+            if (context.has(dependentArg) && !context.has(dependencyArg)) {
+                return "'" + dependentArg + "' can only be used when '" + dependencyArg + "' is present";
+            }
+            return null;
+        };
+    }
+
+    /**
+     * Creates a validator that ensures an argument can only be used if a dependency argument is present,
+     * with a custom error message.
+     *
+     * @param dependentArg  the argument that has a dependency
+     * @param dependencyArg the argument that must be present
+     * @param errorMessage  custom error message
+     * @return a dependency validator
+     */
+    static @NotNull CrossArgumentValidator dependsOn(@NotNull String dependentArg, @NotNull String dependencyArg,
+                                                      @NotNull String errorMessage) {
+        if (dependentArg == null || dependencyArg == null) {
+            throw new IllegalArgumentException("Both dependent and dependency argument names must be provided");
+        }
+        return context -> {
+            if (context.has(dependentArg) && !context.has(dependencyArg)) {
+                return errorMessage;
+            }
+            return null;
+        };
+    }
+
+    /**
+     * Creates a validator that ensures an argument can only be used if ALL dependency arguments are present.
+     * <p>
+     * Example: "advanced-settings" can only be used if both "mode" and "config" are present.
+     *
+     * @param dependentArg   the argument that has dependencies
+     * @param dependencyArgs the arguments that must all be present
+     * @return a multi-dependency validator
+     */
+    static @NotNull CrossArgumentValidator dependsOnAll(@NotNull String dependentArg, @NotNull String... dependencyArgs) {
+        if (dependentArg == null || dependencyArgs == null || dependencyArgs.length == 0) {
+            throw new IllegalArgumentException("Dependent argument and at least one dependency must be provided");
+        }
+        final List<String> dependencies = List.of(dependencyArgs);
+        return context -> {
+            if (context.has(dependentArg)) {
+                List<String> missing = dependencies.stream()
+                    .filter(name -> !context.has(name))
+                    .collect(Collectors.toList());
+                if (!missing.isEmpty()) {
+                    return "'" + dependentArg + "' requires these arguments to be present: "
+                           + String.join(", ", missing);
+                }
+            }
+            return null;
+        };
+    }
+
+    /**
+     * Creates a validator that ensures an argument can only be used if ANY of the dependency arguments is present.
+     * <p>
+     * Example: "format" can only be used if either "export" or "save" is present.
+     *
+     * @param dependentArg   the argument that has dependencies
+     * @param dependencyArgs the arguments where at least one must be present
+     * @return a multi-dependency validator
+     */
+    static @NotNull CrossArgumentValidator dependsOnAny(@NotNull String dependentArg, @NotNull String... dependencyArgs) {
+        if (dependentArg == null || dependencyArgs == null || dependencyArgs.length == 0) {
+            throw new IllegalArgumentException("Dependent argument and at least one dependency must be provided");
+        }
+        final List<String> dependencies = List.of(dependencyArgs);
+        return context -> {
+            if (context.has(dependentArg)) {
+                boolean anyPresent = dependencies.stream().anyMatch(context::has);
+                if (!anyPresent) {
+                    return "'" + dependentArg + "' requires at least one of: " + String.join(", ", dependencies);
+                }
+            }
+            return null;
+        };
+    }
+
+    /**
+     * Creates a validator that excludes an argument when another is present.
+     * <p>
+     * Example: "verbose" cannot be used when "quiet" is present.
+     * <pre>{@code
+     * .crossValidate(CrossArgumentValidator.excludedBy("verbose", "quiet"))
+     * // Valid:   /cmd --verbose
+     * // Valid:   /cmd --quiet
+     * // Invalid: /cmd --verbose --quiet
+     * }</pre>
+     *
+     * @param excludedArg the argument that cannot be used
+     * @param excluderArg the argument that excludes the other
+     * @return an exclusion validator
+     */
+    static @NotNull CrossArgumentValidator excludedBy(@NotNull String excludedArg, @NotNull String excluderArg) {
+        if (excludedArg == null || excluderArg == null) {
+            throw new IllegalArgumentException("Both argument names must be provided");
+        }
+        return context -> {
+            if (context.has(excludedArg) && context.has(excluderArg)) {
+                return "'" + excludedArg + "' cannot be used when '" + excluderArg + "' is present";
+            }
+            return null;
+        };
+    }
+
+    /**
+     * Creates a validator that excludes an argument when another is present,
+     * with a custom error message.
+     *
+     * @param excludedArg  the argument that cannot be used
+     * @param excluderArg  the argument that excludes the other
+     * @param errorMessage custom error message
+     * @return an exclusion validator
+     */
+    static @NotNull CrossArgumentValidator excludedBy(@NotNull String excludedArg, @NotNull String excluderArg,
+                                                       @NotNull String errorMessage) {
+        if (excludedArg == null || excluderArg == null) {
+            throw new IllegalArgumentException("Both argument names must be provided");
+        }
+        return context -> {
+            if (context.has(excludedArg) && context.has(excluderArg)) {
+                return errorMessage;
+            }
+            return null;
+        };
+    }
+
+    /**
+     * Creates a validator that requires a default value argument unless an override is present.
+     * <p>
+     * Example: "config" is required unless "use-defaults" is specified.
+     *
+     * @param requiredArg  the argument that is normally required
+     * @param overrideArg  the argument that makes requiredArg optional
+     * @return a default override validator
+     */
+    static @NotNull CrossArgumentValidator requiredUnless(@NotNull String requiredArg, @NotNull String overrideArg) {
+        if (requiredArg == null || overrideArg == null) {
+            throw new IllegalArgumentException("Both argument names must be provided");
+        }
+        return context -> {
+            if (!context.has(requiredArg) && !context.has(overrideArg)) {
+                return "'" + requiredArg + "' is required unless '" + overrideArg + "' is specified";
+            }
+            return null;
+        };
+    }
+
+    /**
+     * Creates a validator that requires a default value argument unless an override is present,
+     * with a custom error message.
+     *
+     * @param requiredArg  the argument that is normally required
+     * @param overrideArg  the argument that makes requiredArg optional
+     * @param errorMessage custom error message
+     * @return a default override validator
+     */
+    static @NotNull CrossArgumentValidator requiredUnless(@NotNull String requiredArg, @NotNull String overrideArg,
+                                                           @NotNull String errorMessage) {
+        if (requiredArg == null || overrideArg == null) {
+            throw new IllegalArgumentException("Both argument names must be provided");
+        }
+        return context -> {
+            if (!context.has(requiredArg) && !context.has(overrideArg)) {
+                return errorMessage;
+            }
+            return null;
+        };
+    }
+
+    /**
+     * Creates a bidirectional dependency - if either argument is present, both must be present.
+     * <p>
+     * Example: "username" and "password" must be provided together or not at all.
+     *
+     * @param arg1 first argument
+     * @param arg2 second argument
+     * @return a bidirectional dependency validator
+     */
+    static @NotNull CrossArgumentValidator coDependent(@NotNull String arg1, @NotNull String arg2) {
+        if (arg1 == null || arg2 == null) {
+            throw new IllegalArgumentException("Both argument names must be provided");
+        }
+        return context -> {
+            boolean has1 = context.has(arg1);
+            boolean has2 = context.has(arg2);
+            if (has1 != has2) {
+                if (has1) {
+                    return "'" + arg1 + "' requires '" + arg2 + "' to also be specified";
+                } else {
+                    return "'" + arg2 + "' requires '" + arg1 + "' to also be specified";
+                }
+            }
+            return null;
+        };
+    }
+
+    /**
+     * Creates a bidirectional dependency with a custom error message.
+     *
+     * @param arg1         first argument
+     * @param arg2         second argument
+     * @param errorMessage custom error message
+     * @return a bidirectional dependency validator
+     */
+    static @NotNull CrossArgumentValidator coDependent(@NotNull String arg1, @NotNull String arg2,
+                                                        @NotNull String errorMessage) {
+        if (arg1 == null || arg2 == null) {
+            throw new IllegalArgumentException("Both argument names must be provided");
+        }
+        return context -> {
+            boolean has1 = context.has(arg1);
+            boolean has2 = context.has(arg2);
+            if (has1 != has2) {
+                return errorMessage;
+            }
+            return null;
+        };
+    }
+
+    /**
+     * Creates a validator that ensures an argument has a specific value when another argument is present.
+     * <p>
+     * Example: "level" must be "admin" when "admin-action" is used.
+     *
+     * @param checkedArg    the argument whose value is checked
+     * @param expectedValue the expected value
+     * @param triggerArg    the argument that triggers the check
+     * @return a value constraint validator
+     */
+    static @NotNull CrossArgumentValidator valueRequiredWhen(@NotNull String checkedArg, @NotNull Object expectedValue,
+                                                              @NotNull String triggerArg) {
+        if (checkedArg == null || expectedValue == null || triggerArg == null) {
+            throw new IllegalArgumentException("All parameters must be provided");
+        }
+        return context -> {
+            if (context.has(triggerArg) && context.has(checkedArg)) {
+                Object actual = context.get(checkedArg, Object.class);
+                if (!expectedValue.equals(actual)) {
+                    return "'" + checkedArg + "' must be '" + expectedValue + "' when '" + triggerArg + "' is used";
+                }
+            }
+            return null;
+        };
+    }
+
+    /**
+     * Creates a chain of dependencies: A requires B, B requires C, etc.
+     * <p>
+     * Example: "step3" requires "step2", "step2" requires "step1".
+     *
+     * @param argumentChain ordered list of arguments where each requires the previous
+     * @return a chained dependency validator
+     */
+    static @NotNull CrossArgumentValidator dependencyChain(@NotNull String... argumentChain) {
+        if (argumentChain == null || argumentChain.length < 2) {
+            throw new IllegalArgumentException("At least 2 arguments are required for a dependency chain");
+        }
+        final List<String> chain = List.of(argumentChain);
+        return context -> {
+            for (int i = chain.size() - 1; i > 0; i--) {
+                String dependent = chain.get(i);
+                String dependency = chain.get(i - 1);
+                if (context.has(dependent) && !context.has(dependency)) {
+                    return "'" + dependent + "' requires '" + dependency + "' to be specified first";
+                }
+            }
+            return null;
+        };
+    }
 }

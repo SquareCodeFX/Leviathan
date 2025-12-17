@@ -338,6 +338,113 @@ public final class CommandContext {
         return getOrDefault(name, Player.class, defaultValue);
     }
 
+    // ==================== LIST/VARIADIC ARGUMENT METHODS ====================
+
+    /**
+     * Retrieve a list argument by name.
+     * <p>
+     * This method is used for variadic arguments that parse multiple values into a List.
+     * <p>
+     * Example:
+     * <pre>{@code
+     * List<Player> players = ctx.getList("players");
+     * List<String> tags = ctx.getList("tags");
+     * }</pre>
+     *
+     * @param name argument name
+     * @param <T>  the element type of the list
+     * @return the list, or an empty list if the argument is not present
+     */
+    @SuppressWarnings("unchecked")
+    public @NotNull <T> List<T> getList(@NotNull String name) {
+        Preconditions.checkNotNull(name, "name");
+        Object o = values.get(resolveName(name));
+        if (o instanceof List<?>) {
+            return Collections.unmodifiableList((List<T>) o);
+        }
+        return Collections.emptyList();
+    }
+
+    /**
+     * Retrieve a list argument by name with element type checking.
+     * <p>
+     * This method verifies that each element in the list is of the expected type.
+     * <p>
+     * Example:
+     * <pre>{@code
+     * List<Player> players = ctx.getList("players", Player.class);
+     * List<Integer> numbers = ctx.getList("numbers", Integer.class);
+     * }</pre>
+     *
+     * @param name        argument name
+     * @param elementType expected element type class
+     * @param <T>         the element type of the list
+     * @return the list with verified element types, or an empty list if not present
+     */
+    @SuppressWarnings("unchecked")
+    public @NotNull <T> List<T> getList(@NotNull String name, @NotNull Class<T> elementType) {
+        Preconditions.checkNotNull(name, "name");
+        Preconditions.checkNotNull(elementType, "elementType");
+        Object o = values.get(resolveName(name));
+        if (o instanceof List<?> list) {
+            // Verify element types
+            List<T> result = new ArrayList<>();
+            for (Object element : list) {
+                if (elementType.isInstance(element)) {
+                    result.add((T) element);
+                }
+            }
+            return Collections.unmodifiableList(result);
+        }
+        return Collections.emptyList();
+    }
+
+    /**
+     * Retrieve a list argument or return a default value.
+     *
+     * @param name         argument name
+     * @param defaultValue value to return if the argument is missing
+     * @param <T>          the element type of the list
+     * @return the list or the default value
+     */
+    @SuppressWarnings("unchecked")
+    public @NotNull <T> List<T> getListOrDefault(@NotNull String name, @NotNull List<T> defaultValue) {
+        Preconditions.checkNotNull(name, "name");
+        Preconditions.checkNotNull(defaultValue, "defaultValue");
+        Object o = values.get(resolveName(name));
+        if (o instanceof List<?>) {
+            return Collections.unmodifiableList((List<T>) o);
+        }
+        return defaultValue;
+    }
+
+    /**
+     * Check if a list argument has any elements.
+     *
+     * @param name argument name
+     * @return true if the list exists and is not empty
+     */
+    public boolean hasListElements(@NotNull String name) {
+        Preconditions.checkNotNull(name, "name");
+        Object o = values.get(resolveName(name));
+        return o instanceof List<?> list && !list.isEmpty();
+    }
+
+    /**
+     * Get the size of a list argument.
+     *
+     * @param name argument name
+     * @return the number of elements, or 0 if not a list or not present
+     */
+    public int getListSize(@NotNull String name) {
+        Preconditions.checkNotNull(name, "name");
+        Object o = values.get(resolveName(name));
+        if (o instanceof List<?> list) {
+            return list.size();
+        }
+        return 0;
+    }
+
     /**
      * Functional retrieval using an {@link OptionMapping} and a mapper function.
      * Example usage: {@code String n = ctx.arg("name", ArgumentMapper::asString);}.
