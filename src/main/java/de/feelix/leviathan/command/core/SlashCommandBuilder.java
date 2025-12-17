@@ -5,7 +5,10 @@ import de.feelix.leviathan.annotations.Nullable;
 import de.feelix.leviathan.command.argument.Arg;
 import de.feelix.leviathan.command.argument.ArgContext;
 import de.feelix.leviathan.command.argument.ArgumentGroup;
+import de.feelix.leviathan.command.argument.ChoiceArg;
+import de.feelix.leviathan.command.argument.VariadicArg;
 import de.feelix.leviathan.command.error.DetailedExceptionHandler;
+import de.feelix.leviathan.command.permission.PermissionCascadeMode;
 import de.feelix.leviathan.command.error.ExceptionHandler;
 import de.feelix.leviathan.command.flag.Flag;
 import de.feelix.leviathan.command.flag.KeyValue;
@@ -75,6 +78,11 @@ public final class SlashCommandBuilder {
     private final List<ExecutionHook.After> afterHooks = new ArrayList<>();
     // Argument groups
     private final List<ArgumentGroup> argumentGroups = new ArrayList<>();
+    // Quoted string parsing
+    private boolean enableQuotedStrings = false;
+    // Permission cascading
+    private PermissionCascadeMode permissionCascadeMode = PermissionCascadeMode.INHERIT;
+    private @Nullable String permissionPrefix = null;
 
     SlashCommandBuilder(String name) {
         this.name = Preconditions.checkNotNull(name, "name");
@@ -123,6 +131,105 @@ public final class SlashCommandBuilder {
      */
     public @NotNull SlashCommandBuilder withPermission(@Nullable String permission) {
         return permission(permission);
+    }
+
+    /**
+     * Set the permission cascade mode for this command.
+     * <p>
+     * Permission cascading controls how permissions are inherited from parent commands
+     * to subcommands. This is useful for creating permission hierarchies.
+     * <p>
+     * Available modes:
+     * <ul>
+     *   <li>{@link PermissionCascadeMode#NONE} - Only checks this command's permission</li>
+     *   <li>{@link PermissionCascadeMode#INHERIT} - Checks all parent permissions (default)</li>
+     *   <li>{@link PermissionCascadeMode#AUTO_PREFIX} - Auto-generates permissions from path</li>
+     *   <li>{@link PermissionCascadeMode#WILDCARD} - Supports wildcard permissions</li>
+     *   <li>{@link PermissionCascadeMode#INHERIT_FALLBACK} - Inherits parent if no own permission</li>
+     * </ul>
+     * <p>
+     * Example:
+     * <pre>{@code
+     * SlashCommand.create("admin")
+     *     .permission("myplugin.admin")
+     *     .permissionCascade(PermissionCascadeMode.INHERIT)
+     *     .subcommand(
+     *         SlashCommand.create("ban")
+     *             .permission("myplugin.admin.ban")
+     *             // User needs both "myplugin.admin" AND "myplugin.admin.ban"
+     *             .executes(...)
+     *     )
+     *     .build();
+     * }</pre>
+     *
+     * @param mode the permission cascade mode
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder permissionCascade(@NotNull PermissionCascadeMode mode) {
+        Preconditions.checkNotNull(mode, "mode");
+        this.permissionCascadeMode = mode;
+        return this;
+    }
+
+    /**
+     * Enable permission inheritance from parent commands.
+     * <p>
+     * Convenience method equivalent to {@code permissionCascade(PermissionCascadeMode.INHERIT)}.
+     * <p>
+     * When enabled, executing this command requires both:
+     * <ol>
+     *   <li>Permission for all parent commands in the hierarchy</li>
+     *   <li>Permission for this command itself (if set)</li>
+     * </ol>
+     *
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder inheritPermissions() {
+        return permissionCascade(PermissionCascadeMode.INHERIT);
+    }
+
+    /**
+     * Disable permission inheritance from parent commands.
+     * <p>
+     * Convenience method equivalent to {@code permissionCascade(PermissionCascadeMode.NONE)}.
+     *
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder noPermissionInheritance() {
+        return permissionCascade(PermissionCascadeMode.NONE);
+    }
+
+    /**
+     * Enable automatic permission generation based on command path.
+     * <p>
+     * When this is enabled and no explicit permission is set, the permission
+     * is automatically generated from the command hierarchy.
+     * <p>
+     * Example with prefix "myplugin":
+     * <pre>
+     * /admin user ban → permission: "myplugin.admin.user.ban"
+     * </pre>
+     *
+     * @param prefix the permission prefix (usually plugin name)
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder autoPermission(@NotNull String prefix) {
+        Preconditions.checkNotNull(prefix, "prefix");
+        this.permissionCascadeMode = PermissionCascadeMode.AUTO_PREFIX;
+        this.permissionPrefix = prefix;
+        return this;
+    }
+
+    /**
+     * Enable wildcard permission support.
+     * <p>
+     * When enabled, wildcard permissions like "admin.*" can grant access
+     * to all subcommands under "admin".
+     *
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder wildcardPermissions() {
+        return permissionCascade(PermissionCascadeMode.WILDCARD);
     }
 
     /**
@@ -340,6 +447,346 @@ public final class SlashCommandBuilder {
             "argContext"
         )
         ));
+    }
+
+    /**
+     * Add a choice argument that restricts values to a predefined set.
+     * <p>
+     * Example:
+     * <pre>{@code
+     * SlashCommand.create("gamemode")
+     *     .argChoice(ChoiceArg.ofEnum("mode", GameMode.class))
+     *     .executes((sender, ctx) -> {
+     *         GameMode mode = ctx.get("mode", GameMode.class);
+     *         // mode is guaranteed to be a valid GameMode
+     *     })
+     *     .build();
+     * }</pre>
+     *
+     * @param choiceArg the choice argument configuration
+     * @param <T>       the type of value the choice represents
+     * @return this builder
+     */
+    public <T> @NotNull SlashCommandBuilder argChoice(@NotNull ChoiceArg<T> choiceArg) {
+        Preconditions.checkNotNull(choiceArg, "choiceArg");
+        return arg(choiceArg.toArg());
+    }
+
+    /**
+     * Add a choice argument with custom context.
+     *
+     * @param choiceArg  the choice argument configuration
+     * @param argContext additional argument configuration
+     * @param <T>        the type of value the choice represents
+     * @return this builder
+     */
+    public <T> @NotNull SlashCommandBuilder argChoice(@NotNull ChoiceArg<T> choiceArg, @NotNull ArgContext argContext) {
+        Preconditions.checkNotNull(choiceArg, "choiceArg");
+        Preconditions.checkNotNull(argContext, "argContext");
+        return arg(choiceArg.toArg(argContext));
+    }
+
+    /**
+     * Add a simple string choice argument.
+     * <p>
+     * Example:
+     * <pre>{@code
+     * SlashCommand.create("color")
+     *     .argStringChoice("color", "red", "green", "blue")
+     *     .executes((sender, ctx) -> {
+     *         String color = ctx.getString("color");
+     *         // color is guaranteed to be one of: red, green, blue
+     *     })
+     *     .build();
+     * }</pre>
+     *
+     * @param name   the argument name
+     * @param values the allowed values
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder argStringChoice(@NotNull String name, @NotNull String... values) {
+        Preconditions.checkNotNull(name, "name");
+        Preconditions.checkNotNull(values, "values");
+        return argChoice(ChoiceArg.ofStrings(name, values));
+    }
+
+    /**
+     * Add a simple string choice argument with custom context.
+     *
+     * @param name       the argument name
+     * @param argContext additional argument configuration
+     * @param values     the allowed values
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder argStringChoice(@NotNull String name, @NotNull ArgContext argContext,
+                                                        @NotNull String... values) {
+        Preconditions.checkNotNull(name, "name");
+        Preconditions.checkNotNull(argContext, "argContext");
+        Preconditions.checkNotNull(values, "values");
+        return argChoice(ChoiceArg.ofStrings(name, values), argContext);
+    }
+
+    /**
+     * Add an enum choice argument.
+     * <p>
+     * Example:
+     * <pre>{@code
+     * SlashCommand.create("difficulty")
+     *     .argEnumChoice("level", Difficulty.class)
+     *     .executes((sender, ctx) -> {
+     *         Difficulty diff = ctx.get("level", Difficulty.class);
+     *         // diff is guaranteed to be a valid Difficulty
+     *     })
+     *     .build();
+     * }</pre>
+     *
+     * @param name      the argument name
+     * @param enumClass the enum class
+     * @param <E>       the enum type
+     * @return this builder
+     */
+    public <E extends Enum<E>> @NotNull SlashCommandBuilder argEnumChoice(@NotNull String name,
+                                                                          @NotNull Class<E> enumClass) {
+        Preconditions.checkNotNull(name, "name");
+        Preconditions.checkNotNull(enumClass, "enumClass");
+        return argChoice(ChoiceArg.ofEnum(name, enumClass));
+    }
+
+    /**
+     * Add an enum choice argument with custom context.
+     *
+     * @param name       the argument name
+     * @param enumClass  the enum class
+     * @param argContext additional argument configuration
+     * @param <E>        the enum type
+     * @return this builder
+     */
+    public <E extends Enum<E>> @NotNull SlashCommandBuilder argEnumChoice(@NotNull String name,
+                                                                          @NotNull Class<E> enumClass,
+                                                                          @NotNull ArgContext argContext) {
+        Preconditions.checkNotNull(name, "name");
+        Preconditions.checkNotNull(enumClass, "enumClass");
+        Preconditions.checkNotNull(argContext, "argContext");
+        return argChoice(ChoiceArg.ofEnum(name, enumClass), argContext);
+    }
+
+    /**
+     * Add a mapped choice argument.
+     * <p>
+     * Example:
+     * <pre>{@code
+     * Map<String, Integer> sizes = Map.of(
+     *     "small", 10,
+     *     "medium", 25,
+     *     "large", 50
+     * );
+     * SlashCommand.create("resize")
+     *     .argMappedChoice("size", sizes)
+     *     .executes((sender, ctx) -> {
+     *         Integer size = ctx.get("size", Integer.class);
+     *         // size is guaranteed to be one of: 10, 25, 50
+     *     })
+     *     .build();
+     * }</pre>
+     *
+     * @param name   the argument name
+     * @param values map of choice keys to values
+     * @param <T>    the value type
+     * @return this builder
+     */
+    public <T> @NotNull SlashCommandBuilder argMappedChoice(@NotNull String name, @NotNull java.util.Map<String, T> values) {
+        Preconditions.checkNotNull(name, "name");
+        Preconditions.checkNotNull(values, "values");
+        return argChoice(ChoiceArg.ofMap(name, values));
+    }
+
+    /**
+     * Add a mapped choice argument with custom context.
+     *
+     * @param name       the argument name
+     * @param values     map of choice keys to values
+     * @param argContext additional argument configuration
+     * @param <T>        the value type
+     * @return this builder
+     */
+    public <T> @NotNull SlashCommandBuilder argMappedChoice(@NotNull String name, @NotNull java.util.Map<String, T> values,
+                                                            @NotNull ArgContext argContext) {
+        Preconditions.checkNotNull(name, "name");
+        Preconditions.checkNotNull(values, "values");
+        Preconditions.checkNotNull(argContext, "argContext");
+        return argChoice(ChoiceArg.ofMap(name, values), argContext);
+    }
+
+    // ==================== VARIADIC ARGUMENT METHODS ====================
+
+    /**
+     * Add a variadic argument that accepts multiple values of the same type.
+     * <p>
+     * The argument will be greedy by default (consuming all remaining tokens).
+     * Values are accessed via {@code ctx.getList("name")}.
+     * <p>
+     * Example:
+     * <pre>{@code
+     * SlashCommand.create("invite")
+     *     .argVariadic(VariadicArg.of("players", ArgParsers.playerParser()))
+     *     .executes((sender, ctx) -> {
+     *         List<Player> players = ctx.getList("players", Player.class);
+     *         for (Player p : players) {
+     *             p.sendMessage("You've been invited!");
+     *         }
+     *     })
+     *     .build();
+     * }</pre>
+     *
+     * @param variadicArg the variadic argument configuration
+     * @param <T>         the element type
+     * @return this builder
+     */
+    public <T> @NotNull SlashCommandBuilder argVariadic(@NotNull VariadicArg<T> variadicArg) {
+        Preconditions.checkNotNull(variadicArg, "variadicArg");
+        return arg(variadicArg.toArg());
+    }
+
+    /**
+     * Add a variadic argument with custom context.
+     *
+     * @param variadicArg the variadic argument configuration
+     * @param argContext  additional argument configuration
+     * @param <T>         the element type
+     * @return this builder
+     */
+    public <T> @NotNull SlashCommandBuilder argVariadic(@NotNull VariadicArg<T> variadicArg, @NotNull ArgContext argContext) {
+        Preconditions.checkNotNull(variadicArg, "variadicArg");
+        Preconditions.checkNotNull(argContext, "argContext");
+        return arg(variadicArg.toArg(argContext));
+    }
+
+    /**
+     * Add a variadic string argument (space-delimited).
+     * <p>
+     * Example:
+     * <pre>{@code
+     * SlashCommand.create("tag")
+     *     .argPlayer("player")
+     *     .argStrings("tags") // captures all remaining tokens
+     *     .executes((sender, ctx) -> {
+     *         List<String> tags = ctx.getList("tags");
+     *         // tags = ["tag1", "tag2", "tag3", ...]
+     *     })
+     *     .build();
+     * }</pre>
+     *
+     * @param name argument name
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder argStrings(@NotNull String name) {
+        Preconditions.checkNotNull(name, "name");
+        return argVariadic(VariadicArg.strings(name));
+    }
+
+    /**
+     * Add a variadic string argument with custom context.
+     *
+     * @param name       argument name
+     * @param argContext additional argument configuration
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder argStrings(@NotNull String name, @NotNull ArgContext argContext) {
+        Preconditions.checkNotNull(name, "name");
+        Preconditions.checkNotNull(argContext, "argContext");
+        return argVariadic(VariadicArg.strings(name), argContext);
+    }
+
+    /**
+     * Add a variadic integer argument (space-delimited).
+     * <p>
+     * Example:
+     * <pre>{@code
+     * SlashCommand.create("sum")
+     *     .argIntegers("numbers")
+     *     .executes((sender, ctx) -> {
+     *         List<Integer> numbers = ctx.getList("numbers", Integer.class);
+     *         int sum = numbers.stream().mapToInt(Integer::intValue).sum();
+     *         sender.sendMessage("Sum: " + sum);
+     *     })
+     *     .build();
+     * }</pre>
+     *
+     * @param name argument name
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder argIntegers(@NotNull String name) {
+        Preconditions.checkNotNull(name, "name");
+        return argVariadic(VariadicArg.integers(name));
+    }
+
+    /**
+     * Add a variadic integer argument with custom context.
+     *
+     * @param name       argument name
+     * @param argContext additional argument configuration
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder argIntegers(@NotNull String name, @NotNull ArgContext argContext) {
+        Preconditions.checkNotNull(name, "name");
+        Preconditions.checkNotNull(argContext, "argContext");
+        return argVariadic(VariadicArg.integers(name), argContext);
+    }
+
+    /**
+     * Add a variadic double argument (space-delimited).
+     *
+     * @param name argument name
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder argDoubles(@NotNull String name) {
+        Preconditions.checkNotNull(name, "name");
+        return argVariadic(VariadicArg.doubles(name));
+    }
+
+    /**
+     * Add a variadic double argument with custom context.
+     *
+     * @param name       argument name
+     * @param argContext additional argument configuration
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder argDoubles(@NotNull String name, @NotNull ArgContext argContext) {
+        Preconditions.checkNotNull(name, "name");
+        Preconditions.checkNotNull(argContext, "argContext");
+        return argVariadic(VariadicArg.doubles(name), argContext);
+    }
+
+    /**
+     * Add a variadic argument with a custom element parser.
+     * <p>
+     * Example with comma-delimited values:
+     * <pre>{@code
+     * SlashCommand.create("materials")
+     *     .argListOf("items", ArgParsers.materialParser(), ",")
+     *     .executes((sender, ctx) -> {
+     *         List<Material> items = ctx.getList("items", Material.class);
+     *         // Input: "stone,diamond,gold" -> [STONE, DIAMOND, GOLD]
+     *     })
+     *     .build();
+     * }</pre>
+     *
+     * @param name          argument name
+     * @param elementParser parser for individual elements
+     * @param delimiter     delimiter between values (null for space-delimited)
+     * @param <T>           the element type
+     * @return this builder
+     */
+    public <T> @NotNull SlashCommandBuilder argListOf(@NotNull String name,
+                                                      @NotNull ArgumentParser<T> elementParser,
+                                                      @Nullable String delimiter) {
+        Preconditions.checkNotNull(name, "name");
+        Preconditions.checkNotNull(elementParser, "elementParser");
+        if (delimiter != null) {
+            return argVariadic(VariadicArg.of(name, elementParser, delimiter));
+        } else {
+            return argVariadic(VariadicArg.of(name, elementParser));
+        }
     }
 
     /**
@@ -828,6 +1275,50 @@ public final class SlashCommandBuilder {
     public @NotNull SlashCommandBuilder debugMode(boolean debug) {
         this.debugMode = debug;
         return this;
+    }
+
+    /**
+     * Enable or disable quoted string parsing for this command.
+     * <p>
+     * When enabled, strings enclosed in double or single quotes are treated as single tokens,
+     * even if they contain spaces. This allows arguments like "hello world" to be parsed
+     * as a single value.
+     * <p>
+     * Example:
+     * <pre>{@code
+     * SlashCommand.create("message")
+     *     .argPlayer("target")
+     *     .argString("message")
+     *     .enableQuotedStrings(true)
+     *     .executes((sender, ctx) -> {
+     *         Player target = ctx.get("target", Player.class);
+     *         String message = ctx.getString("message");
+     *         // User can now type: /message Player "Hello, how are you?"
+     *         target.sendMessage(message);
+     *     })
+     *     .register(plugin);
+     * }</pre>
+     * <p>
+     * This is disabled by default.
+     *
+     * @param enable true to enable quoted string parsing
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder enableQuotedStrings(boolean enable) {
+        this.enableQuotedStrings = enable;
+        return this;
+    }
+
+    /**
+     * Enable quoted string parsing for this command.
+     * <p>
+     * Convenience method equivalent to {@code enableQuotedStrings(true)}.
+     *
+     * @return this builder
+     * @see #enableQuotedStrings(boolean)
+     */
+    public @NotNull SlashCommandBuilder quotedStrings() {
+        return enableQuotedStrings(true);
     }
 
     /**
@@ -2091,7 +2582,8 @@ public final class SlashCommandBuilder {
             guards, crossArgumentValidators, exceptionHandler,
             perUserCooldownMillis, perServerCooldownMillis, enableHelp, helpPageSize, messages, sanitizeInputs,
             fuzzySubcommandMatching, fuzzyMatchThreshold, debugMode,
-            flags, keyValues, awaitConfirmation, beforeHooks, afterHooks, argumentGroups
+            flags, keyValues, awaitConfirmation, beforeHooks, afterHooks, argumentGroups, enableQuotedStrings,
+            permissionCascadeMode, permissionPrefix
         );
 
         // Set parent reference for all subcommands

@@ -212,6 +212,93 @@ CommandParseResult result = command.parse(sender, label, args, options);
 | `checkConfirmation` | false | Check confirmation requirements |
 | `skipGuards` | false | Skip guard checks |
 | `skipPermissionChecks` | false | Skip permission checks |
+| `enableQuotedStrings` | false | Parse quoted strings as single tokens |
+
+## Quoted String Parsing
+
+Enable quoted string parsing to treat text within quotes as a single token, even if it contains spaces.
+
+### Enabling Quoted Strings
+
+```java
+// On the command builder
+SlashCommand cmd = SlashCommand.create("message")
+    .quotedStrings()  // or .enableQuotedStrings(true)
+    .argPlayer("target")
+    .argString("message")
+    .executes((sender, ctx) -> {
+        Player target = ctx.get("target", Player.class);
+        String message = ctx.get("message", String.class);
+        target.sendMessage(message);
+    })
+    .build();
+
+// Usage: /message Notch "Hello, how are you today?"
+// Without quotes: ["Notch", "Hello,", "how", "are", "you", "today?"]
+// With quotes:    ["Notch", "Hello, how are you today?"]
+```
+
+### In ParseOptions
+
+```java
+ParseOptions options = ParseOptions.builder()
+    .enableQuotedStrings(true)
+    .build();
+
+CommandParseResult result = command.parse(sender, label, args, options);
+```
+
+### Quote Types
+
+Both single and double quotes are supported:
+
+```java
+// Double quotes
+/command "hello world"        // → "hello world"
+
+// Single quotes
+/command 'hello world'        // → "hello world"
+
+// Nested quotes
+/command "he said 'hello'"    // → "he said 'hello'"
+
+// Escape sequences (within quotes)
+/command "say \"hi\""         // → "say "hi""
+```
+
+### Error Handling
+
+Unclosed quotes result in a parsing error:
+
+```java
+/command "hello world         // Error: Unclosed double quote
+/command 'hello world         // Error: Unclosed single quote
+```
+
+The error message is customizable via `MessageProvider.quotedStringError(String errorDetail)`.
+
+### QuotedStringTokenizer Utility
+
+For manual tokenization, use the `QuotedStringTokenizer` class:
+
+```java
+// Tokenize a string
+QuotedStringTokenizer.TokenizeResult result = QuotedStringTokenizer.tokenize("arg1 \"hello world\" arg2");
+if (result.isSuccess()) {
+    List<String> tokens = result.tokens();  // ["arg1", "hello world", "arg2"]
+}
+
+// Tokenize Bukkit's pre-split args
+String[] args = {"arg1", "\"hello", "world\"", "arg2"};
+QuotedStringTokenizer.TokenizeResult result = QuotedStringTokenizer.tokenize(args);
+// Rejoins and re-splits properly: ["arg1", "hello world", "arg2"]
+
+// Check if a value needs quoting
+boolean needs = QuotedStringTokenizer.needsQuoting("hello world");  // true
+
+// Quote a value if needed
+String quoted = QuotedStringTokenizer.quoteIfNeeded("hello world");  // "\"hello world\""
+```
 
 ## Parsing Methods
 

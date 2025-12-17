@@ -836,4 +836,15 @@ public interface MessageProvider {
      */
     @NotNull
     String tabCompletionDefaultHint();
+
+    // Quoted String Parsing Messages
+
+    /**
+     * Message when quoted string parsing fails (e.g., unclosed quote).
+     *
+     * @param errorDetail the specific error (e.g., "Unclosed double quote")
+     * @return the error message
+     */
+    @NotNull
+    String quotedStringError(@NotNull String errorDetail);
 }
