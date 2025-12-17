@@ -25,12 +25,32 @@ public interface Guard {
     boolean test(@NotNull CommandSender sender);
 
     /**
+     * Alias for {@link #test(CommandSender)}.
+     * Evaluates whether the given sender is allowed to proceed.
+     *
+     * @param sender the command sender
+     * @return true if permitted; false to block
+     */
+    default boolean check(@NotNull CommandSender sender) {
+        return test(sender);
+    }
+
+    /**
      * Optional human-readable error message sent to the sender when {@link #test(CommandSender)} returns false.
      *
      * @return non-null message string
      */
     default @NotNull String errorMessage() {
         return "§cYou cannot use this command.";
+    }
+
+    /**
+     * Alias for {@link #errorMessage()}.
+     *
+     * @return non-null message string
+     */
+    default @NotNull String message() {
+        return errorMessage();
     }
 
     /**

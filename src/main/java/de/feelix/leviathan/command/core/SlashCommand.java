@@ -2996,7 +2996,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         }
 
         // Player-only check
-        if (requiresPlayer && !(sender instanceof Player)) {
+        if (playerOnly && !(sender instanceof Player)) {
             return resultBuilder
                 .withError(CommandParseError.playerOnly(messages.playersOnly()))
                 .build();
@@ -3049,15 +3049,10 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
             ArgumentParser<?> parser = arg.parser();
 
             try {
-                ArgContext argContext = new ArgContext(
-                    sender, label, providedArgs, argIndex,
-                    input, arg, Collections.emptyMap()
-                );
-
-                ParseResult<?> parseResult = parser.parse(argContext);
+                ParseResult<?> parseResult = parser.parse(input, sender);
 
                 if (parseResult.isSuccess()) {
-                    Object value = parseResult.value();
+                    Object value = parseResult.value().orElse(null);
 
                     // Run validators if present
                     if (arg.validatorChain() != null) {

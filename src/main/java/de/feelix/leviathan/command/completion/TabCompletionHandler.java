@@ -117,7 +117,7 @@ public final class TabCompletionHandler {
             if (currentToken.startsWith("-") || currentToken.startsWith("--") ||
                 currentToken.contains("=") || currentToken.contains(":")) {
                 List<String> flagKvCompletions = generateFlagAndKeyValueCompletions(
-                    currentToken, providedArgs, command, sender);
+                    currentToken, providedArgs, command, sender, messages);
                 if (!flagKvCompletions.isEmpty()) {
                     return flagKvCompletions;
                 }
@@ -132,7 +132,7 @@ public final class TabCompletionHandler {
                         if (kv.matchesKey(prevContent)) {
                             // Previous token was a key, current is the value
                             List<String> flagKvCompletions = generateFlagAndKeyValueCompletions(
-                                currentToken, providedArgs, command, sender);
+                                currentToken, providedArgs, command, sender, messages);
                             if (!flagKvCompletions.isEmpty()) {
                                 return flagKvCompletions;
                             }
@@ -154,7 +154,7 @@ public final class TabCompletionHandler {
             // No positional args defined, suggest flags/key-values
             if (hasFlags || hasKeyValues) {
                 return generateFlagAndKeyValueCompletions(
-                    currentToken, providedArgs, command, sender);
+                    currentToken, providedArgs, command, sender, messages);
             }
             return Collections.emptyList();
         }
@@ -169,7 +169,7 @@ public final class TabCompletionHandler {
             // Past all positional args, suggest flags/key-values
             if (hasFlags || hasKeyValues) {
                 return generateFlagAndKeyValueCompletions(
-                    currentToken, providedArgs, command, sender);
+                    currentToken, providedArgs, command, sender, messages);
             }
             return Collections.emptyList();
         }
@@ -215,7 +215,7 @@ public final class TabCompletionHandler {
 
             if (shouldMergeFlags) {
                 List<String> flagKvCompletions = generateFlagAndKeyValueCompletions(
-                    currentToken, providedArgs, command, sender);
+                    currentToken, providedArgs, command, sender, messages);
                 if (!flagKvCompletions.isEmpty()) {
                     // Merge both lists
                     Set<String> combined = new LinkedHashSet<>(argCompletions);
@@ -541,13 +541,15 @@ public final class TabCompletionHandler {
      * @param providedArgs  all arguments provided so far
      * @param command       the SlashCommand instance
      * @param sender        the command sender
+     * @param messages      the message provider for formatting hints
      * @return list of flag and key-value completion suggestions
      */
     private static @NotNull List<String> generateFlagAndKeyValueCompletions(
         @NotNull String currentToken,
         @NotNull String[] providedArgs,
         @NotNull SlashCommand command,
-        @NotNull CommandSender sender) {
+        @NotNull CommandSender sender,
+        @NotNull MessageProvider messages) {
 
         List<String> completions = new ArrayList<>();
         List<Flag> flags = command.flags();
