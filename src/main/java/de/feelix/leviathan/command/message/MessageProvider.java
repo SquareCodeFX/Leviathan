@@ -32,6 +32,28 @@ public interface MessageProvider {
     String playerOnly();
 
     /**
+     * Alias for {@link #playerOnly()}.
+     * Message when a non-player tries to use a player-only command.
+     *
+     * @return the player-only message
+     */
+    @NotNull
+    default String playersOnly() {
+        return playerOnly();
+    }
+
+    /**
+     * Message when an unknown subcommand is provided.
+     *
+     * @param subcommand the unknown subcommand that was entered
+     * @return the unknown subcommand message
+     */
+    @NotNull
+    default String unknownSubcommand(@NotNull String subcommand) {
+        return "§cUnknown subcommand: " + subcommand;
+    }
+
+    /**
      * Generic message when a guard check fails but no specific error is available.
      *
      * @return the generic guard failure message

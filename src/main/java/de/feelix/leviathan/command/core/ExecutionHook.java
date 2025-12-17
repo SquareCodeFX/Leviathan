@@ -129,9 +129,24 @@ public final class ExecutionHook {
         }
 
         /**
+         * @return true if execution should be aborted (inverse of shouldProceed)
+         */
+        public boolean shouldAbort() {
+            return !proceed;
+        }
+
+        /**
          * @return error message to display if aborting, may be null
          */
         public @Nullable String errorMessage() {
+            return errorMessage;
+        }
+
+        /**
+         * Alias for {@link #errorMessage()}.
+         * @return error message to display if aborting, may be null
+         */
+        public @Nullable String message() {
             return errorMessage;
         }
     }

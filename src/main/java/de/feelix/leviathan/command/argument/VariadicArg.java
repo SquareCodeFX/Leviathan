@@ -296,14 +296,14 @@ public final class VariadicArg<T> {
             }
 
             @Override
-            public @NotNull List<String> tabComplete(@NotNull String partial, @NotNull CommandSender sender) {
+            public @NotNull List<String> complete(@NotNull String partial, @NotNull CommandSender sender) {
                 // For tab completion, provide suggestions for the last element
                 String lastElement = partial;
                 if (delimiter != null && partial.contains(delimiter)) {
                     int lastIndex = partial.lastIndexOf(delimiter);
                     lastElement = partial.substring(lastIndex + delimiter.length()).trim();
                 }
-                return elementParser.tabComplete(lastElement, sender);
+                return elementParser.complete(lastElement, sender);
             }
 
             @Override

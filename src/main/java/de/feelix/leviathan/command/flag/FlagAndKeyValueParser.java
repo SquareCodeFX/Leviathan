@@ -140,6 +140,8 @@ public final class FlagAndKeyValueParser {
     private final Map<String, Flag> longFormCache;        // lowercase keys
     private final Map<String, Flag> negatedLongFormCache; // lowercase keys
     private final Map<String, KeyValue<?>> keyValueCache; // lowercase keys
+    // Cached compiled patterns for value separators (avoids recompilation on every parse)
+    private final Map<String, Pattern> separatorPatterns;
 
     /**
      * Create a new parser with the given flags and key-values.
@@ -169,8 +171,13 @@ public final class FlagAndKeyValueParser {
         }
 
         this.keyValueCache = new HashMap<>();
+        this.separatorPatterns = new HashMap<>();
         for (KeyValue<?> kv : keyValues) {
             keyValueCache.put(kv.key().toLowerCase(java.util.Locale.ROOT), kv);
+            // Pre-compile separator patterns for multi-value key-values
+            if (kv.multipleValues() && kv.valueSeparator() != null) {
+                separatorPatterns.put(kv.name(), Pattern.compile(Pattern.quote(kv.valueSeparator())));
+            }
         }
     }
 

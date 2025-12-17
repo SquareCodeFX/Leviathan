@@ -55,6 +55,8 @@ public final class ChoiceArg<T> {
     private final ArgumentParser<T> parser;
     // Cached lowercase-to-original map for O(1) case-insensitive lookups
     private final Map<String, String> lowerToOriginalKey;
+    // Cached lowercase choice map for case-insensitive lookups
+    private final Map<String, Choice<T>> lowerCaseChoices;
 
     private ChoiceArg(Builder<T> builder) {
         this.name = builder.name;
@@ -319,7 +321,7 @@ public final class ChoiceArg<T> {
             }
 
             @Override
-            public @NotNull List<String> tabComplete(@NotNull String partial, @NotNull CommandSender sender) {
+            public @NotNull List<String> complete(@NotNull String partial, @NotNull CommandSender sender) {
                 String lowerPartial = caseSensitive ? partial : partial.toLowerCase(Locale.ROOT);
                 List<String> suggestions = new ArrayList<>();
                 for (String key : choiceKeys) {
