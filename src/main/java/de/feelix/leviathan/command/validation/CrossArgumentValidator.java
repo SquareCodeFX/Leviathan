@@ -65,9 +65,13 @@ public interface CrossArgumentValidator {
         }
         final List<String> names = List.of(argumentNames);
         return context -> {
-            List<String> provided = names.stream()
-                .filter(context::has)
-                .collect(Collectors.toList());
+            // Optimized: simple loop instead of stream for small collections
+            List<String> provided = new java.util.ArrayList<>();
+            for (String name : names) {
+                if (context.has(name)) {
+                    provided.add(name);
+                }
+            }
             if (provided.size() > 1) {
                 return "Arguments are mutually exclusive: " + String.join(", ", provided);
             }
@@ -90,9 +94,14 @@ public interface CrossArgumentValidator {
         }
         final List<String> names = List.of(argumentNames);
         return context -> {
-            long providedCount = names.stream()
-                .filter(context::has)
-                .count();
+            // Optimized: simple loop counter instead of stream
+            int providedCount = 0;
+            for (String name : names) {
+                if (context.has(name)) {
+                    providedCount++;
+                    if (providedCount > 1) break; // Early termination
+                }
+            }
             if (providedCount > 1) {
                 return errorMessage;
             }
@@ -114,12 +123,17 @@ public interface CrossArgumentValidator {
         }
         final List<String> names = List.of(argumentNames);
         return context -> {
-            boolean anyPresent = names.stream().anyMatch(context::has);
-            boolean allPresent = names.stream().allMatch(context::has);
-            if (anyPresent && !allPresent) {
-                List<String> missing = names.stream()
-                    .filter(name -> !context.has(name))
-                    .collect(Collectors.toList());
+            // Optimized: single loop combines anyMatch, allMatch, and missing collection
+            List<String> missing = new java.util.ArrayList<>();
+            boolean anyPresent = false;
+            for (String name : names) {
+                if (context.has(name)) {
+                    anyPresent = true;
+                } else {
+                    missing.add(name);
+                }
+            }
+            if (anyPresent && !missing.isEmpty()) {
                 return "Missing required arguments: " + String.join(", ", missing);
             }
             return null;
@@ -141,8 +155,16 @@ public interface CrossArgumentValidator {
         }
         final List<String> names = List.of(argumentNames);
         return context -> {
-            boolean anyPresent = names.stream().anyMatch(context::has);
-            boolean allPresent = names.stream().allMatch(context::has);
+            // Optimized: single loop for anyPresent and allPresent check
+            boolean anyPresent = false;
+            boolean allPresent = true;
+            for (String name : names) {
+                if (context.has(name)) {
+                    anyPresent = true;
+                } else {
+                    allPresent = false;
+                }
+            }
             if (anyPresent && !allPresent) {
                 return errorMessage;
             }
@@ -163,11 +185,13 @@ public interface CrossArgumentValidator {
         }
         final List<String> names = List.of(argumentNames);
         return context -> {
-            boolean anyPresent = names.stream().anyMatch(context::has);
-            if (!anyPresent) {
-                return "At least one of these arguments is required: " + String.join(", ", names);
+            // Optimized: simple loop with early termination
+            for (String name : names) {
+                if (context.has(name)) {
+                    return null; // Found one, validation passes
+                }
             }
-            return null;
+            return "At least one of these arguments is required: " + String.join(", ", names);
         };
     }
 
@@ -186,11 +210,13 @@ public interface CrossArgumentValidator {
         }
         final List<String> names = List.of(argumentNames);
         return context -> {
-            boolean anyPresent = names.stream().anyMatch(context::has);
-            if (!anyPresent) {
-                return errorMessage;
+            // Optimized: simple loop with early termination
+            for (String name : names) {
+                if (context.has(name)) {
+                    return null; // Found one, validation passes
+                }
             }
-            return null;
+            return errorMessage;
         };
     }
 
@@ -210,9 +236,13 @@ public interface CrossArgumentValidator {
         final List<String> required = List.of(requiredArgs);
         return context -> {
             if (context.has(triggerArgument)) {
-                List<String> missing = required.stream()
-                    .filter(name -> !context.has(name))
-                    .collect(Collectors.toList());
+                // Optimized: simple loop instead of stream
+                List<String> missing = new java.util.ArrayList<>();
+                for (String name : required) {
+                    if (!context.has(name)) {
+                        missing.add(name);
+                    }
+                }
                 if (!missing.isEmpty()) {
                     return "When '" + triggerArgument + "' is specified, the following are required: "
                            + String.join(", ", missing);
@@ -240,9 +270,11 @@ public interface CrossArgumentValidator {
         final List<String> required = List.of(requiredArgs);
         return context -> {
             if (context.has(triggerArgument)) {
-                boolean allPresent = required.stream().allMatch(context::has);
-                if (!allPresent) {
-                    return errorMessage;
+                // Optimized: simple loop with early termination
+                for (String name : required) {
+                    if (!context.has(name)) {
+                        return errorMessage;
+                    }
                 }
             }
             return null;
@@ -268,9 +300,11 @@ public interface CrossArgumentValidator {
         final List<String> required = List.of(requiredArgs);
         return context -> {
             if (condition.test(context)) {
-                boolean allPresent = required.stream().allMatch(context::has);
-                if (!allPresent) {
-                    return errorMessage;
+                // Optimized: simple loop with early termination
+                for (String name : required) {
+                    if (!context.has(name)) {
+                        return errorMessage;
+                    }
                 }
             }
             return null;
@@ -422,9 +456,13 @@ public interface CrossArgumentValidator {
         final List<String> dependencies = List.of(dependencyArgs);
         return context -> {
             if (context.has(dependentArg)) {
-                List<String> missing = dependencies.stream()
-                    .filter(name -> !context.has(name))
-                    .collect(Collectors.toList());
+                // Optimized: simple loop instead of stream
+                List<String> missing = new java.util.ArrayList<>();
+                for (String name : dependencies) {
+                    if (!context.has(name)) {
+                        missing.add(name);
+                    }
+                }
                 if (!missing.isEmpty()) {
                     return "'" + dependentArg + "' requires these arguments to be present: "
                            + String.join(", ", missing);
@@ -450,10 +488,13 @@ public interface CrossArgumentValidator {
         final List<String> dependencies = List.of(dependencyArgs);
         return context -> {
             if (context.has(dependentArg)) {
-                boolean anyPresent = dependencies.stream().anyMatch(context::has);
-                if (!anyPresent) {
-                    return "'" + dependentArg + "' requires at least one of: " + String.join(", ", dependencies);
+                // Optimized: simple loop with early termination
+                for (String name : dependencies) {
+                    if (context.has(name)) {
+                        return null; // Found one, validation passes
+                    }
                 }
+                return "'" + dependentArg + "' requires at least one of: " + String.join(", ", dependencies);
             }
             return null;
         };

@@ -348,9 +348,14 @@ public final class CommandParseResult {
      */
     public @NotNull List<CommandParseError> errorsByType(@NotNull ErrorType type) {
         Preconditions.checkNotNull(type, "type");
-        return errors.stream()
-            .filter(e -> e.type() == type)
-            .collect(Collectors.toList());
+        // Optimized: simple loop instead of stream for small error lists
+        List<CommandParseError> result = new java.util.ArrayList<>();
+        for (CommandParseError error : errors) {
+            if (error.type() == type) {
+                result.add(error);
+            }
+        }
+        return result;
     }
 
     /**
@@ -361,9 +366,14 @@ public final class CommandParseResult {
      */
     public @NotNull List<CommandParseError> errorsByCategory(@NotNull ErrorType.ErrorCategory category) {
         Preconditions.checkNotNull(category, "category");
-        return errors.stream()
-            .filter(e -> e.type().getCategory() == category)
-            .collect(Collectors.toList());
+        // Optimized: simple loop instead of stream for small error lists
+        List<CommandParseError> result = new java.util.ArrayList<>();
+        for (CommandParseError error : errors) {
+            if (error.type().getCategory() == category) {
+                result.add(error);
+            }
+        }
+        return result;
     }
 
     /**
@@ -374,9 +384,14 @@ public final class CommandParseResult {
      */
     public @NotNull List<CommandParseError> errorsForArgument(@NotNull String argumentName) {
         Preconditions.checkNotNull(argumentName, "argumentName");
-        return errors.stream()
-            .filter(e -> argumentName.equals(e.argumentName()))
-            .collect(Collectors.toList());
+        // Optimized: simple loop instead of stream for small error lists
+        List<CommandParseError> result = new java.util.ArrayList<>();
+        for (CommandParseError error : errors) {
+            if (argumentName.equals(error.argumentName())) {
+                result.add(error);
+            }
+        }
+        return result;
     }
 
     /**
@@ -385,7 +400,13 @@ public final class CommandParseResult {
      * @return true if there are permission, player-only, or guard errors
      */
     public boolean hasAccessErrors() {
-        return errors.stream().anyMatch(CommandParseError::isAccessError);
+        // Optimized: simple loop with early termination
+        for (CommandParseError error : errors) {
+            if (error.isAccessError()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -394,7 +415,13 @@ public final class CommandParseResult {
      * @return true if there are parsing, validation, or usage errors
      */
     public boolean hasInputErrors() {
-        return errors.stream().anyMatch(CommandParseError::isInputError);
+        // Optimized: simple loop with early termination
+        for (CommandParseError error : errors) {
+            if (error.isInputError()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // ==================== Error Transformation ====================
@@ -412,9 +439,11 @@ public final class CommandParseResult {
         if (isSuccess()) {
             return this;
         }
-        List<CommandParseError> mappedErrors = errors.stream()
-            .map(mapper)
-            .collect(Collectors.toList());
+        // Optimized: simple loop instead of stream
+        List<CommandParseError> mappedErrors = new java.util.ArrayList<>(errors.size());
+        for (CommandParseError error : errors) {
+            mappedErrors.add(mapper.apply(error));
+        }
         return failureWithMetrics(mappedErrors, rawArgs, metrics);
     }
 
@@ -432,9 +461,13 @@ public final class CommandParseResult {
         if (isSuccess()) {
             return this;
         }
-        List<CommandParseError> filteredErrors = errors.stream()
-            .filter(predicate)
-            .collect(Collectors.toList());
+        // Optimized: simple loop instead of stream
+        List<CommandParseError> filteredErrors = new java.util.ArrayList<>();
+        for (CommandParseError error : errors) {
+            if (predicate.test(error)) {
+                filteredErrors.add(error);
+            }
+        }
         if (filteredErrors.isEmpty()) {
             // Keep at least one error
             return this;
@@ -594,9 +627,12 @@ public final class CommandParseResult {
      * @return list of error messages
      */
     public @NotNull List<String> errorMessages() {
-        return errors.stream()
-            .map(CommandParseError::message)
-            .collect(Collectors.toList());
+        // Optimized: simple loop instead of stream
+        List<String> messages = new java.util.ArrayList<>(errors.size());
+        for (CommandParseError error : errors) {
+            messages.add(error.message());
+        }
+        return messages;
     }
 
     /**
@@ -607,9 +643,16 @@ public final class CommandParseResult {
      */
     public @NotNull String joinedErrorMessages(@NotNull String delimiter) {
         Preconditions.checkNotNull(delimiter, "delimiter");
-        return errors.stream()
-            .map(CommandParseError::message)
-            .collect(Collectors.joining(delimiter));
+        // Optimized: StringBuilder instead of stream
+        if (errors.isEmpty()) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < errors.size(); i++) {
+            if (i > 0) sb.append(delimiter);
+            sb.append(errors.get(i).message());
+        }
+        return sb.toString();
     }
 
     /**
@@ -618,9 +661,12 @@ public final class CommandParseResult {
      * @return list of formatted error strings
      */
     public @NotNull List<String> formattedErrors() {
-        return errors.stream()
-            .map(CommandParseError::toFormattedString)
-            .collect(Collectors.toList());
+        // Optimized: simple loop instead of stream
+        List<String> formatted = new java.util.ArrayList<>(errors.size());
+        for (CommandParseError error : errors) {
+            formatted.add(error.toFormattedString());
+        }
+        return formatted;
     }
 
     /**

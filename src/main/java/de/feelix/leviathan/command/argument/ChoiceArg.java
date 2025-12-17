@@ -53,11 +53,23 @@ public final class ChoiceArg<T> {
     private final boolean caseSensitive;
     private final String description;
     private final ArgumentParser<T> parser;
+    // Cached lowercase-to-original map for O(1) case-insensitive lookups
+    private final Map<String, String> lowerToOriginalKey;
 
     private ChoiceArg(Builder<T> builder) {
         this.name = builder.name;
         this.choices = Collections.unmodifiableMap(new LinkedHashMap<>(builder.choices));
         this.choiceKeys = Collections.unmodifiableList(new ArrayList<>(builder.choices.keySet()));
+        // Build lowercase lookup cache once at construction time
+        if (builder.caseSensitive) {
+            this.lowerToOriginalKey = Collections.emptyMap();
+        } else {
+            Map<String, String> lowerMap = new HashMap<>();
+            for (String key : builder.choices.keySet()) {
+                lowerMap.put(key.toLowerCase(Locale.ROOT), key);
+            }
+            this.lowerToOriginalKey = Collections.unmodifiableMap(lowerMap);
+        }
         this.caseSensitive = builder.caseSensitive;
         this.description = builder.description;
         this.parser = createParser();
@@ -276,13 +288,10 @@ public final class ChoiceArg<T> {
         if (caseSensitive) {
             return choices.get(key);
         }
+        // Optimized: use cached lowercase map for O(1) lookup instead of O(n) iteration
         String lowerKey = key.toLowerCase(Locale.ROOT);
-        for (Map.Entry<String, Choice<T>> entry : choices.entrySet()) {
-            if (entry.getKey().toLowerCase(Locale.ROOT).equals(lowerKey)) {
-                return entry.getValue();
-            }
-        }
-        return null;
+        String originalKey = lowerToOriginalKey.get(lowerKey);
+        return originalKey != null ? choices.get(originalKey) : null;
     }
 
     private ArgumentParser<T> createParser() {
