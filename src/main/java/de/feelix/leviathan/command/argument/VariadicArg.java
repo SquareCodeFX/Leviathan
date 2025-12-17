@@ -6,10 +6,8 @@ import de.feelix.leviathan.util.Preconditions;
 import org.bukkit.command.CommandSender;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * A variadic argument that accepts multiple values of the same type and returns them as a List.
