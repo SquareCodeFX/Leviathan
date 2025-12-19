@@ -198,6 +198,17 @@ public final class Arg<T> {
     }
 
     /**
+     * Get the validator chain for this argument.
+     * This returns the list of custom validators from the argument context.
+     *
+     * @return the list of custom validators, or null if none defined
+     */
+    public @Nullable java.util.List<ArgContext.Validator<?>> validatorChain() {
+        java.util.List<ArgContext.Validator<?>> validators = context.customValidators();
+        return validators.isEmpty() ? null : validators;
+    }
+
+    /**
      * @return the condition predicate for this argument, or null if none
      */
     public @Nullable Predicate<CommandContext> condition() {

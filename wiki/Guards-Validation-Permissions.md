@@ -249,6 +249,63 @@ The confirmation message can be customized via the `MessageProvider.awaitConfirm
 
 When using subcommands, you can configure permissions to cascade from parent to child commands. This means a subcommand inherits the permission requirements of its parent.
 
+##### Permission Cascade Modes
+
+Leviathan supports five different cascade modes via `PermissionCascadeMode`:
+
+| Mode | Description |
+|------|-------------|
+| `NONE` | Only checks the subcommand's own permission. Parent permissions are ignored. |
+| `INHERIT` | (Default) Checks all permissions from parent to child. Most restrictive. |
+| `INHERIT_FALLBACK` | If no permission set, inherits from parent. Otherwise uses own permission. |
+| `AUTO_PREFIX` | Auto-generates permissions from command path (e.g., `prefix.admin.user.ban`). |
+| `WILDCARD` | Supports wildcard permissions (e.g., `admin.*` grants all admin subcommands). |
+
+##### Configuring Cascade Mode
+
+```java
+// Use INHERIT mode (default) - checks all parent permissions
+SlashCommand admin = SlashCommand.create("admin")
+    .permission("myplugin.admin")
+    .inheritPermissions()  // or .permissionCascade(PermissionCascadeMode.INHERIT)
+    .subcommand(/* ... */)
+    .build();
+
+// Use NONE mode - only check this command's permission
+SlashCommand standalone = SlashCommand.create("standalone")
+    .permission("myplugin.standalone")
+    .noPermissionInheritance()  // or .permissionCascade(PermissionCascadeMode.NONE)
+    .build();
+
+// Use AUTO_PREFIX mode - auto-generate permissions
+SlashCommand auto = SlashCommand.create("admin")
+    .autoPermission("myplugin")  // generates myplugin.admin, myplugin.admin.users, etc.
+    .subcommand(
+        SlashCommand.create("users")
+            .subcommand(
+                SlashCommand.create("ban")
+                    // Permission auto-generated as "myplugin.admin.users.ban"
+                    .executes((sender, ctx) -> { /* ... */ })
+                    .build()
+            )
+            .build()
+    )
+    .build();
+
+// Use WILDCARD mode - support wildcard permissions
+SlashCommand wildcard = SlashCommand.create("admin")
+    .permission("admin.use")
+    .wildcardPermissions()  // or .permissionCascade(PermissionCascadeMode.WILDCARD)
+    .subcommand(
+        SlashCommand.create("ban")
+            .permission("admin.ban")
+            // Players with "admin.*" can access this
+            .executes((sender, ctx) -> { /* ... */ })
+            .build()
+    )
+    .build();
+```
+
 ##### How It Works
 
 With permission cascade enabled:
@@ -303,6 +360,9 @@ boolean isSub = cmd.isSubcommand();
 
 // Access parent command
 SlashCommand parent = cmd.parent();
+
+// Get the cascade mode
+PermissionCascadeMode mode = cmd.permissionCascadeMode();
 ```
 
 ##### Use Cases
@@ -311,6 +371,7 @@ Permission cascade is useful for:
 - **Admin hierarchies**: `/admin users ban`, `/admin config reload`
 - **Nested features**: `/shop manage items add`
 - **Role-based access**: Different staff levels access different subcommand depths
+- **Wildcard grants**: Give moderators `mod.*` to access all moderation subcommands
 
 #### Argument Groups
 
@@ -606,3 +667,148 @@ SlashCommand complex = SlashCommand.create("complex")
     .executes(ctx -> { /* ... */ })
     .build();
 ```
+
+#### Argument Dependencies
+
+Argument dependencies allow you to express that certain arguments can only be used when other arguments are present, or that some arguments exclude others.
+
+##### Single Dependency
+
+An argument can only be used if another argument is present:
+
+```java
+SlashCommand export = SlashCommand.create("export")
+    .argString("file")
+    .flagLong("save", "save")
+    .argString("output-file").optional(true)
+    // "output-file" can only be used if "save" flag is present
+    .crossValidate(CrossArgumentValidator.dependsOn("output-file", "save"))
+    .executes(ctx -> { /* ... */ })
+    .build();
+
+// With custom error message
+.crossValidate(CrossArgumentValidator.dependsOn("output-file", "save",
+    "Output file requires --save flag"))
+```
+
+##### Multiple Dependencies (All Required)
+
+An argument requires ALL specified dependencies to be present:
+
+```java
+SlashCommand cmd = SlashCommand.create("cmd")
+    .argString("advanced-settings").optional(true)
+    .argString("mode")
+    .argString("config")
+    // "advanced-settings" requires both "mode" AND "config"
+    .crossValidate(CrossArgumentValidator.dependsOnAll("advanced-settings", "mode", "config"))
+    .executes(ctx -> { /* ... */ })
+    .build();
+```
+
+##### Multiple Dependencies (Any Required)
+
+An argument requires AT LEAST ONE of the specified dependencies:
+
+```java
+SlashCommand cmd = SlashCommand.create("cmd")
+    .argString("format").optional(true)
+    .flagLong("export", "export")
+    .flagLong("save", "save")
+    // "format" requires either "export" OR "save" (or both)
+    .crossValidate(CrossArgumentValidator.dependsOnAny("format", "export", "save"))
+    .executes(ctx -> { /* ... */ })
+    .build();
+```
+
+##### Exclusion
+
+Prevent an argument when another is present (one-way exclusion):
+
+```java
+SlashCommand cmd = SlashCommand.create("cmd")
+    .flagLong("verbose", "verbose")
+    .flagLong("quiet", "quiet")
+    // "verbose" cannot be used when "quiet" is present
+    .crossValidate(CrossArgumentValidator.excludedBy("verbose", "quiet"))
+    .executes(ctx -> { /* ... */ })
+    .build();
+
+// Note: For two-way exclusion, use mutuallyExclusive() instead
+```
+
+##### Required Unless Override
+
+An argument is required unless an override argument is specified:
+
+```java
+SlashCommand cmd = SlashCommand.create("cmd")
+    .argString("config").optional(true)
+    .flagLong("use-defaults", "use-defaults")
+    // "config" is required UNLESS "use-defaults" is specified
+    .crossValidate(CrossArgumentValidator.requiredUnless("config", "use-defaults"))
+    .executes(ctx -> { /* ... */ })
+    .build();
+```
+
+##### Co-Dependent Arguments
+
+Two arguments must be provided together or not at all (bidirectional dependency):
+
+```java
+SlashCommand login = SlashCommand.create("login")
+    .argString("username").optional(true)
+    .argString("password").optional(true)
+    // Both "username" and "password" must be provided together
+    .crossValidate(CrossArgumentValidator.coDependent("username", "password"))
+    .executes(ctx -> { /* ... */ })
+    .build();
+```
+
+##### Value-Based Requirements
+
+Require a specific value when another argument is present:
+
+```java
+SlashCommand admin = SlashCommand.create("admin")
+    .argStringChoice("level", "user", "mod", "admin")
+    .flagLong("admin-action", "admin-action")
+    // "level" must be "admin" when "admin-action" is used
+    .crossValidate(CrossArgumentValidator.valueRequiredWhen("level", "admin", "admin-action"))
+    .executes(ctx -> { /* ... */ })
+    .build();
+```
+
+##### Dependency Chains
+
+Create a chain where each argument requires the previous one:
+
+```java
+SlashCommand workflow = SlashCommand.create("workflow")
+    .argString("step1").optional(true)
+    .argString("step2").optional(true)
+    .argString("step3").optional(true)
+    // step3 requires step2, step2 requires step1
+    .crossValidate(CrossArgumentValidator.dependencyChain("step1", "step2", "step3"))
+    .executes(ctx -> { /* ... */ })
+    .build();
+
+// Valid:   /workflow step1=a
+// Valid:   /workflow step1=a step2=b
+// Valid:   /workflow step1=a step2=b step3=c
+// Invalid: /workflow step2=b (missing step1)
+// Invalid: /workflow step3=c (missing step1, step2)
+```
+
+##### Argument Dependency Reference
+
+| Validator | Description |
+|-----------|-------------|
+| `dependsOn(a, b)` | `a` can only be used if `b` is present |
+| `dependsOnAll(a, b1, b2...)` | `a` requires all of `b1`, `b2`, etc. |
+| `dependsOnAny(a, b1, b2...)` | `a` requires at least one of `b1`, `b2`, etc. |
+| `excludedBy(a, b)` | `a` cannot be used if `b` is present |
+| `requiredUnless(a, b)` | `a` is required unless `b` is provided |
+| `coDependent(a, b)` | `a` and `b` must both be present or both absent |
+| `valueRequiredWhen(a, val, b)` | `a` must equal `val` when `b` is present |
+| `dependencyChain(a, b, c...)` | Chain where each requires the previous |

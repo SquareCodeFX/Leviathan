@@ -45,6 +45,17 @@ public final class ParseResult<T> {
     }
 
     /**
+     * Alias for {@link #error(String)}.
+     * Create a failed parse result with a human-readable error message.
+     *
+     * @param message error message to surface to the user
+     * @return error result
+     */
+    public static <T> @NotNull ParseResult<T> failure(@NotNull String message) {
+        return error(message);
+    }
+
+    /**
      * @return true if the parse succeeded
      */
     public boolean isSuccess() {
@@ -63,5 +74,13 @@ public final class ParseResult<T> {
      */
     public @NotNull Optional<String> error() {
         return Optional.ofNullable(error);
+    }
+
+    /**
+     * Direct accessor for error message.
+     * @return the error message, or null if successful
+     */
+    public @Nullable String errorMessage() {
+        return error;
     }
 }

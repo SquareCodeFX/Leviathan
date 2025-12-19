@@ -58,6 +58,172 @@ SlashCommand set = SlashCommand.create("setdifficulty")
     .build();
 ```
 
+#### Type-Safe Choice Arguments (ChoiceArg)
+
+`ChoiceArg` provides a more powerful alternative to `argChoices` with type safety, display names, and enum support.
+
+##### Basic String Choices
+
+```java
+// Simple string choices
+SlashCommand color = SlashCommand.create("setcolor")
+    .argStringChoice("color", "red", "green", "blue")
+    .executes((sender, ctx) -> {
+        String color = ctx.get("color", String.class);
+        sender.sendMessage("Selected: " + color);
+    })
+    .build();
+```
+
+##### Enum Choices
+
+```java
+// Automatic enum choices (uses lowercase enum names)
+SlashCommand gamemode = SlashCommand.create("gamemode")
+    .argEnumChoice("mode", GameMode.class)
+    .executes((sender, ctx) -> {
+        GameMode mode = ctx.get("mode", GameMode.class);
+        ((Player) sender).setGameMode(mode);
+    })
+    .build();
+```
+
+##### Mapped Choices
+
+```java
+// Map string keys to arbitrary values
+Map<String, Integer> sizes = new LinkedHashMap<>();
+sizes.put("small", 10);
+sizes.put("medium", 25);
+sizes.put("large", 50);
+
+SlashCommand spawn = SlashCommand.create("spawn")
+    .argMappedChoice("size", sizes)
+    .executes((sender, ctx) -> {
+        int count = ctx.get("size", Integer.class);
+        // spawn 'count' entities
+    })
+    .build();
+```
+
+##### Advanced ChoiceArg Builder
+
+For full control, use the `ChoiceArg` builder directly:
+
+```java
+ChoiceArg<Difficulty> diffChoice = ChoiceArg.<Difficulty>builder("difficulty")
+    .choice("easy", Difficulty.EASY, "Easy Mode")      // key, value, displayName
+    .choice("normal", Difficulty.NORMAL, "Normal Mode")
+    .choice("hard", Difficulty.HARD, "Hard Mode")
+    .caseSensitive(false)  // default: false
+    .description("Select the difficulty level")
+    .build();
+
+SlashCommand cmd = SlashCommand.create("setdifficulty")
+    .argChoice(diffChoice)
+    .executes((sender, ctx) -> {
+        Difficulty diff = ctx.get("difficulty", Difficulty.class);
+        // apply difficulty
+    })
+    .build();
+```
+
+##### ChoiceArg Factory Methods
+
+| Method | Description |
+|--------|-------------|
+| `ChoiceArg.ofStrings(name, values...)` | Simple string choices |
+| `ChoiceArg.ofStrings(name, Collection)` | String choices from collection |
+| `ChoiceArg.ofEnum(name, Class<E>)` | All enum constants as choices |
+| `ChoiceArg.ofEnum(name, Class<E>, keyMapper)` | Enum with custom key names |
+| `ChoiceArg.ofMap(name, Map<String, T>)` | Map of keys to values |
+| `ChoiceArg.builder(name)` | Full builder for customization |
+
+#### Variadic Arguments (List Types)
+
+`VariadicArg` accepts multiple values of the same type and returns them as a `List<T>`. Useful for commands that need multiple targets, items, or values.
+
+##### Basic Variadic Arguments
+
+```java
+// Accept multiple player names (space-separated)
+SlashCommand heal = SlashCommand.create("heal")
+    .argStrings("players")  // Shortcut for VariadicArg<String>
+    .executes((sender, ctx) -> {
+        List<String> playerNames = ctx.getList("players");
+        for (String name : playerNames) {
+            Player p = Bukkit.getPlayer(name);
+            if (p != null) p.setHealth(20);
+        }
+    })
+    .build();
+
+// Accept multiple integers
+SlashCommand sum = SlashCommand.create("sum")
+    .argIntegers("numbers")
+    .executes((sender, ctx) -> {
+        List<Integer> numbers = ctx.getList("numbers", Integer.class);
+        int total = numbers.stream().mapToInt(Integer::intValue).sum();
+        sender.sendMessage("Sum: " + total);
+    })
+    .build();
+```
+
+##### Custom Delimiter
+
+```java
+// Comma-separated values instead of space-separated
+SlashCommand tags = SlashCommand.create("tags")
+    .argListOf("items", ArgParsers.stringParser(), ",")
+    .executes((sender, ctx) -> {
+        List<String> items = ctx.getList("items");
+        // items are split by comma: "a,b,c" -> ["a", "b", "c"]
+    })
+    .build();
+```
+
+##### Advanced VariadicArg Builder
+
+```java
+VariadicArg<Material> materials = VariadicArg.<Material>builder("materials")
+    .parser(ArgParsers.materialParser())
+    .minCount(1)           // At least 1 required
+    .maxCount(5)           // At most 5 allowed
+    .noDuplicates()        // Reject duplicate values
+    .delimiter(",")        // Optional: comma-separated
+    .description("List of materials to process")
+    .build();
+
+SlashCommand process = SlashCommand.create("process")
+    .argVariadic(materials)
+    .executes((sender, ctx) -> {
+        List<Material> mats = ctx.getList("materials", Material.class);
+        // process materials
+    })
+    .build();
+```
+
+##### CommandContext List Methods
+
+| Method | Description |
+|--------|-------------|
+| `getList(name)` | Get list, empty if not present |
+| `getList(name, Class<T>)` | Get list with type verification |
+| `getListOrDefault(name, defaultList)` | Get list or fallback |
+| `hasListElements(name)` | Check if list is non-empty |
+| `getListSize(name)` | Get number of elements |
+
+##### VariadicArg Shortcuts
+
+| Builder Method | Description |
+|----------------|-------------|
+| `argStrings(name)` | Space-separated strings |
+| `argIntegers(name)` | Space-separated integers |
+| `argDoubles(name)` | Space-separated doubles |
+| `argListOf(name, parser)` | Space-separated with custom parser |
+| `argListOf(name, parser, delimiter)` | Custom delimiter |
+| `argVariadic(VariadicArg)` | Full VariadicArg instance |
+
 #### Conditional arguments
 
 Use `argIf(name, parser, Predicate<CommandContext> condition)` to include an argument only if the condition matches.

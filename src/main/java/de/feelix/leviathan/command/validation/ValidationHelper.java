@@ -6,6 +6,9 @@ import de.feelix.leviathan.command.argument.ArgContext;
 import de.feelix.leviathan.command.message.MessageProvider;
 import de.feelix.leviathan.util.Preconditions;
 
+import java.util.List;
+import java.util.Optional;
+
 /**
  * Utility class for validating parsed argument values against validation rules.
  * <p>
@@ -106,5 +109,39 @@ public final class ValidationHelper {
         }
 
         return null; // All validations passed
+    }
+
+    /**
+     * Validates a value against a list of custom validators.
+     * This is a convenience method for validating with just a validator chain.
+     *
+     * @param validators the list of validators to apply
+     * @param value      the value to validate
+     * @param argName    the argument name (for error messages)
+     * @return Optional containing error message if validation failed, empty if passed
+     */
+    @SuppressWarnings("unchecked")
+    public static @NotNull Optional<String> validate(
+        @Nullable List<ArgContext.Validator<?>> validators,
+        @Nullable Object value,
+        @NotNull String argName) {
+
+        if (validators == null || validators.isEmpty() || value == null) {
+            return Optional.empty();
+        }
+
+        for (ArgContext.Validator<?> validator : validators) {
+            try {
+                ArgContext.Validator<Object> objValidator = (ArgContext.Validator<Object>) validator;
+                String error = objValidator.validate(value);
+                if (error != null) {
+                    return Optional.of(error);
+                }
+            } catch (ClassCastException e) {
+                // Type mismatch - skip this validator
+            }
+        }
+
+        return Optional.empty();
     }
 }

@@ -14,6 +14,9 @@ import de.feelix.leviathan.command.parsing.CommandParseResult;
 import de.feelix.leviathan.command.parsing.ParseOptions;
 import de.feelix.leviathan.command.parsing.PartialParseOptions;
 import de.feelix.leviathan.command.parsing.PartialParseResult;
+import de.feelix.leviathan.command.parsing.QuotedStringTokenizer;
+import de.feelix.leviathan.command.permission.PermissionCascadeMode;
+import de.feelix.leviathan.command.permission.PermissionCascade;
 import de.feelix.leviathan.command.async.CancellationToken;
 import de.feelix.leviathan.command.async.Progress;
 import de.feelix.leviathan.command.completion.TabCompletionHandler;
@@ -47,6 +50,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.*;
+import java.util.regex.Pattern;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -74,6 +78,79 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
     // Confirmation tracking: maps "commandName:senderName" to expiration time (System.currentTimeMillis())
     private static final Map<String, Long> pendingConfirmations = new java.util.concurrent.ConcurrentHashMap<>();
     private static final long CONFIRMATION_TIMEOUT_MILLIS = 10000L; // 10 seconds
+
+    // Lazy cleanup for confirmations
+    private static final java.util.concurrent.atomic.AtomicLong confirmationOpCount = new java.util.concurrent.atomic.AtomicLong(0);
+    private static final int CONFIRMATION_CLEANUP_INTERVAL = 20; // Clean every N operations
+
+    // Cached regex pattern for whitespace normalization (avoids recompilation on every call)
+    private static final Pattern WHITESPACE_PATTERN = Pattern.compile("\\s+");
+
+    /**
+     * Clean up expired confirmation entries.
+     * Called automatically via lazy cleanup, but can also be called manually.
+     *
+     * @return the number of expired entries removed
+     */
+    public static int cleanupExpiredConfirmations() {
+        final long currentTime = System.currentTimeMillis();
+        int[] removed = {0};
+        pendingConfirmations.entrySet().removeIf(entry -> {
+            if (entry.getValue() < currentTime) {
+                removed[0]++;
+                return true;
+            }
+            return false;
+        });
+        return removed[0];
+    }
+
+    /**
+     * Get the number of pending confirmations.
+     * Useful for monitoring and diagnostics.
+     *
+     * @return the count of pending confirmations
+     */
+    public static int getPendingConfirmationCount() {
+        return pendingConfirmations.size();
+    }
+
+    /**
+     * Clear all pending confirmations.
+     * Use with caution - primarily for plugin shutdown.
+     */
+    public static void clearAllConfirmations() {
+        pendingConfirmations.clear();
+    }
+
+    /**
+     * Clear pending confirmation for a specific sender.
+     * Useful when a player disconnects.
+     *
+     * @param senderName the name of the sender to clear confirmations for
+     * @return the number of confirmations cleared
+     */
+    public static int clearConfirmationsForSender(String senderName) {
+        int[] removed = {0};
+        pendingConfirmations.entrySet().removeIf(entry -> {
+            if (entry.getKey().endsWith(":" + senderName)) {
+                removed[0]++;
+                return true;
+            }
+            return false;
+        });
+        return removed[0];
+    }
+
+    /**
+     * Perform lazy cleanup of expired confirmations.
+     */
+    private static void lazyConfirmationCleanup() {
+        long ops = confirmationOpCount.incrementAndGet();
+        if (ops % CONFIRMATION_CLEANUP_INTERVAL == 0) {
+            cleanupExpiredConfirmations();
+        }
+    }
 
     /**
      * Create a new builder for a command with the given name.
@@ -128,10 +205,15 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
     private final boolean debugMode;
     final List<Flag> flags;
     final List<KeyValue<?>> keyValues;
+    // Cached parser instance to avoid rebuilding HashMap caches on every execute()
+    private final FlagAndKeyValueParser cachedFlagKvParser;
     private final boolean awaitConfirmation;
     private final List<ExecutionHook.Before> beforeHooks;
     private final List<ExecutionHook.After> afterHooks;
     private final List<ArgumentGroup> argumentGroups;
+    private final boolean enableQuotedStrings;
+    private final PermissionCascadeMode permissionCascadeMode;
+    private final String permissionPrefix;
     JavaPlugin plugin;
     private boolean subOnly = false;
     @Nullable
@@ -261,19 +343,41 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
     /**
      * Check if a sender has the effective permission for this command.
      * <p>
-     * This checks both the command's own permission and any inherited parent permissions.
+     * This checks permissions based on the configured {@link PermissionCascadeMode}:
+     * <ul>
+     *   <li>{@code NONE}: Only checks this command's permission</li>
+     *   <li>{@code INHERIT}: Checks all parent permissions first, then this command's</li>
+     *   <li>{@code WILDCARD}: Also checks wildcard permissions (e.g., "admin.*")</li>
+     *   <li>{@code INHERIT_FALLBACK}: Uses parent permission if no own permission set</li>
+     *   <li>{@code AUTO_PREFIX}: Same as INHERIT (auto-generation happens at build time)</li>
+     * </ul>
      *
      * @param sender the command sender to check
      * @return true if the sender has permission
      */
     public boolean hasEffectivePermission(@NotNull org.bukkit.command.CommandSender sender) {
         Preconditions.checkNotNull(sender, "sender");
-        // Check parent permission first
-        if (parent != null && !parent.hasEffectivePermission(sender)) {
-            return false;
+
+        PermissionCascade.ParentPermissionChecker parentChecker = null;
+        if (parent != null) {
+            parentChecker = parent::hasEffectivePermission;
         }
-        // Check own permission
-        return permission == null || sender.hasPermission(permission);
+
+        return PermissionCascade.hasPermission(sender, permission, parentChecker, permissionCascadeMode);
+    }
+
+    /**
+     * @return the permission cascade mode for this command
+     */
+    public @NotNull PermissionCascadeMode permissionCascadeMode() {
+        return permissionCascadeMode;
+    }
+
+    /**
+     * @return the permission prefix for auto-generated permissions, or null
+     */
+    public @Nullable String permissionPrefix() {
+        return permissionPrefix;
     }
 
     /**
@@ -392,6 +496,13 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
     }
 
     /**
+     * @return true if quoted string parsing is enabled for this command
+     */
+    public boolean enableQuotedStrings() {
+        return enableQuotedStrings;
+    }
+
+    /**
      * @return an immutable list of argument definitions
      */
     public @NotNull List<Arg<?>> args() {
@@ -477,7 +588,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                  boolean fuzzySubcommandMatching, double fuzzyMatchThreshold, boolean debugMode,
                  List<Flag> flags, List<KeyValue<?>> keyValues, boolean awaitConfirmation,
                  List<ExecutionHook.Before> beforeHooks, List<ExecutionHook.After> afterHooks,
-                 List<ArgumentGroup> argumentGroups) {
+                 List<ArgumentGroup> argumentGroups, boolean enableQuotedStrings,
+                 PermissionCascadeMode permissionCascadeMode, @Nullable String permissionPrefix) {
         this.name = Preconditions.checkNotNull(name, "name");
         this.aliases = List.copyOf(aliases == null ? List.of() : aliases);
         this.description = (description == null) ? "" : description;
@@ -506,10 +618,17 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         this.debugMode = debugMode;
         this.flags = List.copyOf(flags == null ? List.of() : flags);
         this.keyValues = List.copyOf(keyValues == null ? List.of() : keyValues);
+        // Cache the parser to avoid rebuilding internal HashMap caches on every execute()
+        this.cachedFlagKvParser = (!this.flags.isEmpty() || !this.keyValues.isEmpty())
+            ? new FlagAndKeyValueParser(this.flags, this.keyValues)
+            : null;
         this.awaitConfirmation = awaitConfirmation;
         this.beforeHooks = List.copyOf(beforeHooks == null ? List.of() : beforeHooks);
         this.afterHooks = List.copyOf(afterHooks == null ? List.of() : afterHooks);
         this.argumentGroups = List.copyOf(argumentGroups == null ? List.of() : argumentGroups);
+        this.enableQuotedStrings = enableQuotedStrings;
+        this.permissionCascadeMode = permissionCascadeMode != null ? permissionCascadeMode : PermissionCascadeMode.INHERIT;
+        this.permissionPrefix = permissionPrefix;
         // Pre-compute usage string for performance
         this.cachedUsage = computeUsageString();
         // Pre-compute alias map for argument alias support
@@ -519,6 +638,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
     /**
      * Sanitizes a string input by removing or escaping potentially dangerous characters.
      * This helps prevent injection attacks (SQL, command, XSS) when processing user input.
+     * <p>
+     * Optimized to perform sanitization, trimming, and whitespace collapsing in a single pass.
      *
      * @param input the raw input string to sanitize
      * @return the sanitized string
@@ -529,6 +650,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         }
 
         StringBuilder result = new StringBuilder(input.length());
+        boolean lastWasSpace = true; // Start true to skip leading spaces (trim)
+
         for (int i = 0; i < input.length(); i++) {
             char c = input.charAt(i);
             switch (c) {
@@ -567,36 +690,53 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                 // Escape HTML/XML special characters
                 case '<':
                     result.append("&lt;");
+                    lastWasSpace = false;
                     break;
                 case '>':
                     result.append("&gt;");
+                    lastWasSpace = false;
                     break;
                 case '&':
                     result.append("&amp;");
+                    lastWasSpace = false;
                     break;
                 case '"':
                     result.append("&quot;");
+                    lastWasSpace = false;
                     break;
                 case '\'':
                     result.append("&#39;");
+                    lastWasSpace = false;
                     break;
                 // Escape backslash
                 case '\\':
                     result.append("\\\\");
+                    lastWasSpace = false;
                     break;
-                // Allow tabs and newlines but normalize multiple spaces
+                // Normalize whitespace: tabs, newlines, carriage returns, and spaces
                 case '\t':
                 case '\n':
                 case '\r':
-                    result.append(' ');
+                case ' ':
+                    // Collapse consecutive whitespace into a single space
+                    if (!lastWasSpace) {
+                        result.append(' ');
+                        lastWasSpace = true;
+                    }
                     break;
                 default:
                     result.append(c);
+                    lastWasSpace = false;
             }
         }
 
-        // Trim and collapse multiple consecutive spaces
-        return result.toString().trim().replaceAll("\\s+", " ");
+        // Remove trailing space (trim)
+        int len = result.length();
+        if (len > 0 && result.charAt(len - 1) == ' ') {
+            result.setLength(len - 1);
+        }
+
+        return result.toString();
     }
 
     /**
@@ -632,6 +772,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         Preconditions.checkNotNull(label, "label");
         Preconditions.checkNotNull(providedArgs, "providedArgs");
         try {
+            // Lazy cleanup of expired confirmations to prevent memory leaks
+            lazyConfirmationCleanup();
             return execute(sender, label, providedArgs);
         } catch (Throwable t) {
             // Top-level catch to ensure no exception escapes from command execution
@@ -737,6 +879,23 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         Preconditions.checkNotNull(sender, "sender");
         Preconditions.checkNotNull(label, "label");
         Preconditions.checkNotNull(providedArgs, "providedArgs");
+
+        // Handle quoted string parsing if enabled
+        String[] effectiveArgs = providedArgs;
+        if (enableQuotedStrings && providedArgs.length > 0) {
+            QuotedStringTokenizer.TokenizeResult tokenResult = QuotedStringTokenizer.tokenize(providedArgs);
+            if (!tokenResult.isSuccess()) {
+                // Report parsing error for unclosed quotes
+                sendErrorMessage(sender, ErrorType.PARSING, messages.quotedStringError(tokenResult.error()), null);
+                return true;
+            }
+            effectiveArgs = tokenResult.tokens().toArray(new String[0]);
+        }
+
+        // Use effectiveArgs from here on instead of providedArgs for argument parsing
+        // (providedArgs is still kept for raw context access)
+        final String[] processedArgs = effectiveArgs;
+
         // Permission cascade: check all permissions from parent commands down to this one
         if (!hasEffectivePermission(sender)) {
             sendErrorMessage(sender, ErrorType.PERMISSION, messages.noPermission(), null);
@@ -810,9 +969,12 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         }
 
         // Auto help: display help message when enabled and no arguments provided
-        if (enableHelp && providedArgs.length == 0) {
+        if (enableHelp && processedArgs.length == 0) {
             // Show help if command has subcommands or required arguments
-            int required = (int) args.stream().filter(a -> !a.optional()).count();
+            int required = 0;
+            for (Arg<?> arg : args) {
+                if (!arg.optional()) required++;
+            }
             if (!subcommands.isEmpty() || required > 0) {
                 generateHelpMessage(label, 1, sender);
                 return true;
@@ -820,8 +982,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         }
 
         // Automatic subcommand routing: if the first token matches a registered subcommand, delegate to it
-        if (!subcommands.isEmpty() && providedArgs.length >= 1) {
-            String first = providedArgs[0].toLowerCase(Locale.ROOT);
+        if (!subcommands.isEmpty() && processedArgs.length >= 1) {
+            String first = processedArgs[0].toLowerCase(Locale.ROOT);
             SlashCommand sub = subcommands.get(first);
 
             // Check if first argument is a page number for help pagination
@@ -852,8 +1014,10 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
 
             if (sub != null) {
                 // Safety check: ensure we have arguments to pass
-                String[] remaining = providedArgs.length > 1
-                    ? Arrays.copyOfRange(providedArgs, 1, providedArgs.length)
+                // For subcommand execution, we pass the raw remaining args (not processed)
+                // since the subcommand will do its own quote processing if enabled
+                String[] remaining = processedArgs.length > 1
+                    ? Arrays.copyOfRange(processedArgs, 1, processedArgs.length)
                     : new String[0];
                 try {
                     return sub.execute(sender, sub.name(), remaining);
@@ -876,15 +1040,15 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
             }
         }
 
-        // Parse flags and key-value pairs from provided arguments FIRST
+        // Parse flags and key-value pairs from processed arguments FIRST
         Map<String, Boolean> flagValues = Collections.emptyMap();
         Map<String, Object> keyValuePairs = Collections.emptyMap();
         Map<String, List<Object>> multiValuePairs = Collections.emptyMap();
-        String[] positionalArgs = providedArgs;
-        
-        if (!flags.isEmpty() || !keyValues.isEmpty()) {
-            FlagAndKeyValueParser flagKvParser = new FlagAndKeyValueParser(flags, keyValues);
-            FlagAndKeyValueParser.ParsedResult flagKvResult = flagKvParser.parse(providedArgs, sender);
+        String[] positionalArgs = processedArgs;
+
+        if (cachedFlagKvParser != null) {
+            // Use cached parser to avoid rebuilding internal HashMap caches
+            FlagAndKeyValueParser.ParsedResult flagKvResult = cachedFlagKvParser.parse(processedArgs, sender);
 
             if (!flagKvResult.isSuccess()) {
                 // Report first error from flag/key-value parsing
@@ -949,7 +1113,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
             // Evaluate conditional argument
             if (arg.condition() != null) {
                 // Include flags and key-values in the context for condition evaluation
-                CommandContext tempCtx = new CommandContext(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
+                CommandContext tempCtx = CommandContext.createInternal(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
                 try {
                     if (!arg.condition().test(tempCtx)) {
                         // Condition is false, skip this argument entirely (don't consume token)
@@ -994,7 +1158,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                 boolean willBeSkippedByCondition = false;
                 if (futureArg.condition() != null) {
                     try {
-                        CommandContext tempCtx = new CommandContext(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
+                        CommandContext tempCtx = CommandContext.createInternal(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
                         willBeSkippedByCondition = !futureArg.condition().test(tempCtx);
                     } catch (Throwable ignored) {
                         // If we can't evaluate, assume it won't be skipped
@@ -1158,7 +1322,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                 boolean skippedByCondition = false;
                 if (arg.condition() != null) {
                     try {
-                        CommandContext tempCtx = new CommandContext(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
+                        CommandContext tempCtx = CommandContext.createInternal(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
                         skippedByCondition = !arg.condition().test(tempCtx);
                     } catch (Throwable ignored) {
                         // If condition evaluation fails here, we already handled it during parsing
@@ -1248,7 +1412,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
 
         // Cross-argument validation: validate relationships between multiple arguments
         if (!crossArgumentValidators.isEmpty()) {
-            CommandContext tempCtx = new CommandContext(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
+            CommandContext tempCtx = CommandContext.createInternal(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
             for (CrossArgumentValidator validator : crossArgumentValidators) {
                 String error;
                 try {
@@ -1786,7 +1950,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
 
             // Evaluate conditional argument
             if (arg.condition() != null) {
-                CommandContext tempCtx = new CommandContext(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
+                CommandContext tempCtx = CommandContext.createInternal(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
                 try {
                     if (!arg.condition().test(tempCtx)) {
                         argIndex++;
@@ -1820,7 +1984,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                 boolean willBeSkippedByCondition = false;
                 if (futureArg.condition() != null) {
                     try {
-                        CommandContext tempCtx = new CommandContext(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
+                        CommandContext tempCtx = CommandContext.createInternal(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
                         willBeSkippedByCondition = !futureArg.condition().test(tempCtx);
                     } catch (Throwable ignored) {
                     }
@@ -1919,7 +2083,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                 boolean skippedByCondition = false;
                 if (arg.condition() != null) {
                     try {
-                        CommandContext tempCtx = new CommandContext(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
+                        CommandContext tempCtx = CommandContext.createInternal(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
                         skippedByCondition = !arg.condition().test(tempCtx);
                     } catch (Throwable ignored) {
                     }
@@ -1953,7 +2117,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
 
         // Cross-argument validation
         if (!crossArgumentValidators.isEmpty()) {
-            CommandContext tempCtx = new CommandContext(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
+            CommandContext tempCtx = CommandContext.createInternal(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
             for (CrossArgumentValidator validator : crossArgumentValidators) {
                 String error;
                 try {
@@ -2210,7 +2374,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
 
             // Evaluate conditional argument
             if (arg.condition() != null) {
-                CommandContext tempCtx = new CommandContext(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
+                CommandContext tempCtx = CommandContext.createInternal(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
                 try {
                     if (!arg.condition().test(tempCtx)) {
                         argIndex++;
@@ -2250,7 +2414,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                 boolean willBeSkippedByCondition = false;
                 if (futureArg.condition() != null) {
                     try {
-                        CommandContext tempCtx = new CommandContext(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
+                        CommandContext tempCtx = CommandContext.createInternal(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
                         willBeSkippedByCondition = !futureArg.condition().test(tempCtx);
                     } catch (Throwable ignored) {
                     }
@@ -2382,7 +2546,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                 boolean skippedByCondition = false;
                 if (arg.condition() != null) {
                     try {
-                        CommandContext tempCtx = new CommandContext(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
+                        CommandContext tempCtx = CommandContext.createInternal(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
                         skippedByCondition = !arg.condition().test(tempCtx);
                     } catch (Throwable ignored) {
                     }
@@ -2420,7 +2584,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
 
         // Cross-argument validation
         if (!crossArgumentValidators.isEmpty()) {
-            CommandContext tempCtx = new CommandContext(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
+            CommandContext tempCtx = CommandContext.createInternal(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
             for (CrossArgumentValidator validator : crossArgumentValidators) {
                 String error;
                 try {
@@ -2832,7 +2996,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         }
 
         // Player-only check
-        if (requiresPlayer && !(sender instanceof Player)) {
+        if (playerOnly && !(sender instanceof Player)) {
             return resultBuilder
                 .withError(CommandParseError.playerOnly(messages.playersOnly()))
                 .build();
@@ -2885,15 +3049,10 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
             ArgumentParser<?> parser = arg.parser();
 
             try {
-                ArgContext argContext = new ArgContext(
-                    sender, label, providedArgs, argIndex,
-                    input, arg, Collections.emptyMap()
-                );
-
-                ParseResult<?> parseResult = parser.parse(argContext);
+                ParseResult<?> parseResult = parser.parse(input, sender);
 
                 if (parseResult.isSuccess()) {
-                    Object value = parseResult.value();
+                    Object value = parseResult.value().orElse(null);
 
                     // Run validators if present
                     if (arg.validatorChain() != null) {

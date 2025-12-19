@@ -48,6 +48,7 @@ cmd.register(plugin);
 - `fuzzyMatchThreshold(double)` — Set similarity threshold (0.0-1.0) for fuzzy matching. Default is 0.6.
 - `awaitConfirmation(boolean)` — Require the user to execute the command twice within a timeout period to confirm execution. Useful for destructive or irreversible commands.
 - `debugMode(boolean)` — Enable diagnostic logging (e.g., fuzzy match results). Disabled by default for production.
+- `quotedStrings()` / `enableQuotedStrings(boolean)` — Parse quoted strings (single or double) as single tokens. See [Parsing API - Quoted String Parsing](Parsing-API.md#quoted-string-parsing).
 
 #### Arguments
 
@@ -61,6 +62,8 @@ Positional arguments are declared in order. Supported convenience builders:
 - Enums: `argEnum(String, Class<E>)`
 - Ranges/length: `argIntRange(String, min, max)`, `argLongRange(...)`, `argDoubleRange(...)`, `argFloatRange(...)`, `argStringLength(String, min, max)`
 - Choices: `argChoices(String name, Map<String,T> choices, String displayType)` to map user‑facing keys to arbitrary values.
+- Type-safe choices: `argChoice(ChoiceArg)`, `argStringChoice(name, values...)`, `argEnumChoice(name, Class)`, `argMappedChoice(name, Map)` for type-safe predefined values. See [Arguments - Choice Arguments](Arguments.md#type-safe-choice-arguments-choicearg).
+- Variadic arguments: `argStrings(name)`, `argIntegers(name)`, `argDoubles(name)`, `argVariadic(VariadicArg)`, `argListOf(name, parser)` to accept multiple values as a `List<T>`. See [Arguments - Variadic Arguments](Arguments.md#variadic-arguments-list-types).
 - Command choices: `argCommandChoices(String name, Map<String, SlashCommand> choices)` to pick one subcommand by name.
 - Page helpers: `argPage()`, `argPage(String)`, `argPage(String, int defaultPage)` integrate with pagination.
 - Generic/custom: `arg(String name, ArgumentParser<T> parser)` and variants with `ArgContext`.
@@ -165,6 +168,13 @@ Tracked metrics:
 - `requireAllPermissions(String... permissions)` — Require that the sender has all of the specified permissions.
 - `addCrossArgumentValidator(CrossArgumentValidator validator)` / `crossValidate(CrossArgumentValidator)` — Validate relationships between arguments after parsing (e.g., `min <= max`).
 - `crossValidateChain(CrossArgumentValidator... validators)` — Add multiple validators at once that all must pass.
+- `permissionCascade(PermissionCascadeMode)` — Set how permissions cascade to subcommands.
+- `inheritPermissions()` — Shortcut for `INHERIT` mode (default, checks all parent permissions).
+- `noPermissionInheritance()` — Shortcut for `NONE` mode (only check this command's permission).
+- `autoPermission(String prefix)` — Shortcut for `AUTO_PREFIX` mode (auto-generate permissions from command path).
+- `wildcardPermissions()` — Shortcut for `WILDCARD` mode (support wildcard permissions like `admin.*`).
+
+See [Guards-Validation-Permissions - Permission Cascade](Guards-Validation-Permissions.md#permission-cascade) for details.
 
 #### Argument Groups
 

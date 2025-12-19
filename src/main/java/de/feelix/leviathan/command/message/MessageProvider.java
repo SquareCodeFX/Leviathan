@@ -32,6 +32,28 @@ public interface MessageProvider {
     String playerOnly();
 
     /**
+     * Alias for {@link #playerOnly()}.
+     * Message when a non-player tries to use a player-only command.
+     *
+     * @return the player-only message
+     */
+    @NotNull
+    default String playersOnly() {
+        return playerOnly();
+    }
+
+    /**
+     * Message when an unknown subcommand is provided.
+     *
+     * @param subcommand the unknown subcommand that was entered
+     * @return the unknown subcommand message
+     */
+    @NotNull
+    default String unknownSubcommand(@NotNull String subcommand) {
+        return "§cUnknown subcommand: " + subcommand;
+    }
+
+    /**
      * Generic message when a guard check fails but no specific error is available.
      *
      * @return the generic guard failure message
@@ -836,4 +858,15 @@ public interface MessageProvider {
      */
     @NotNull
     String tabCompletionDefaultHint();
+
+    // Quoted String Parsing Messages
+
+    /**
+     * Message when quoted string parsing fails (e.g., unclosed quote).
+     *
+     * @param errorDetail the specific error (e.g., "Unclosed double quote")
+     * @return the error message
+     */
+    @NotNull
+    String quotedStringError(@NotNull String errorDetail);
 }

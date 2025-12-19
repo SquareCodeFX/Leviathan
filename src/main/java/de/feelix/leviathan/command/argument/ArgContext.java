@@ -1186,6 +1186,56 @@ public final class ArgContext {
             return group(group);
         }
 
+        /**
+         * Alias for {@link #completionsPredefined(List)}.
+         * Set the predefined completions for this argument.
+         *
+         * @param completions the list of completion suggestions
+         * @return this builder
+         */
+        public @NotNull Builder completions(@NotNull List<String> completions) {
+            return completionsPredefined(completions);
+        }
+
+        /**
+         * Copy all values from an existing ArgContext into this builder.
+         * This is useful for creating modified copies of an existing context.
+         *
+         * @param context the context to copy values from
+         * @return this builder
+         */
+        public @NotNull Builder from(@NotNull ArgContext context) {
+            Preconditions.checkNotNull(context, "context");
+            this.optional = context.optional();
+            this.greedy = context.greedy();
+            this.permission = context.permission();
+            this.completionsPredefined = new ArrayList<>(context.completionsPredefined());
+            this.completionsDynamic = context.completionsDynamic();
+            this.completionsDynamicAsync = context.completionsDynamicAsync();
+            this.completionsPredefinedAsync = context.completionsPredefinedAsync();
+            this.intMin = context.intMin();
+            this.intMax = context.intMax();
+            this.longMin = context.longMin();
+            this.longMax = context.longMax();
+            this.doubleMin = context.doubleMin();
+            this.doubleMax = context.doubleMax();
+            this.floatMin = context.floatMin();
+            this.floatMax = context.floatMax();
+            this.stringMinLength = context.stringMinLength();
+            this.stringMaxLength = context.stringMaxLength();
+            this.stringPattern = context.stringPattern();
+            this.customValidators.clear();
+            this.customValidators.addAll(context.customValidators());
+            this.didYouMean = context.didYouMean();
+            this.defaultValue = context.defaultValue();
+            this.description = context.description();
+            this.aliases = new ArrayList<>(context.aliases());
+            this.transformers = new ArrayList<>(context.transformers());
+            this.interactive = context.interactive();
+            this.group = context.group();
+            return this;
+        }
+
         public @NotNull ArgContext build() {
             return new ArgContext(
                 optional, greedy, permission, completionsPredefined, completionsDynamic,

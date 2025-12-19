@@ -56,6 +56,7 @@ public final class ParseOptions {
     private final double autoCorrectThreshold;
     private final int maxAutoCorrections;
     private final boolean collectMetrics;
+    private final boolean enableQuotedStrings;
 
     private ParseOptions(Builder builder) {
         this.checkCooldowns = builder.checkCooldowns;
@@ -69,6 +70,7 @@ public final class ParseOptions {
         this.autoCorrectThreshold = builder.autoCorrectThreshold;
         this.maxAutoCorrections = builder.maxAutoCorrections;
         this.collectMetrics = builder.collectMetrics;
+        this.enableQuotedStrings = builder.enableQuotedStrings;
     }
 
     /**
@@ -198,6 +200,20 @@ public final class ParseOptions {
     }
 
     /**
+     * Whether to enable quoted string parsing.
+     * <p>
+     * When enabled, strings enclosed in double or single quotes are treated as single tokens,
+     * even if they contain spaces.
+     * <p>
+     * Example: {@code "hello world"} is parsed as a single token "hello world".
+     *
+     * @return true if quoted string parsing is enabled
+     */
+    public boolean enableQuotedStrings() {
+        return enableQuotedStrings;
+    }
+
+    /**
      * Builder for {@link ParseOptions}.
      */
     public static final class Builder {
@@ -212,6 +228,7 @@ public final class ParseOptions {
         private double autoCorrectThreshold = 0.8;
         private int maxAutoCorrections = 3;
         private boolean collectMetrics = false;
+        private boolean enableQuotedStrings = false;
 
         private Builder() {}
 
@@ -348,6 +365,28 @@ public final class ParseOptions {
         }
 
         /**
+         * Enable or disable quoted string parsing.
+         * <p>
+         * When enabled, strings enclosed in double or single quotes are treated as single tokens,
+         * even if they contain spaces. This allows arguments like "hello world" to be parsed
+         * as a single value.
+         * <p>
+         * Example:
+         * <pre>{@code
+         * /command "hello world" player
+         * // Without quoted strings: ["\"hello", "world\"", "player"]
+         * // With quoted strings:    ["hello world", "player"]
+         * }</pre>
+         *
+         * @param enable true to enable quoted string parsing
+         * @return this builder
+         */
+        public @NotNull Builder enableQuotedStrings(boolean enable) {
+            this.enableQuotedStrings = enable;
+            return this;
+        }
+
+        /**
          * Build the ParseOptions instance.
          *
          * @return a new ParseOptions instance
@@ -371,6 +410,7 @@ public final class ParseOptions {
                ", autoCorrectThreshold=" + autoCorrectThreshold +
                ", maxAutoCorrections=" + maxAutoCorrections +
                ", collectMetrics=" + collectMetrics +
+               ", enableQuotedStrings=" + enableQuotedStrings +
                '}';
     }
 }

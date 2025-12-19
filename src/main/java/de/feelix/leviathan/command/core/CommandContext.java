@@ -85,14 +85,71 @@ public final class CommandContext {
     }
 
     /**
+     * Create a lightweight context for internal use (validation, conditions).
+     * This avoids defensive copying for performance when the context is short-lived
+     * and the source maps won't be modified.
+     * <p>
+     * <b>Warning:</b> Only use this for internal, short-lived contexts where the
+     * source maps are guaranteed not to be modified during the context's lifetime.
+     *
+     * @param values         parsed positional argument values (not copied)
+     * @param flagValues     parsed flag values (not copied)
+     * @param keyValuePairs  parsed key-value pairs (not copied)
+     * @param multiValuePairs parsed multi-value pairs (not copied)
+     * @param rawArgs        raw argument tokens (not copied)
+     * @param aliasToNameMap mapping of aliases to primary names (not copied)
+     * @return a lightweight context wrapping the provided maps directly
+     */
+    static CommandContext createInternal(@NotNull Map<String, Object> values,
+                                         @NotNull Map<String, Boolean> flagValues,
+                                         @NotNull Map<String, Object> keyValuePairs,
+                                         @NotNull Map<String, List<Object>> multiValuePairs,
+                                         @NotNull String[] rawArgs,
+                                         @NotNull Map<String, String> aliasToNameMap) {
+        return new CommandContext(values, flagValues, keyValuePairs, multiValuePairs, rawArgs, aliasToNameMap, false);
+    }
+
+    // Private constructor for internal lightweight contexts
+    private CommandContext(@NotNull Map<String, Object> values,
+                           @NotNull Map<String, Boolean> flagValues,
+                           @NotNull Map<String, Object> keyValuePairs,
+                           @NotNull Map<String, List<Object>> multiValuePairs,
+                           @NotNull String[] rawArgs,
+                           @NotNull Map<String, String> aliasToNameMap,
+                           boolean defensiveCopy) {
+        if (defensiveCopy) {
+            this.values = Map.copyOf(Preconditions.checkNotNull(values, "values"));
+            this.flagValues = Map.copyOf(Preconditions.checkNotNull(flagValues, "flagValues"));
+            this.keyValuePairs = Map.copyOf(Preconditions.checkNotNull(keyValuePairs, "keyValuePairs"));
+            this.multiValuePairs = Map.copyOf(Preconditions.checkNotNull(multiValuePairs, "multiValuePairs"));
+            this.rawArgs = Preconditions.checkNotNull(rawArgs, "rawArgs").clone();
+            this.aliasToNameMap = Map.copyOf(Preconditions.checkNotNull(aliasToNameMap, "aliasToNameMap"));
+        } else {
+            // Lightweight: wrap directly without copying (for internal short-lived contexts)
+            this.values = Collections.unmodifiableMap(Preconditions.checkNotNull(values, "values"));
+            this.flagValues = Collections.unmodifiableMap(Preconditions.checkNotNull(flagValues, "flagValues"));
+            this.keyValuePairs = Collections.unmodifiableMap(Preconditions.checkNotNull(keyValuePairs, "keyValuePairs"));
+            this.multiValuePairs = Collections.unmodifiableMap(Preconditions.checkNotNull(multiValuePairs, "multiValuePairs"));
+            this.rawArgs = Preconditions.checkNotNull(rawArgs, "rawArgs"); // No clone for internal use
+            this.aliasToNameMap = Collections.unmodifiableMap(Preconditions.checkNotNull(aliasToNameMap, "aliasToNameMap"));
+        }
+    }
+
+    /**
      * Resolve an argument name or alias to the primary name.
      * If the given name is an alias, returns the primary name.
      * If not an alias, returns the original name.
+     * <p>
+     * Optimized with fast-path: skips HashMap lookup when no aliases are defined (common case).
      *
      * @param nameOrAlias the name or alias to resolve
      * @return the primary argument name
      */
     private @NotNull String resolveName(@NotNull String nameOrAlias) {
+        // Fast-path: skip lookup when no aliases are defined (most commands don't use aliases)
+        if (aliasToNameMap.isEmpty()) {
+            return nameOrAlias;
+        }
         String resolved = aliasToNameMap.get(nameOrAlias);
         return resolved != null ? resolved : nameOrAlias;
     }
@@ -336,6 +393,113 @@ public final class CommandContext {
      */
     public @NotNull Player getPlayerOrDefault(@NotNull String name, @NotNull Player defaultValue) {
         return getOrDefault(name, Player.class, defaultValue);
+    }
+
+    // ==================== LIST/VARIADIC ARGUMENT METHODS ====================
+
+    /**
+     * Retrieve a list argument by name.
+     * <p>
+     * This method is used for variadic arguments that parse multiple values into a List.
+     * <p>
+     * Example:
+     * <pre>{@code
+     * List<Player> players = ctx.getList("players");
+     * List<String> tags = ctx.getList("tags");
+     * }</pre>
+     *
+     * @param name argument name
+     * @param <T>  the element type of the list
+     * @return the list, or an empty list if the argument is not present
+     */
+    @SuppressWarnings("unchecked")
+    public @NotNull <T> List<T> getList(@NotNull String name) {
+        Preconditions.checkNotNull(name, "name");
+        Object o = values.get(resolveName(name));
+        if (o instanceof List<?>) {
+            return Collections.unmodifiableList((List<T>) o);
+        }
+        return Collections.emptyList();
+    }
+
+    /**
+     * Retrieve a list argument by name with element type checking.
+     * <p>
+     * This method verifies that each element in the list is of the expected type.
+     * <p>
+     * Example:
+     * <pre>{@code
+     * List<Player> players = ctx.getList("players", Player.class);
+     * List<Integer> numbers = ctx.getList("numbers", Integer.class);
+     * }</pre>
+     *
+     * @param name        argument name
+     * @param elementType expected element type class
+     * @param <T>         the element type of the list
+     * @return the list with verified element types, or an empty list if not present
+     */
+    @SuppressWarnings("unchecked")
+    public @NotNull <T> List<T> getList(@NotNull String name, @NotNull Class<T> elementType) {
+        Preconditions.checkNotNull(name, "name");
+        Preconditions.checkNotNull(elementType, "elementType");
+        Object o = values.get(resolveName(name));
+        if (o instanceof List<?> list) {
+            // Verify element types
+            List<T> result = new ArrayList<>();
+            for (Object element : list) {
+                if (elementType.isInstance(element)) {
+                    result.add((T) element);
+                }
+            }
+            return Collections.unmodifiableList(result);
+        }
+        return Collections.emptyList();
+    }
+
+    /**
+     * Retrieve a list argument or return a default value.
+     *
+     * @param name         argument name
+     * @param defaultValue value to return if the argument is missing
+     * @param <T>          the element type of the list
+     * @return the list or the default value
+     */
+    @SuppressWarnings("unchecked")
+    public @NotNull <T> List<T> getListOrDefault(@NotNull String name, @NotNull List<T> defaultValue) {
+        Preconditions.checkNotNull(name, "name");
+        Preconditions.checkNotNull(defaultValue, "defaultValue");
+        Object o = values.get(resolveName(name));
+        if (o instanceof List<?>) {
+            return Collections.unmodifiableList((List<T>) o);
+        }
+        return defaultValue;
+    }
+
+    /**
+     * Check if a list argument has any elements.
+     *
+     * @param name argument name
+     * @return true if the list exists and is not empty
+     */
+    public boolean hasListElements(@NotNull String name) {
+        Preconditions.checkNotNull(name, "name");
+        Object o = values.get(resolveName(name));
+        return o instanceof List<?> list && !list.isEmpty();
+    }
+
+    /**
+     * Get the size of a list argument.
+     *
+     * @param name argument name
+     * @return the number of elements, or 0 if not a list or not present
+     */
+    public int getListSize(@NotNull String name) {
+        Preconditions.checkNotNull(name, "name");
+        Object o = values.get(resolveName(name));
+        if (o instanceof List<?> list) {
+            return list.size();
+        }
+        return 0;
     }
 
     /**
@@ -703,10 +867,13 @@ public final class CommandContext {
     @SuppressWarnings("unchecked")
     public @NotNull <T> Optional<T> getFirstByType(@NotNull Class<T> type) {
         Preconditions.checkNotNull(type, "type");
-        return values.values().stream()
-            .filter(type::isInstance)
-            .map(o -> (T) o)
-            .findFirst();
+        // Optimized: simple loop instead of stream for small collections
+        for (Object value : values.values()) {
+            if (type.isInstance(value)) {
+                return Optional.of((T) value);
+            }
+        }
+        return Optional.empty();
     }
 
     /**
@@ -719,10 +886,14 @@ public final class CommandContext {
     @SuppressWarnings("unchecked")
     public @NotNull <T> List<T> getAllByType(@NotNull Class<T> type) {
         Preconditions.checkNotNull(type, "type");
-        return values.values().stream()
-            .filter(type::isInstance)
-            .map(o -> (T) o)
-            .collect(Collectors.toList());
+        // Optimized: simple loop instead of stream for small collections
+        List<T> result = new ArrayList<>();
+        for (Object value : values.values()) {
+            if (type.isInstance(value)) {
+                result.add((T) value);
+            }
+        }
+        return result;
     }
 
     /**

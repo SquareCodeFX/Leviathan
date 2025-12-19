@@ -588,4 +588,11 @@ public class DefaultMessageProvider implements MessageProvider {
     public @NotNull String tabCompletionDefaultHint() {
         return " §7(default)";
     }
+
+    // Quoted String Parsing Messages
+
+    @Override
+    public @NotNull String quotedStringError(@NotNull String errorDetail) {
+        return "§cQuoted string error: §7" + errorDetail;
+    }
 }

@@ -14,6 +14,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -43,8 +44,62 @@ public final class InteractivePrompt {
     // Session timeout in seconds
     private static final long DEFAULT_TIMEOUT_SECONDS = 60;
 
+    // Lazy cleanup: track operations and clean periodically
+    private static final java.util.concurrent.atomic.AtomicLong operationCount = new java.util.concurrent.atomic.AtomicLong(0);
+    private static final int CLEANUP_INTERVAL_OPS = 10; // Clean every N operations
+
     private InteractivePrompt() {
         throw new AssertionError("Utility class");
+    }
+
+    /**
+     * Perform lazy cleanup of expired/inactive sessions.
+     * Called automatically on session operations.
+     */
+    private static void lazyCleanup() {
+        long ops = operationCount.incrementAndGet();
+        if (ops % CLEANUP_INTERVAL_OPS == 0) {
+            cleanupExpiredSessions();
+        }
+    }
+
+    /**
+     * Clean up all expired or inactive sessions.
+     * This removes sessions that have timed out or are no longer active.
+     *
+     * @return the number of sessions cleaned up
+     */
+    public static int cleanupExpiredSessions() {
+        int cleaned = 0;
+        Iterator<Map.Entry<UUID, PromptSession>> iterator = activeSessions.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<UUID, PromptSession> entry = iterator.next();
+            PromptSession session = entry.getValue();
+            // Remove if session is no longer active or has timed out
+            if (!session.isActive() || session.isTimedOut()) {
+                iterator.remove();
+                cleaned++;
+            }
+        }
+        return cleaned;
+    }
+
+    /**
+     * Get the number of active sessions.
+     * Useful for monitoring and diagnostics.
+     *
+     * @return the count of active sessions
+     */
+    public static int getActiveSessionCount() {
+        return activeSessions.size();
+    }
+
+    /**
+     * Clear all sessions. Use with caution - primarily for plugin shutdown.
+     * This will not trigger onCancel callbacks.
+     */
+    public static void clearAllSessions() {
+        activeSessions.clear();
     }
 
     /**
@@ -92,6 +147,9 @@ public final class InteractivePrompt {
         Preconditions.checkNotNull(onCancel, "onCancel");
         Preconditions.checkNotNull(messages, "messages");
 
+        // Lazy cleanup on access
+        lazyCleanup();
+
         // Cancel any existing session
         cancelSession(player);
 
@@ -110,6 +168,7 @@ public final class InteractivePrompt {
      */
     public static boolean hasActiveSession(@NotNull Player player) {
         Preconditions.checkNotNull(player, "player");
+        lazyCleanup();
         PromptSession session = activeSessions.get(player.getUniqueId());
         return session != null && session.isActive();
     }
@@ -122,6 +181,7 @@ public final class InteractivePrompt {
      */
     public static @Nullable PromptSession getSession(@NotNull Player player) {
         Preconditions.checkNotNull(player, "player");
+        lazyCleanup();
         return activeSessions.get(player.getUniqueId());
     }
 
@@ -135,6 +195,8 @@ public final class InteractivePrompt {
     public static boolean handleInput(@NotNull Player player, @NotNull String message) {
         Preconditions.checkNotNull(player, "player");
         Preconditions.checkNotNull(message, "message");
+
+        lazyCleanup();
 
         PromptSession session = activeSessions.get(player.getUniqueId());
         if (session == null || !session.isActive()) {
@@ -168,6 +230,17 @@ public final class InteractivePrompt {
     public static void cleanupPlayer(@NotNull Player player) {
         Preconditions.checkNotNull(player, "player");
         activeSessions.remove(player.getUniqueId());
+    }
+
+    /**
+     * Clean up all sessions for a disconnected player by UUID.
+     * Useful when the Player object is no longer available.
+     *
+     * @param playerUuid the UUID of the player who disconnected
+     */
+    public static void cleanupPlayer(@NotNull UUID playerUuid) {
+        Preconditions.checkNotNull(playerUuid, "playerUuid");
+        activeSessions.remove(playerUuid);
     }
 
     /**
