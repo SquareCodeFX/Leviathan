@@ -5,11 +5,17 @@ import de.feelix.leviathan.annotations.NotNull;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  * Utility class for calculating string similarity using the Levenshtein distance algorithm.
  * Used for "Did You Mean" suggestions.
+ * <p>
+ * Optimized with an LRU cache for repeated similarity calculations on the same string pairs.
  */
 public final class StringSimilarity {
 
@@ -19,8 +25,56 @@ public final class StringSimilarity {
      */
     public static final int MAX_STRING_LENGTH = 256;
 
+    /**
+     * Maximum cache size for similarity results.
+     */
+    private static final int CACHE_MAX_SIZE = 256;
+
+    /**
+     * LRU cache for Levenshtein distance calculations.
+     * Key format: "s1\0s2\0threshold" (using null char as delimiter)
+     */
+    private static final Map<String, Integer> distanceCache = new LinkedHashMap<>(CACHE_MAX_SIZE, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<String, Integer> eldest) {
+            return size() > CACHE_MAX_SIZE;
+        }
+    };
+
+    /**
+     * Lock for thread-safe cache access.
+     */
+    private static final ReadWriteLock cacheLock = new ReentrantReadWriteLock();
+
     private StringSimilarity() {
         throw new AssertionError("Utility class");
+    }
+
+    /**
+     * Clear the similarity cache.
+     * Useful for testing or when memory pressure is detected.
+     */
+    public static void clearCache() {
+        cacheLock.writeLock().lock();
+        try {
+            distanceCache.clear();
+        } finally {
+            cacheLock.writeLock().unlock();
+        }
+    }
+
+    /**
+     * Get the current cache size.
+     *
+     * @return number of cached entries
+     */
+    public static int getCacheSize() {
+        cacheLock.readLock().lock();
+        try {
+            return distanceCache.size();
+        } finally {
+            cacheLock.readLock().unlock();
+        }
     }
 
     /**
@@ -43,6 +97,8 @@ public final class StringSimilarity {
      * Calculate the Levenshtein distance with early termination if distance exceeds threshold.
      * This optimization significantly improves performance when searching for similar strings,
      * as it avoids computing the full distance matrix when a string is clearly dissimilar.
+     * <p>
+     * Results are cached for repeated queries with the same string pairs.
      *
      * @param s1        first string
      * @param s2        second string
@@ -71,6 +127,40 @@ public final class StringSimilarity {
         if (len1 == 0) return len2;
         if (len2 == 0) return len1;
 
+        // Check cache for this computation (only for reasonable thresholds to limit cache size)
+        String cacheKey = null;
+        if (threshold <= 20) {
+            cacheKey = lower1 + '\0' + lower2 + '\0' + threshold;
+            cacheLock.readLock().lock();
+            try {
+                Integer cached = distanceCache.get(cacheKey);
+                if (cached != null) {
+                    return cached;
+                }
+            } finally {
+                cacheLock.readLock().unlock();
+            }
+        }
+
+        int result = computeLevenshteinDistance(lower1, lower2, len1, len2, threshold);
+
+        // Store in cache
+        if (cacheKey != null) {
+            cacheLock.writeLock().lock();
+            try {
+                distanceCache.put(cacheKey, result);
+            } finally {
+                cacheLock.writeLock().unlock();
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * Internal method to compute Levenshtein distance without caching.
+     */
+    private static int computeLevenshteinDistance(String lower1, String lower2, int len1, int len2, int threshold) {
         int[] prev = new int[len2 + 1];
         int[] curr = new int[len2 + 1];
 
