@@ -89,14 +89,23 @@ public final class ValidationAggregator {
          * @return formatted error string "fieldName: message"
          */
         public @NotNull String format() {
-            return fieldName + ": " + message;
+            return new StringBuilder(fieldName.length() + message.length() + 2)
+                .append(fieldName)
+                .append(": ")
+                .append(message)
+                .toString();
         }
 
         /**
          * @return formatted error string with color codes
          */
         public @NotNull String formatColored() {
-            return "§c" + fieldName + "§7: §f" + message;
+            return new StringBuilder(fieldName.length() + message.length() + 10)
+                .append("§c")
+                .append(fieldName)
+                .append("§7: §f")
+                .append(message)
+                .toString();
         }
 
         /**

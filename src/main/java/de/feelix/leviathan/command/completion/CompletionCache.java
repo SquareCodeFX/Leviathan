@@ -3,12 +3,12 @@ package de.feelix.leviathan.command.completion;
 import de.feelix.leviathan.annotations.NotNull;
 import de.feelix.leviathan.annotations.Nullable;
 import de.feelix.leviathan.command.argument.ArgContext;
+import de.feelix.leviathan.util.LazyCleanupProvider;
 import de.feelix.leviathan.util.Preconditions;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 /**
@@ -35,9 +35,8 @@ public final class CompletionCache {
     private final long ttlMillis;
     private final int maxSize;
 
-    // Lazy cleanup: track operations and clean periodically
-    private final AtomicLong operationCount = new AtomicLong(0);
-    private static final int CLEANUP_INTERVAL_OPS = 50; // Clean every N operations
+    // Lazy cleanup using shared utility
+    private final LazyCleanupProvider cleanupProvider;
 
     /**
      * A cached entry with expiration time.
@@ -59,6 +58,7 @@ public final class CompletionCache {
     private CompletionCache(long ttlMillis, int maxSize) {
         this.ttlMillis = ttlMillis;
         this.maxSize = maxSize;
+        this.cleanupProvider = LazyCleanupProvider.createDefault();
     }
 
     /**
@@ -110,10 +110,7 @@ public final class CompletionCache {
      * without requiring background threads.
      */
     private void lazyCleanup() {
-        long ops = operationCount.incrementAndGet();
-        if (ops % CLEANUP_INTERVAL_OPS == 0) {
-            evictExpired();
-        }
+        cleanupProvider.maybeCleanup(this::evictExpired);
     }
 
     /**

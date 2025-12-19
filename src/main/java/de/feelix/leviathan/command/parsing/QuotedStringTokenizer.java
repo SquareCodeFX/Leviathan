@@ -229,9 +229,19 @@ public final class QuotedStringTokenizer {
             return value;
         }
 
-        // Escape any existing double quotes
-        String escaped = value.replace("\\", "\\\\").replace("\"", "\\\"");
-        return "\"" + escaped + "\"";
+        // Escape any existing backslashes and double quotes using StringBuilder
+        // Estimate capacity: original length + 2 quotes + potential escapes
+        StringBuilder sb = new StringBuilder(value.length() + 10);
+        sb.append('"');
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (c == '\\' || c == '"') {
+                sb.append('\\');
+            }
+            sb.append(c);
+        }
+        sb.append('"');
+        return sb.toString();
     }
 
     /**
