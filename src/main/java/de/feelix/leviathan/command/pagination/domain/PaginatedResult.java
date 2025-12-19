@@ -7,7 +7,6 @@ import org.jetbrains.annotations.NotNull;
 import java.time.Instant;
 import java.util.*;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /**
  * Immutable container for paginated data with metadata.
@@ -94,9 +93,10 @@ public final class PaginatedResult<T> implements Iterable<T> {
      */
     public <R> PaginatedResult<R> map(Function<? super T, ? extends R> mapper) {
         Objects.requireNonNull(mapper, "Mapper function cannot be null");
-        List<R> mappedItems = items.stream()
-            .map(mapper)
-            .collect(Collectors.toList());
+        List<R> mappedItems = new ArrayList<>(items.size());
+        for (T item : items) {
+            mappedItems.add(mapper.apply(item));
+        }
 
         return PaginatedResult.<R>builder()
             .items(mappedItems)
@@ -113,9 +113,12 @@ public final class PaginatedResult<T> implements Iterable<T> {
      */
     public PaginatedResult<T> filter(java.util.function.Predicate<? super T> predicate) {
         Objects.requireNonNull(predicate, "Predicate cannot be null");
-        List<T> filteredItems = items.stream()
-            .filter(predicate)
-            .collect(Collectors.toList());
+        List<T> filteredItems = new ArrayList<>();
+        for (T item : items) {
+            if (predicate.test(item)) {
+                filteredItems.add(item);
+            }
+        }
 
         return PaginatedResult.<T>builder()
             .items(filteredItems)

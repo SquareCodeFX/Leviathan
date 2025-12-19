@@ -40,9 +40,15 @@ public final class ArgContext {
                                                                      @NotNull String permissionPrefix) {
             Preconditions.checkNotNull(completions, "completions");
             Preconditions.checkNotNull(permissionPrefix, "permissionPrefix");
-            return ctx -> completions.stream()
-                .filter(c -> ctx.sender().hasPermission(permissionPrefix + c))
-                .collect(java.util.stream.Collectors.toList());
+            return ctx -> {
+                List<String> filtered = new ArrayList<>();
+                for (String c : completions) {
+                    if (ctx.sender().hasPermission(permissionPrefix + c)) {
+                        filtered.add(c);
+                    }
+                }
+                return filtered;
+            };
         }
 
         /**

@@ -11,8 +11,6 @@ import de.feelix.leviathan.command.pagination.exception.InvalidPageException;
 import java.util.*;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 /**
  * Utility class providing helper methods for pagination operations.
@@ -67,9 +65,11 @@ public final class PaginationUtils {
      */
     public static List<Integer> generatePageNumbers(int currentPage, int totalPages, int maxVisible) {
         if (totalPages <= maxVisible) {
-            return IntStream.rangeClosed(1, totalPages)
-                .boxed()
-                .collect(Collectors.toList());
+            List<Integer> pages = new ArrayList<>(totalPages);
+            for (int i = 1; i <= totalPages; i++) {
+                pages.add(i);
+            }
+            return pages;
         }
 
         int half = maxVisible / 2;
@@ -81,9 +81,11 @@ public final class PaginationUtils {
             start = Math.max(1, end - maxVisible + 1);
         }
 
-        return IntStream.rangeClosed(start, end)
-            .boxed()
-            .collect(Collectors.toList());
+        List<Integer> pages = new ArrayList<>(end - start + 1);
+        for (int i = start; i <= end; i++) {
+            pages.add(i);
+        }
+        return pages;
     }
 
     /**
@@ -113,9 +115,17 @@ public final class PaginationUtils {
         Predicate<T> filter,
         Comparator<T> comparator) {
 
-        List<T> filtered = collection.stream()
-            .filter(filter != null ? filter : t -> true)
-            .collect(Collectors.toList());
+        List<T> filtered;
+        if (filter != null) {
+            filtered = new ArrayList<>();
+            for (T item : collection) {
+                if (filter.test(item)) {
+                    filtered.add(item);
+                }
+            }
+        } else {
+            filtered = new ArrayList<>(collection);
+        }
 
         if (comparator != null) {
             filtered.sort(comparator);
@@ -129,19 +139,25 @@ public final class PaginationUtils {
      */
     @SafeVarargs
     public static <T> List<T> mergeResults(PaginatedResult<T>... results) {
-        return Arrays.stream(results)
-            .filter(Objects::nonNull)
-            .flatMap(r -> r.getItems().stream())
-            .collect(Collectors.toList());
+        List<T> merged = new ArrayList<>();
+        for (PaginatedResult<T> result : results) {
+            if (result != null) {
+                merged.addAll(result.getItems());
+            }
+        }
+        return merged;
     }
 
     /**
      * Transforms items in a paginated result.
      */
     public static <T, R> List<R> transformItems(PaginatedResult<T> result, Function<T, R> transformer) {
-        return result.getItems().stream()
-            .map(transformer)
-            .collect(Collectors.toList());
+        List<T> items = result.getItems();
+        List<R> transformed = new ArrayList<>(items.size());
+        for (T item : items) {
+            transformed.add(transformer.apply(item));
+        }
+        return transformed;
     }
 
     /**
@@ -244,9 +260,11 @@ public final class PaginationUtils {
         if (start > end) {
             throw new IllegalArgumentException("Start must be <= end");
         }
-        return IntStream.rangeClosed(start, end)
-            .boxed()
-            .collect(Collectors.toList());
+        List<Integer> range = new ArrayList<>(end - start + 1);
+        for (int i = start; i <= end; i++) {
+            range.add(i);
+        }
+        return range;
     }
 
     /**
