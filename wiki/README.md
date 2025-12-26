@@ -28,5 +28,6 @@ Advanced Topics:
 - [Parsing API (split parsing from execution)](Parsing-API.md)
   - [Quoted String Parsing](Parsing-API.md#quoted-string-parsing)
 - [Interactive Prompting (conversational argument gathering)](Interactive-Prompting.md)
+- [Performance Optimization (pools, caching, lazy parsing, parallel execution)](Performance-Optimization.md)
 
 If you're new, read the Overview and then Builder API. The rest are deep dives you can consult as needed.
