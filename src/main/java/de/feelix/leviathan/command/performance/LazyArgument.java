@@ -8,11 +8,13 @@ import de.feelix.leviathan.util.Preconditions;
 import org.bukkit.command.CommandSender;
 
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 /**
- * A lazily-parsed argument that defers parsing until the value is actually needed.
+ * A lazily-evaluated argument that defers computation until the value is actually needed.
  * <p>
  * This improves performance when:
  * <ul>
@@ -21,11 +23,11 @@ import java.util.function.Supplier;
  *   <li>Commands have many optional arguments</li>
  * </ul>
  * <p>
- * The value is parsed only once and then cached for subsequent accesses.
+ * The value is computed only once and then cached for subsequent accesses.
  * <p>
  * Example usage:
  * <pre>{@code
- * // Create a lazy argument
+ * // Create a lazy argument from parsing
  * LazyArgument<Player> lazyPlayer = LazyArgument.of(
  *     "Notch",
  *     ArgParsers.playerParser(),
@@ -43,25 +45,17 @@ import java.util.function.Supplier;
  * String name = lazyPlayer.map(Player::getName).orElse("Unknown");
  * }</pre>
  *
- * @param <T> the type of the parsed value
+ * @param <T> the type of the value
  */
-public final class LazyArgument<T> {
+public abstract class LazyArgument<T> {
 
-    private final String rawValue;
-    private final ArgumentParser<T> parser;
-    private final CommandSender sender;
-
-    // Lazy evaluation state
-    private volatile boolean parsed = false;
-    private volatile T value;
-    private volatile String errorMessage;
-    private volatile boolean hasError = false;
-
-    private LazyArgument(String rawValue, ArgumentParser<T> parser, CommandSender sender) {
-        this.rawValue = rawValue;
-        this.parser = Preconditions.checkNotNull(parser, "parser");
-        this.sender = Preconditions.checkNotNull(sender, "sender");
+    /**
+     * Protected constructor for subclasses.
+     */
+    protected LazyArgument() {
     }
+
+    // ==================== Factory Methods ====================
 
     /**
      * Create a lazy argument from a raw value and parser.
@@ -75,39 +69,20 @@ public final class LazyArgument<T> {
     public static <T> @NotNull LazyArgument<T> of(@Nullable String rawValue,
                                                    @NotNull ArgumentParser<T> parser,
                                                    @NotNull CommandSender sender) {
-        return new LazyArgument<>(rawValue, parser, sender);
+        Preconditions.checkNotNull(parser, "parser");
+        Preconditions.checkNotNull(sender, "sender");
+        return new ParsedLazyArgument<>(rawValue, parser, sender);
     }
 
     /**
-     * Create a lazy argument that always returns a constant value (pre-parsed).
+     * Create a lazy argument that always returns a constant value (pre-computed).
      *
-     * @param value the pre-parsed value
+     * @param value the pre-computed value
      * @param <T>   the value type
      * @return a lazy argument with the value already set
      */
     public static <T> @NotNull LazyArgument<T> ofValue(@Nullable T value) {
-        LazyArgument<T> lazy = new LazyArgument<>(null, null, null) {
-            @Override
-            public @Nullable T get() {
-                return value;
-            }
-
-            @Override
-            public boolean isParsed() {
-                return true;
-            }
-
-            @Override
-            public boolean hasError() {
-                return false;
-            }
-
-            @Override
-            public boolean isPresent() {
-                return value != null;
-            }
-        };
-        return lazy;
+        return new ConstantLazyArgument<>(value);
     }
 
     /**
@@ -117,7 +92,7 @@ public final class LazyArgument<T> {
      * @return an empty lazy argument
      */
     public static <T> @NotNull LazyArgument<T> empty() {
-        return ofValue(null);
+        return new ConstantLazyArgument<>(null);
     }
 
     /**
@@ -129,58 +104,79 @@ public final class LazyArgument<T> {
      */
     public static <T> @NotNull LazyArgument<T> fromSupplier(@NotNull Supplier<T> supplier) {
         Preconditions.checkNotNull(supplier, "supplier");
-        return new LazyArgument<T>(null, null, null) {
-            private volatile boolean computed = false;
-            private volatile T computedValue;
-
-            @Override
-            public @Nullable T get() {
-                if (!computed) {
-                    synchronized (this) {
-                        if (!computed) {
-                            computedValue = supplier.get();
-                            computed = true;
-                        }
-                    }
-                }
-                return computedValue;
-            }
-
-            @Override
-            public boolean isParsed() {
-                return computed;
-            }
-
-            @Override
-            public boolean hasError() {
-                return false;
-            }
-        };
+        return new SupplierLazyArgument<>(supplier);
     }
 
+    // ==================== Abstract Methods ====================
+
     /**
-     * Parse and get the value.
+     * Get the value.
      * <p>
-     * The value is parsed only once; subsequent calls return the cached result.
+     * The value is computed only once; subsequent calls return the cached result.
      *
-     * @return the parsed value, or null if parsing failed or raw value was null
+     * @return the value, or null if computation failed or value is null
      */
-    public @Nullable T get() {
-        ensureParsed();
-        return value;
+    public abstract @Nullable T get();
+
+    /**
+     * Check if the value has been computed yet.
+     *
+     * @return true if computation has occurred
+     */
+    public abstract boolean isComputed();
+
+    /**
+     * Check if computation resulted in an error.
+     *
+     * @return true if there was an error
+     */
+    public abstract boolean hasError();
+
+    /**
+     * Get the error message if computation failed.
+     *
+     * @return the error message, or null if no error
+     */
+    public abstract @Nullable String getErrorMessage();
+
+    /**
+     * Get the raw value before parsing (if applicable).
+     *
+     * @return the raw string value, or null if not applicable
+     */
+    public abstract @Nullable String getRawValue();
+
+    // ==================== Common Methods ====================
+
+    /**
+     * Check if a value is present (non-null and no error).
+     *
+     * @return true if value is present
+     */
+    public boolean isPresent() {
+        return get() != null && !hasError();
     }
 
     /**
-     * Get the value, throwing if parsing failed or value is null.
+     * Check if the value is absent (null or error).
      *
-     * @return the parsed value
-     * @throws IllegalStateException if parsing failed or value is null
+     * @return true if value is absent
+     */
+    public boolean isAbsent() {
+        return !isPresent();
+    }
+
+    /**
+     * Get the value, throwing if computation failed or value is null.
+     *
+     * @return the value
+     * @throws IllegalStateException if computation failed or value is null
      */
     public @NotNull T require() {
-        ensureParsed();
-        if (hasError) {
-            throw new IllegalStateException("Argument parsing failed: " + errorMessage);
+        if (hasError()) {
+            throw new IllegalStateException("Argument computation failed: " + getErrorMessage());
         }
+        T value = get();
         if (value == null) {
             throw new IllegalStateException("Argument value is null");
         }
@@ -188,25 +184,25 @@ public final class LazyArgument<T> {
     }
 
     /**
-     * Get the value or a default if parsing failed or value is null.
+     * Get the value or a default if computation failed or value is null.
      *
      * @param defaultValue the default value
-     * @return the parsed value or default
+     * @return the value or default
      */
     public T orElse(@Nullable T defaultValue) {
-        ensureParsed();
+        T value = get();
         return value != null ? value : defaultValue;
     }
 
     /**
-     * Get the value or compute a default if parsing failed or value is null.
+     * Get the value or compute a default if computation failed or value is null.
      *
      * @param supplier the supplier for the default value
-     * @return the parsed value or computed default
+     * @return the value or computed default
      */
     public T orElseGet(@NotNull Supplier<T> supplier) {
         Preconditions.checkNotNull(supplier, "supplier");
-        ensureParsed();
+        T value = get();
         return value != null ? value : supplier.get();
     }
 
@@ -216,8 +212,7 @@ public final class LazyArgument<T> {
      * @return Optional containing the value if present
      */
     public @NotNull Optional<T> optional() {
-        ensureParsed();
-        return Optional.ofNullable(value);
+        return Optional.ofNullable(get());
     }
 
     /**
@@ -226,26 +221,25 @@ public final class LazyArgument<T> {
      * @param action the action to execute
      * @return this for chaining
      */
-    public @NotNull LazyArgument<T> ifPresent(@NotNull java.util.function.Consumer<T> action) {
+    public @NotNull LazyArgument<T> ifPresent(@NotNull Consumer<T> action) {
         Preconditions.checkNotNull(action, "action");
-        ensureParsed();
-        if (value != null) {
+        T value = get();
+        if (value != null && !hasError()) {
             action.accept(value);
         }
         return this;
     }
 
     /**
-     * Execute an action if parsing failed.
+     * Execute an action if computation failed.
      *
      * @param action the action to execute with the error message
      * @return this for chaining
      */
-    public @NotNull LazyArgument<T> ifError(@NotNull java.util.function.Consumer<String> action) {
+    public @NotNull LazyArgument<T> ifError(@NotNull Consumer<String> action) {
         Preconditions.checkNotNull(action, "action");
-        ensureParsed();
-        if (hasError) {
-            action.accept(errorMessage);
+        if (hasError()) {
+            action.accept(getErrorMessage());
         }
         return this;
     }
@@ -259,7 +253,7 @@ public final class LazyArgument<T> {
      */
     public <R> @NotNull LazyArgument<R> map(@NotNull Function<T, R> mapper) {
         Preconditions.checkNotNull(mapper, "mapper");
-        return LazyArgument.fromSupplier(() -> {
+        return fromSupplier(() -> {
             T val = get();
             return val != null ? mapper.apply(val) : null;
         });
@@ -274,7 +268,7 @@ public final class LazyArgument<T> {
      */
     public <R> @NotNull LazyArgument<R> flatMap(@NotNull Function<T, LazyArgument<R>> mapper) {
         Preconditions.checkNotNull(mapper, "mapper");
-        return LazyArgument.fromSupplier(() -> {
+        return fromSupplier(() -> {
             T val = get();
             if (val == null) return null;
             LazyArgument<R> result = mapper.apply(val);
@@ -288,129 +282,276 @@ public final class LazyArgument<T> {
      * @param predicate the predicate to test
      * @return this if value matches, empty otherwise
      */
-    public @NotNull LazyArgument<T> filter(@NotNull java.util.function.Predicate<T> predicate) {
+    public @NotNull LazyArgument<T> filter(@NotNull Predicate<T> predicate) {
         Preconditions.checkNotNull(predicate, "predicate");
-        return LazyArgument.fromSupplier(() -> {
+        return fromSupplier(() -> {
             T val = get();
             return (val != null && predicate.test(val)) ? val : null;
         });
     }
 
     /**
-     * Check if the value has been parsed yet.
-     *
-     * @return true if parsing has occurred
-     */
-    public boolean isParsed() {
-        return parsed;
-    }
-
-    /**
-     * Check if parsing resulted in an error.
-     *
-     * @return true if there was a parse error
-     */
-    public boolean hasError() {
-        ensureParsed();
-        return hasError;
-    }
-
-    /**
-     * Check if a value is present (non-null and no error).
-     *
-     * @return true if value is present
-     */
-    public boolean isPresent() {
-        ensureParsed();
-        return value != null && !hasError;
-    }
-
-    /**
-     * Check if the value is absent (null or error).
-     *
-     * @return true if value is absent
-     */
-    public boolean isAbsent() {
-        return !isPresent();
-    }
-
-    /**
-     * Get the error message if parsing failed.
-     *
-     * @return the error message, or null if no error
-     */
-    public @Nullable String getErrorMessage() {
-        ensureParsed();
-        return errorMessage;
-    }
-
-    /**
-     * Get the raw value before parsing.
-     *
-     * @return the raw string value
-     */
-    public @Nullable String getRawValue() {
-        return rawValue;
-    }
-
-    /**
-     * Force parsing now instead of waiting for value access.
+     * Force computation now instead of waiting for value access.
      *
      * @return this for chaining
      */
-    public @NotNull LazyArgument<T> parse() {
-        ensureParsed();
+    public @NotNull LazyArgument<T> compute() {
+        get(); // Trigger computation
         return this;
     }
 
+    // ==================== Deprecated Alias ====================
+
     /**
-     * Ensure the value is parsed (thread-safe double-checked locking).
+     * @deprecated Use {@link #isComputed()} instead
      */
-    private void ensureParsed() {
-        if (!parsed) {
-            synchronized (this) {
-                if (!parsed) {
-                    doParse();
-                    parsed = true;
+    @Deprecated
+    public boolean isParsed() {
+        return isComputed();
+    }
+
+    /**
+     * @deprecated Use {@link #compute()} instead
+     */
+    @Deprecated
+    public @NotNull LazyArgument<T> parse() {
+        return compute();
+    }
+
+    // ==================== Implementation: Parsed Argument ====================
+
+    /**
+     * Implementation for arguments that need to be parsed.
+     */
+    private static final class ParsedLazyArgument<T> extends LazyArgument<T> {
+        private final String rawValue;
+        private final ArgumentParser<T> parser;
+        private final CommandSender sender;
+
+        // Lazy evaluation state
+        private volatile boolean computed = false;
+        private volatile T value;
+        private volatile String errorMessage;
+        private volatile boolean hasError = false;
+
+        ParsedLazyArgument(@Nullable String rawValue,
+                           @NotNull ArgumentParser<T> parser,
+                           @NotNull CommandSender sender) {
+            this.rawValue = rawValue;
+            this.parser = parser;
+            this.sender = sender;
+        }
+
+        @Override
+        public @Nullable T get() {
+            ensureComputed();
+            return value;
+        }
+
+        @Override
+        public boolean isComputed() {
+            return computed;
+        }
+
+        @Override
+        public boolean hasError() {
+            ensureComputed();
+            return hasError;
+        }
+
+        @Override
+        public @Nullable String getErrorMessage() {
+            ensureComputed();
+            return errorMessage;
+        }
+
+        @Override
+        public @Nullable String getRawValue() {
+            return rawValue;
+        }
+
+        /**
+         * Ensure the value is computed (thread-safe double-checked locking).
+         */
+        private void ensureComputed() {
+            if (!computed) {
+                synchronized (this) {
+                    if (!computed) {
+                        doCompute();
+                        computed = true;
+                    }
                 }
             }
         }
-    }
 
-    /**
-     * Perform the actual parsing.
-     */
-    private void doParse() {
-        if (rawValue == null || parser == null || sender == null) {
-            value = null;
-            return;
-        }
+        /**
+         * Perform the actual parsing.
+         */
+        private void doCompute() {
+            if (rawValue == null) {
+                value = null;
+                return;
+            }
 
-        try {
-            ParseResult<T> result = parser.parse(rawValue, sender);
-            if (result.isSuccess()) {
-                value = result.value().orElse(null);
-                hasError = false;
-            } else {
+            try {
+                ParseResult<T> result = parser.parse(rawValue, sender);
+                if (result.isSuccess()) {
+                    value = result.value().orElse(null);
+                    hasError = false;
+                } else {
+                    value = null;
+                    hasError = true;
+                    errorMessage = result.error().orElse("Parse error");
+                }
+            } catch (Exception e) {
                 value = null;
                 hasError = true;
-                errorMessage = result.error().orElse("Parse error");
+                errorMessage = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
             }
-        } catch (Exception e) {
-            value = null;
-            hasError = true;
-            errorMessage = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+        }
+
+        @Override
+        public String toString() {
+            if (!computed) {
+                return "LazyArgument.Parsed{unparsed, raw='" + rawValue + "'}";
+            }
+            if (hasError) {
+                return "LazyArgument.Parsed{error='" + errorMessage + "'}";
+            }
+            return "LazyArgument.Parsed{value=" + value + "}";
         }
     }
 
-    @Override
-    public String toString() {
-        if (!parsed) {
-            return "LazyArgument{unparsed, raw='" + rawValue + "'}";
+    // ==================== Implementation: Constant Value ====================
+
+    /**
+     * Implementation for pre-computed constant values.
+     */
+    private static final class ConstantLazyArgument<T> extends LazyArgument<T> {
+        private final T value;
+
+        ConstantLazyArgument(@Nullable T value) {
+            this.value = value;
         }
-        if (hasError) {
-            return "LazyArgument{error='" + errorMessage + "'}";
+
+        @Override
+        public @Nullable T get() {
+            return value;
         }
-        return "LazyArgument{value=" + value + "}";
+
+        @Override
+        public boolean isComputed() {
+            return true;
+        }
+
+        @Override
+        public boolean hasError() {
+            return false;
+        }
+
+        @Override
+        public @Nullable String getErrorMessage() {
+            return null;
+        }
+
+        @Override
+        public @Nullable String getRawValue() {
+            return null;
+        }
+
+        @Override
+        public boolean isPresent() {
+            return value != null;
+        }
+
+        @Override
+        public String toString() {
+            return "LazyArgument.Constant{value=" + value + "}";
+        }
+    }
+
+    // ==================== Implementation: Supplier-based ====================
+
+    /**
+     * Implementation for supplier-based lazy computation.
+     */
+    private static final class SupplierLazyArgument<T> extends LazyArgument<T> {
+        private final Supplier<T> supplier;
+
+        private volatile boolean computed = false;
+        private volatile T value;
+        private volatile String errorMessage;
+        private volatile boolean hasError = false;
+
+        SupplierLazyArgument(@NotNull Supplier<T> supplier) {
+            this.supplier = supplier;
+        }
+
+        @Override
+        public @Nullable T get() {
+            ensureComputed();
+            return value;
+        }
+
+        @Override
+        public boolean isComputed() {
+            return computed;
+        }
+
+        @Override
+        public boolean hasError() {
+            ensureComputed();
+            return hasError;
+        }
+
+        @Override
+        public @Nullable String getErrorMessage() {
+            ensureComputed();
+            return errorMessage;
+        }
+
+        @Override
+        public @Nullable String getRawValue() {
+            return null;
+        }
+
+        /**
+         * Ensure the value is computed (thread-safe double-checked locking).
+         */
+        private void ensureComputed() {
+            if (!computed) {
+                synchronized (this) {
+                    if (!computed) {
+                        doCompute();
+                        computed = true;
+                    }
+                }
+            }
+        }
+
+        /**
+         * Perform the actual computation.
+         */
+        private void doCompute() {
+            try {
+                value = supplier.get();
+                hasError = false;
+            } catch (Exception e) {
+                value = null;
+                hasError = true;
+                errorMessage = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            }
+        }
+
+        @Override
+        public String toString() {
+            if (!computed) {
+                return "LazyArgument.Supplier{not computed}";
+            }
+            if (hasError) {
+                return "LazyArgument.Supplier{error='" + errorMessage + "'}";
+            }
+            return "LazyArgument.Supplier{value=" + value + "}";
+        }
     }
 }
