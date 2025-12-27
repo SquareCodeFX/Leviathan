@@ -42,11 +42,22 @@ public final class FlagAndKeyValueParser {
                              Map<String, List<Object>> multiValuePairs,
                              List<String> remainingArgs,
                              List<String> errors) {
-            this.flagValues = Collections.unmodifiableMap(new HashMap<>(flagValues));
-            this.keyValuePairs = Collections.unmodifiableMap(new HashMap<>(keyValuePairs));
-            this.multiValuePairs = Collections.unmodifiableMap(new HashMap<>(multiValuePairs));
-            this.remainingArgs = Collections.unmodifiableList(new ArrayList<>(remainingArgs));
-            this.errors = Collections.unmodifiableList(new ArrayList<>(errors));
+            // Optimize: use empty collections for empty inputs to avoid allocations
+            this.flagValues = flagValues.isEmpty()
+                ? Collections.emptyMap()
+                : Collections.unmodifiableMap(new HashMap<>(flagValues));
+            this.keyValuePairs = keyValuePairs.isEmpty()
+                ? Collections.emptyMap()
+                : Collections.unmodifiableMap(new HashMap<>(keyValuePairs));
+            this.multiValuePairs = multiValuePairs.isEmpty()
+                ? Collections.emptyMap()
+                : Collections.unmodifiableMap(new HashMap<>(multiValuePairs));
+            this.remainingArgs = remainingArgs.isEmpty()
+                ? Collections.emptyList()
+                : Collections.unmodifiableList(new ArrayList<>(remainingArgs));
+            this.errors = errors.isEmpty()
+                ? Collections.emptyList()
+                : Collections.unmodifiableList(new ArrayList<>(errors));
         }
 
         /**

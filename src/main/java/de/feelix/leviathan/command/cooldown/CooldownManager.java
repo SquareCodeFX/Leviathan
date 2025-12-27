@@ -1,12 +1,12 @@
 package de.feelix.leviathan.command.cooldown;
 
 import de.feelix.leviathan.annotations.NotNull;
+import de.feelix.leviathan.util.LazyCleanupProvider;
 import de.feelix.leviathan.util.Preconditions;
 
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Manages cooldowns for commands, supporting both per-user and per-server (global) cooldowns.
@@ -27,13 +27,8 @@ public final class CooldownManager {
     private static final Map<String, Long> userCooldownDurations = new ConcurrentHashMap<>();
     private static final Map<String, Long> serverCooldownDurations = new ConcurrentHashMap<>();
 
-    // Lazy cleanup: track operations and clean periodically
-    private static final AtomicLong operationCount = new AtomicLong(0);
-    private static final int CLEANUP_INTERVAL_OPS = 25; // Clean every N operations (reduced from 100 to prevent memory buildup)
-
-    // Statistics
-    private static final AtomicLong totalCleanedEntries = new AtomicLong(0);
-    private static final AtomicLong lastCleanupTime = new AtomicLong(0);
+    // Lazy cleanup using shared utility (interval of 25 for more aggressive cleanup)
+    private static final LazyCleanupProvider cleanupProvider = LazyCleanupProvider.withInterval(25);
 
     // Grace period after cooldown expires before cleanup (30 seconds - reduced from 60 to prevent memory buildup)
     private static final long CLEANUP_GRACE_PERIOD_MS = 30 * 1000L;
@@ -228,10 +223,7 @@ public final class CooldownManager {
      * without requiring background threads.
      */
     private static void lazyCleanup() {
-        long ops = operationCount.incrementAndGet();
-        if (ops % CLEANUP_INTERVAL_OPS == 0) {
-            cleanupExpired();
-        }
+        cleanupProvider.maybeCleanup(CooldownManager::cleanupExpired);
     }
 
     /**
@@ -295,10 +287,6 @@ public final class CooldownManager {
             }
         }
 
-        // Update statistics
-        totalCleanedEntries.addAndGet(cleanedCount);
-        lastCleanupTime.set(currentTime);
-
         return cleanedCount;
     }
 
@@ -346,7 +334,7 @@ public final class CooldownManager {
      * @return total cleaned entries count
      */
     public static long getTotalCleanedEntries() {
-        return totalCleanedEntries.get();
+        return cleanupProvider.getTotalCleanedEntries();
     }
 
     /**
@@ -355,15 +343,14 @@ public final class CooldownManager {
      * @return last cleanup timestamp in milliseconds, or 0 if never cleaned
      */
     public static long getLastCleanupTime() {
-        return lastCleanupTime.get();
+        return cleanupProvider.getLastCleanupTime();
     }
 
     /**
      * Reset cleanup statistics.
      */
     public static void resetStatistics() {
-        totalCleanedEntries.set(0);
-        lastCleanupTime.set(0);
+        cleanupProvider.reset();
     }
 
     /**
