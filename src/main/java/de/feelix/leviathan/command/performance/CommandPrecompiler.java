@@ -216,7 +216,7 @@ public final class CommandPrecompiler {
             ArgContext ctx = arg.context();
             if (ctx.stringPattern() != null) {
                 try {
-                    Pattern pattern = Pattern.compile(ctx.stringPattern());
+                    Pattern pattern = ctx.stringPattern();
                     patterns.put(arg.name(), pattern);
                 } catch (Exception e) {
                     // Invalid pattern, skip
