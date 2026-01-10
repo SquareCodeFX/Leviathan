@@ -869,4 +869,324 @@ public interface MessageProvider {
      */
     @NotNull
     String quotedStringError(@NotNull String errorDetail);
+
+    // ==================== Batch Operation Messages ====================
+
+    /**
+     * Message when batch size exceeds maximum.
+     *
+     * @param size    the actual batch size
+     * @param maxSize the maximum allowed size
+     * @return the error message
+     */
+    @NotNull
+    default String batchSizeExceeded(int size, int maxSize) {
+        return "§cBatch size §f" + size + " §cexceeds maximum of §f" + maxSize + "§c.";
+    }
+
+    /**
+     * Progress message during batch execution.
+     *
+     * @param current  the current item number
+     * @param total    the total number of items
+     * @param success  the number of successful items
+     * @param failed   the number of failed items
+     * @return the progress message
+     */
+    @NotNull
+    default String batchProgress(int current, int total, int success, int failed) {
+        return String.format("§7[%d/%d] §aSuccess: %d §c| Failed: %d", current, total, success, failed);
+    }
+
+    /**
+     * Summary message after batch completion.
+     *
+     * @param success     the number of successful items
+     * @param total       the total number of items
+     * @param timeMillis  the total execution time in milliseconds
+     * @return the summary message
+     */
+    @NotNull
+    default String batchComplete(int success, int total, double timeMillis) {
+        return String.format("§aBatch complete: §f%d§7/§f%d §asuccessful §8(%.2fms)", success, total, timeMillis);
+    }
+
+    /**
+     * Message when batch is cancelled.
+     *
+     * @param processed the number of items processed before cancellation
+     * @param total     the total number of items
+     * @return the cancellation message
+     */
+    @NotNull
+    default String batchCancelled(int processed, int total) {
+        return String.format("§cBatch cancelled after processing §f%d§7/§f%d §citems.", processed, total);
+    }
+
+    /**
+     * Message when batch times out.
+     *
+     * @param processed the number of items processed before timeout
+     * @param total     the total number of items
+     * @return the timeout message
+     */
+    @NotNull
+    default String batchTimeout(int processed, int total) {
+        return String.format("§cBatch timed out after processing §f%d§7/§f%d §citems.", processed, total);
+    }
+
+    /**
+     * Header for batch failure details.
+     *
+     * @return the failure header
+     */
+    @NotNull
+    default String batchFailureHeader() {
+        return "§c§lFailures:";
+    }
+
+    /**
+     * Format for a single batch failure.
+     *
+     * @param targetName   the target name
+     * @param errorMessage the error message
+     * @return the formatted failure message
+     */
+    @NotNull
+    default String batchFailureItem(@NotNull String targetName, @NotNull String errorMessage) {
+        return "§c  - " + targetName + "§7: " + errorMessage;
+    }
+
+    // ==================== Wizard Messages ====================
+
+    /**
+     * Prefix for wizard messages.
+     *
+     * @return the wizard prefix
+     */
+    @NotNull
+    default String wizardPrefix() {
+        return "§d[Wizard] §f";
+    }
+
+    /**
+     * Message when a wizard session starts.
+     *
+     * @param wizardName the wizard name
+     * @return the start message
+     */
+    @NotNull
+    default String wizardStarted(@NotNull String wizardName) {
+        return wizardPrefix() + "Starting §b" + wizardName + "§f...";
+    }
+
+    /**
+     * Message when a wizard completes successfully.
+     *
+     * @return the completion message
+     */
+    @NotNull
+    default String wizardCompleted() {
+        return "§a[Wizard] §fWizard completed!";
+    }
+
+    /**
+     * Message when a wizard is cancelled.
+     *
+     * @return the cancellation message
+     */
+    @NotNull
+    default String wizardCancelled() {
+        return "§c[Wizard] §fWizard cancelled.";
+    }
+
+    /**
+     * Message when a wizard times out.
+     *
+     * @return the timeout message
+     */
+    @NotNull
+    default String wizardTimeout() {
+        return "§c[Wizard] §fWizard timed out.";
+    }
+
+    /**
+     * Prompt for user to enter a choice.
+     *
+     * @return the choice prompt
+     */
+    @NotNull
+    default String wizardChoicePrompt() {
+        return "§7Type the number or name of your choice.";
+    }
+
+    /**
+     * Hint for going back to previous step.
+     *
+     * @return the back hint
+     */
+    @NotNull
+    default String wizardBackHint() {
+        return "§8Type 'back' to go to the previous step.";
+    }
+
+    /**
+     * Hint for cancelling the wizard.
+     *
+     * @return the cancel hint
+     */
+    @NotNull
+    default String wizardCancelHint() {
+        return "§8Type 'cancel' to exit the wizard.";
+    }
+
+    /**
+     * Message when an invalid option is selected.
+     *
+     * @return the invalid option message
+     */
+    @NotNull
+    default String wizardInvalidOption() {
+        return "§cInvalid option. Please try again.";
+    }
+
+    /**
+     * Message when an option is not available.
+     *
+     * @return the unavailable option message
+     */
+    @NotNull
+    default String wizardOptionUnavailable() {
+        return "§cThis option is not available.";
+    }
+
+    /**
+     * Confirmation prompt for wizard actions.
+     *
+     * @return the confirmation prompt
+     */
+    @NotNull
+    default String wizardConfirmationPrompt() {
+        return "§eAre you sure? Type 'yes' to confirm or 'no' to cancel.";
+    }
+
+    /**
+     * Message when confirmation is cancelled.
+     *
+     * @return the confirmation cancelled message
+     */
+    @NotNull
+    default String wizardConfirmationCancelled() {
+        return "§7Cancelled. Please choose again.";
+    }
+
+    /**
+     * Message when user cannot go back.
+     *
+     * @return the cannot go back message
+     */
+    @NotNull
+    default String wizardCannotGoBack() {
+        return "§7Cannot go back - you're at the beginning.";
+    }
+
+    /**
+     * Message when wizard encounters an error.
+     *
+     * @param errorMessage the error message
+     * @return the error message
+     */
+    @NotNull
+    default String wizardError(@NotNull String errorMessage) {
+        return "§c[Wizard] Error: §7" + errorMessage;
+    }
+
+    /**
+     * Format for wizard option display.
+     *
+     * @param index       the option index (1-based)
+     * @param key         the option key
+     * @param displayText the display text
+     * @param description the description (may be null)
+     * @return the formatted option
+     */
+    @NotNull
+    default String wizardOptionFormat(int index, @NotNull String key, @NotNull String displayText,
+                                       @NotNull String description) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("§e[").append(index).append("] §f").append(displayText);
+        if (description != null && !description.isEmpty()) {
+            sb.append(" §7- ").append(description);
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Message when wizard is attempted by a non-player.
+     *
+     * @return the error message
+     */
+    @NotNull
+    default String wizardPlayerOnly() {
+        return "§cWizards can only be used by players.";
+    }
+
+    /**
+     * Message when batch operation has no targets.
+     *
+     * @return the error message
+     */
+    @NotNull
+    default String batchEmptyTargets() {
+        return "§cNo targets specified for batch operation.";
+    }
+
+    /**
+     * Message when batch operation starts.
+     *
+     * @param targetCount the number of targets
+     * @return the start message
+     */
+    @NotNull
+    default String batchStarted(int targetCount) {
+        return "§7Processing §f" + targetCount + " §7targets...";
+    }
+
+    /**
+     * Simple completion message for batch operation.
+     *
+     * @param success the number of successful operations
+     * @param failed  the number of failed operations
+     * @return the completion message
+     */
+    @NotNull
+    default String batchComplete(int success, int failed) {
+        if (failed == 0) {
+            return "§aBatch complete: §f" + success + " §asuccessful.";
+        }
+        return String.format("§aBatch complete: §f%d §asuccessful, §c%d §afailed.", success, failed);
+    }
+
+    /**
+     * Message when batch operation has partial success.
+     *
+     * @param success the number of successful operations
+     * @param failed  the number of failed operations
+     * @return the partial success message
+     */
+    @NotNull
+    default String batchPartialSuccess(int success, int failed) {
+        return String.format("§eBatch partially complete: §f%d §asuccessful, §c%d §efailed.", success, failed);
+    }
+
+    /**
+     * Message when batch operation fails completely.
+     *
+     * @param failed the number of failed operations
+     * @return the failure message
+     */
+    @NotNull
+    default String batchFailed(int failed) {
+        return "§cBatch operation failed: §f" + failed + " §cerrors.";
+    }
 }

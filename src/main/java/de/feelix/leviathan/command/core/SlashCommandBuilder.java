@@ -7,6 +7,8 @@ import de.feelix.leviathan.command.argument.ArgContext;
 import de.feelix.leviathan.command.argument.ArgumentGroup;
 import de.feelix.leviathan.command.argument.ChoiceArg;
 import de.feelix.leviathan.command.argument.VariadicArg;
+import de.feelix.leviathan.command.batch.BatchAction;
+import de.feelix.leviathan.command.batch.BatchConfig;
 import de.feelix.leviathan.command.error.DetailedExceptionHandler;
 import de.feelix.leviathan.command.permission.PermissionCascadeMode;
 import de.feelix.leviathan.command.error.ExceptionHandler;
@@ -16,6 +18,7 @@ import de.feelix.leviathan.command.guard.Guard;
 import de.feelix.leviathan.command.message.DefaultMessageProvider;
 import de.feelix.leviathan.command.message.MessageProvider;
 import de.feelix.leviathan.command.validation.CrossArgumentValidator;
+import de.feelix.leviathan.command.wizard.WizardDefinition;
 import de.feelix.leviathan.exceptions.CommandConfigurationException;
 import de.feelix.leviathan.exceptions.ParsingException;
 import de.feelix.leviathan.command.argument.ArgParsers;
@@ -83,6 +86,12 @@ public final class SlashCommandBuilder {
     // Permission cascading
     private PermissionCascadeMode permissionCascadeMode = PermissionCascadeMode.INHERIT;
     private @Nullable String permissionPrefix = null;
+    // Batch operations
+    private @Nullable BatchConfig batchConfig = null;
+    private @Nullable BatchAction<?> batchAction = null;
+    private @Nullable String batchTargetArg = null;
+    // Wizard
+    private @Nullable WizardDefinition wizardDefinition = null;
 
     SlashCommandBuilder(String name) {
         this.name = Preconditions.checkNotNull(name, "name");
@@ -2466,6 +2475,189 @@ public final class SlashCommandBuilder {
         return argumentGroup(ArgumentGroup.atLeastOne(name, members));
     }
 
+    // ==================== Batch Operations ====================
+
+    /**
+     * Configure this command for batch operations on multiple targets.
+     * <p>
+     * Batch operations allow a command to be executed against multiple entities
+     * at once, such as:
+     * <ul>
+     *   <li>Banning multiple players: {@code /ban player1 player2 player3}</li>
+     *   <li>Clearing inventories: {@code /clear @a} (all players)</li>
+     *   <li>Teleporting entities: {@code /tp player1,player2 spawn}</li>
+     * </ul>
+     * <p>
+     * Example usage:
+     * <pre>{@code
+     * SlashCommand.create("massban")
+     *     .argVariadic(VariadicArg.of("players", ArgParsers.playerParser()))
+     *     .batch("players", config -> config
+     *         .maxBatchSize(20)
+     *         .parallel(true)
+     *         .continueOnFailure(true)
+     *         .showProgress(true))
+     *     .batchAction((player, ctx) -> {
+     *         String reason = ctx.argString("reason", "No reason");
+     *         player.kickPlayer("Banned: " + reason);
+     *         ctx.recordSuccess();
+     *     })
+     *     .register(plugin);
+     * }</pre>
+     *
+     * @param targetArgName the name of the variadic argument containing targets
+     * @param configurer    configuration function for batch options
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder batch(@NotNull String targetArgName,
+                                               @NotNull java.util.function.Consumer<BatchConfig.Builder> configurer) {
+        Preconditions.checkNotNull(targetArgName, "targetArgName");
+        Preconditions.checkNotNull(configurer, "configurer");
+        this.batchTargetArg = targetArgName;
+        BatchConfig.Builder builder = BatchConfig.builder();
+        configurer.accept(builder);
+        this.batchConfig = builder.build();
+        return this;
+    }
+
+    /**
+     * Configure this command for batch operations with default configuration.
+     *
+     * @param targetArgName the name of the variadic argument containing targets
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder batch(@NotNull String targetArgName) {
+        Preconditions.checkNotNull(targetArgName, "targetArgName");
+        this.batchTargetArg = targetArgName;
+        this.batchConfig = BatchConfig.defaults();
+        return this;
+    }
+
+    /**
+     * Configure this command for batch operations with an explicit config.
+     *
+     * @param targetArgName the name of the variadic argument containing targets
+     * @param config        the batch configuration
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder batch(@NotNull String targetArgName, @NotNull BatchConfig config) {
+        Preconditions.checkNotNull(targetArgName, "targetArgName");
+        Preconditions.checkNotNull(config, "config");
+        this.batchTargetArg = targetArgName;
+        this.batchConfig = config;
+        return this;
+    }
+
+    /**
+     * Set the action to execute for each target in a batch operation.
+     * <p>
+     * The action receives each target and the batch context, which provides
+     * access to shared state and progress tracking.
+     *
+     * @param action the action to execute for each target
+     * @param <T>    the target type
+     * @return this builder
+     */
+    public <T> @NotNull SlashCommandBuilder batchAction(@NotNull BatchAction<T> action) {
+        Preconditions.checkNotNull(action, "action");
+        this.batchAction = action;
+        return this;
+    }
+
+    /**
+     * @return the configured batch config, or null if not a batch command
+     */
+    @Nullable BatchConfig getBatchConfig() {
+        return batchConfig;
+    }
+
+    /**
+     * @return the configured batch action, or null if not a batch command
+     */
+    @Nullable BatchAction<?> getBatchAction() {
+        return batchAction;
+    }
+
+    /**
+     * @return the name of the argument containing batch targets
+     */
+    @Nullable String getBatchTargetArg() {
+        return batchTargetArg;
+    }
+
+    // ==================== Wizard System ====================
+
+    /**
+     * Configure this command to start an interactive wizard.
+     * <p>
+     * Wizards guide users through a series of questions and choices to
+     * collect information before executing an action. They support:
+     * <ul>
+     *   <li>Branching decision trees based on user choices</li>
+     *   <li>Multiple input types (selection, text input, confirmation)</li>
+     *   <li>Variable collection and interpolation</li>
+     *   <li>Navigation (go back, cancel)</li>
+     *   <li>Timeout handling</li>
+     * </ul>
+     * <p>
+     * Example usage:
+     * <pre>{@code
+     * WizardDefinition wizard = WizardDefinition.builder("setup-kit")
+     *     .description("Create a custom kit")
+     *     .question("type", "What type of kit?", node -> node
+     *         .option("combat", "Combat Kit", "weapons")
+     *         .option("utility", "Utility Kit", "tools"))
+     *     .question("weapons", "Choose weapon:", node -> node
+     *         .option("sword", "Diamond Sword", "save")
+     *         .option("bow", "Bow", "save"))
+     *     .question("tools", "Choose tools:", node -> node
+     *         .option("pickaxe", "Diamond Pickaxe", "save")
+     *         .option("axe", "Diamond Axe", "save"))
+     *     .terminal("save", ctx -> {
+     *         Player player = ctx.player();
+     *         String type = ctx.getString("type", "unknown");
+     *         player.sendMessage("Kit created: " + type);
+     *     })
+     *     .build();
+     *
+     * SlashCommand.create("createkit")
+     *     .wizard(wizard)
+     *     .register(plugin);
+     * }</pre>
+     *
+     * @param wizard the wizard definition
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder wizard(@NotNull WizardDefinition wizard) {
+        Preconditions.checkNotNull(wizard, "wizard");
+        this.wizardDefinition = wizard;
+        return this;
+    }
+
+    /**
+     * Configure this command to start an interactive wizard using a builder.
+     *
+     * @param name       the wizard name (for debugging/logging)
+     * @param configurer configuration function for the wizard
+     * @return this builder
+     */
+    public @NotNull SlashCommandBuilder wizard(@NotNull String name,
+                                                @NotNull java.util.function.Consumer<WizardDefinition.Builder> configurer) {
+        Preconditions.checkNotNull(name, "name");
+        Preconditions.checkNotNull(configurer, "configurer");
+        WizardDefinition.Builder builder = WizardDefinition.builder(name);
+        configurer.accept(builder);
+        this.wizardDefinition = builder.build();
+        return this;
+    }
+
+    /**
+     * @return the configured wizard definition, or null if not a wizard command
+     */
+    @Nullable WizardDefinition getWizardDefinition() {
+        return wizardDefinition;
+    }
+
     /**
      * Validate the configuration and build the immutable {@link SlashCommand}.
      *
@@ -2576,6 +2768,40 @@ public final class SlashCommandBuilder {
                 subs.put(aliasLow, subCmd);
             }
         }
+        // Validate batch configuration
+        if (batchConfig != null && batchAction == null) {
+            throw new CommandConfigurationException(
+                "Batch operation configured but no batchAction specified. Use .batchAction() to define the action.");
+        }
+        if (batchAction != null && batchConfig == null) {
+            throw new CommandConfigurationException(
+                "Batch action specified but no batch configuration. Use .batch() to configure batch operations.");
+        }
+        if (batchConfig != null && batchTargetArg != null) {
+            // Validate that the target argument exists and is variadic
+            boolean foundTargetArg = false;
+            for (Arg<?> arg : args) {
+                if (arg.name().equalsIgnoreCase(batchTargetArg)) {
+                    foundTargetArg = true;
+                    if (!arg.isVariadic()) {
+                        throw new CommandConfigurationException(
+                            "Batch target argument '" + batchTargetArg + "' must be a variadic argument");
+                    }
+                    break;
+                }
+            }
+            if (!foundTargetArg) {
+                throw new CommandConfigurationException(
+                    "Batch target argument '" + batchTargetArg + "' not found in command arguments");
+            }
+        }
+        // Validate wizard configuration
+        if (wizardDefinition != null) {
+            // Wizard commands should be player-only by default
+            if (!playerOnly) {
+                // Just a warning, don't throw - wizards might work with console in some cases
+            }
+        }
         SlashCommand cmd = new SlashCommand(
             name, aliases, description, permission, playerOnly, sendErrors, args, action, async, validateOnTab, subs,
             asyncAction, (asyncTimeoutMillis == null ? 0L : asyncTimeoutMillis),
@@ -2583,7 +2809,8 @@ public final class SlashCommandBuilder {
             perUserCooldownMillis, perServerCooldownMillis, enableHelp, helpPageSize, messages, sanitizeInputs,
             fuzzySubcommandMatching, fuzzyMatchThreshold, debugMode,
             flags, keyValues, awaitConfirmation, beforeHooks, afterHooks, argumentGroups, enableQuotedStrings,
-            permissionCascadeMode, permissionPrefix
+            permissionCascadeMode, permissionPrefix,
+            batchConfig, batchAction, batchTargetArg, wizardDefinition
         );
 
         // Set parent reference for all subcommands
