@@ -7,8 +7,14 @@ import de.feelix.leviathan.command.argument.ArgContext;
 import de.feelix.leviathan.command.argument.ArgumentGroup;
 import de.feelix.leviathan.command.argument.ArgumentParser;
 import de.feelix.leviathan.command.argument.ParseResult;
+import de.feelix.leviathan.command.batch.BatchAction;
+import de.feelix.leviathan.command.batch.BatchConfig;
+import de.feelix.leviathan.command.batch.BatchExecutor;
+import de.feelix.leviathan.command.batch.BatchResult;
 import de.feelix.leviathan.command.suggestion.SuggestionEngine;
 import de.feelix.leviathan.command.interactive.InteractivePrompt;
+import de.feelix.leviathan.command.wizard.WizardDefinition;
+import de.feelix.leviathan.command.wizard.WizardManager;
 import de.feelix.leviathan.command.parsing.CommandParseError;
 import de.feelix.leviathan.command.parsing.CommandParseResult;
 import de.feelix.leviathan.command.parsing.ParseOptions;
@@ -213,6 +219,16 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
     private final boolean enableQuotedStrings;
     private final PermissionCascadeMode permissionCascadeMode;
     private final String permissionPrefix;
+    // Batch operations
+    @Nullable
+    private final BatchConfig batchConfig;
+    @Nullable
+    private final BatchAction<?> batchAction;
+    @Nullable
+    private final String batchTargetArg;
+    // Wizard
+    @Nullable
+    private final WizardDefinition wizardDefinition;
     JavaPlugin plugin;
     private boolean subOnly = false;
     @Nullable
@@ -501,6 +517,64 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         return enableQuotedStrings;
     }
 
+    // ==================== Batch Operations ====================
+
+    /**
+     * Check if this command is configured for batch operations.
+     *
+     * @return true if batch operations are enabled
+     */
+    public boolean isBatchCommand() {
+        return batchConfig != null && batchAction != null;
+    }
+
+    /**
+     * Get the batch configuration for this command.
+     *
+     * @return the batch config, or null if not a batch command
+     */
+    public @Nullable BatchConfig batchConfig() {
+        return batchConfig;
+    }
+
+    /**
+     * Get the batch action for this command.
+     *
+     * @return the batch action, or null if not a batch command
+     */
+    public @Nullable BatchAction<?> batchAction() {
+        return batchAction;
+    }
+
+    /**
+     * Get the name of the argument containing batch targets.
+     *
+     * @return the argument name, or null if not a batch command
+     */
+    public @Nullable String batchTargetArg() {
+        return batchTargetArg;
+    }
+
+    // ==================== Wizard System ====================
+
+    /**
+     * Check if this command is configured as a wizard command.
+     *
+     * @return true if wizard is enabled
+     */
+    public boolean isWizardCommand() {
+        return wizardDefinition != null;
+    }
+
+    /**
+     * Get the wizard definition for this command.
+     *
+     * @return the wizard definition, or null if not a wizard command
+     */
+    public @Nullable WizardDefinition wizardDefinition() {
+        return wizardDefinition;
+    }
+
     /**
      * @return an immutable list of argument definitions
      */
@@ -588,7 +662,9 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                  List<Flag> flags, List<KeyValue<?>> keyValues, boolean awaitConfirmation,
                  List<ExecutionHook.Before> beforeHooks, List<ExecutionHook.After> afterHooks,
                  List<ArgumentGroup> argumentGroups, boolean enableQuotedStrings,
-                 PermissionCascadeMode permissionCascadeMode, @Nullable String permissionPrefix) {
+                 PermissionCascadeMode permissionCascadeMode, @Nullable String permissionPrefix,
+                 @Nullable BatchConfig batchConfig, @Nullable BatchAction<?> batchAction,
+                 @Nullable String batchTargetArg, @Nullable WizardDefinition wizardDefinition) {
         this.name = Preconditions.checkNotNull(name, "name");
         this.aliases = List.copyOf(aliases == null ? List.of() : aliases);
         this.description = (description == null) ? "" : description;
@@ -628,6 +704,12 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         this.enableQuotedStrings = enableQuotedStrings;
         this.permissionCascadeMode = permissionCascadeMode != null ? permissionCascadeMode : PermissionCascadeMode.INHERIT;
         this.permissionPrefix = permissionPrefix;
+        // Batch operations
+        this.batchConfig = batchConfig;
+        this.batchAction = batchAction;
+        this.batchTargetArg = batchTargetArg;
+        // Wizard
+        this.wizardDefinition = wizardDefinition;
         // Pre-compute usage string for performance
         this.cachedUsage = computeUsageString();
         // Pre-compute alias map for argument alias support
@@ -1505,6 +1587,72 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         // Optional arguments not provided: simply absent from context
 
         CommandContext ctx = new CommandContext(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
+
+        // Handle wizard commands: start interactive wizard session
+        if (isWizardCommand() && wizardDefinition != null) {
+            if (!(sender instanceof Player)) {
+                sendErrorMessage(sender, ErrorType.PLAYER_ONLY, messages.wizardPlayerOnly(), null);
+                return true;
+            }
+            Player player = (Player) sender;
+            try {
+                WizardManager.startSession(plugin, player, wizardDefinition, ctx);
+                sender.sendMessage(messages.wizardStarted(wizardDefinition.name()));
+            } catch (Throwable t) {
+                sendErrorMessage(sender, ErrorType.INTERNAL_ERROR,
+                    messages.wizardError(t.getMessage() != null ? t.getMessage() : "Unknown error"), t);
+                if (plugin != null) {
+                    plugin.getLogger().severe("Failed to start wizard '" + wizardDefinition.name() + "': " + t.getMessage());
+                    logException(t);
+                }
+            }
+            return true;
+        }
+
+        // Handle batch commands: execute action for each target
+        if (isBatchCommand() && batchConfig != null && batchAction != null && batchTargetArg != null) {
+            @SuppressWarnings("unchecked")
+            List<Object> targets = ctx.getList(batchTargetArg);
+            if (targets == null || targets.isEmpty()) {
+                sendErrorMessage(sender, ErrorType.PARSING, messages.batchEmptyTargets(), null);
+                return true;
+            }
+
+            // Check max batch size
+            if (targets.size() > batchConfig.maxBatchSize()) {
+                sendErrorMessage(sender, ErrorType.VALIDATION,
+                    messages.batchSizeExceeded(targets.size(), batchConfig.maxBatchSize()), null);
+                return true;
+            }
+
+            try {
+                if (batchConfig.showProgress()) {
+                    sender.sendMessage(messages.batchStarted(targets.size()));
+                }
+
+                // Execute batch operation using static method
+                @SuppressWarnings({"unchecked", "rawtypes"})
+                BatchResult result = BatchExecutor.execute(
+                    plugin, sender, ctx, targets, (BatchAction) batchAction, batchConfig);
+
+                // Send completion message
+                if (result.allSucceeded()) {
+                    sender.sendMessage(messages.batchComplete(result.successCount(), result.failureCount()));
+                } else if (result.hasSuccesses()) {
+                    sender.sendMessage(messages.batchPartialSuccess(result.successCount(), result.failureCount()));
+                } else {
+                    sendErrorMessage(sender, ErrorType.EXECUTION,
+                        messages.batchFailed(result.failureCount()), null);
+                }
+            } catch (Throwable t) {
+                sendErrorMessage(sender, ErrorType.INTERNAL_ERROR, messages.executionError(), t);
+                if (plugin != null) {
+                    plugin.getLogger().severe("Batch operation failed for command '" + name + "': " + t.getMessage());
+                    logException(t);
+                }
+            }
+            return true;
+        }
 
         // Execute before hooks
         for (ExecutionHook.Before beforeHook : beforeHooks) {
