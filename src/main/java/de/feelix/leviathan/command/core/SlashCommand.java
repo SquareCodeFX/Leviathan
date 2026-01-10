@@ -9,7 +9,6 @@ import de.feelix.leviathan.command.argument.ArgumentParser;
 import de.feelix.leviathan.command.argument.ParseResult;
 import de.feelix.leviathan.command.batch.BatchAction;
 import de.feelix.leviathan.command.batch.BatchConfig;
-import de.feelix.leviathan.command.batch.BatchContext;
 import de.feelix.leviathan.command.batch.BatchExecutor;
 import de.feelix.leviathan.command.batch.BatchResult;
 import de.feelix.leviathan.command.suggestion.SuggestionEngine;
@@ -1627,25 +1626,19 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
             }
 
             try {
-                // Create batch context
-                @SuppressWarnings({"unchecked", "rawtypes"})
-                BatchContext batchCtx = BatchContext.create(sender, ctx, targets, batchConfig);
-
-                // Execute batch operation
-                @SuppressWarnings({"unchecked", "rawtypes"})
-                BatchExecutor executor = new BatchExecutor(plugin, batchConfig, (BatchAction) batchAction);
-
                 if (batchConfig.showProgress()) {
                     sender.sendMessage(messages.batchStarted(targets.size()));
                 }
 
+                // Execute batch operation using static method
                 @SuppressWarnings({"unchecked", "rawtypes"})
-                BatchResult result = executor.execute(batchCtx);
+                BatchResult result = BatchExecutor.execute(
+                    plugin, sender, ctx, targets, (BatchAction) batchAction, batchConfig);
 
                 // Send completion message
-                if (result.isAllSuccess()) {
+                if (result.allSucceeded()) {
                     sender.sendMessage(messages.batchComplete(result.successCount(), result.failureCount()));
-                } else if (result.hasAnySuccess()) {
+                } else if (result.hasSuccesses()) {
                     sender.sendMessage(messages.batchPartialSuccess(result.successCount(), result.failureCount()));
                 } else {
                     sendErrorMessage(sender, ErrorType.EXECUTION,

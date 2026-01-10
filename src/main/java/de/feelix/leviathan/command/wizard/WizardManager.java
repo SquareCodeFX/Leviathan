@@ -126,6 +126,9 @@ public final class WizardManager {
         Preconditions.checkNotNull(player, "player");
         Preconditions.checkNotNull(definition, "definition");
 
+        // Ensure chat listener is registered (idempotent)
+        WizardChatListener.register(plugin);
+
         // Lazy cleanup
         lazyCleanup();
 
