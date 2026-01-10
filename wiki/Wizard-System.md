@@ -341,6 +341,26 @@ SlashCommand cmd = SlashCommand.create("createwarp")
 | `WizardSession` | An active wizard session for a player |
 | `WizardManager` | Manages all active sessions |
 | `WizardAction` | Functional interface for terminal actions |
+| `WizardChatListener` | Bukkit event listener for chat input handling |
+
+#### Chat Input Handling
+
+The wizard system automatically registers a chat listener when the first wizard session starts. This listener:
+
+- Intercepts chat messages from players with active wizard sessions
+- Routes the message to `WizardManager.handleInput()`
+- Cancels the chat event so messages don't appear to other players
+- Cleans up sessions when players disconnect
+
+The registration is **automatic and idempotent** - you don't need to manually register the listener.
+
+```java
+// Manual registration (optional - done automatically)
+WizardChatListener.register(plugin);
+
+// Check if listener is registered
+boolean registered = WizardChatListener.isRegistered();
+```
 
 #### Custom Messages
 

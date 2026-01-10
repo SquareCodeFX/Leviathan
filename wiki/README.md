@@ -29,5 +29,7 @@ Advanced Topics:
   - [Quoted String Parsing](Parsing-API.md#quoted-string-parsing)
 - [Interactive Prompting (conversational argument gathering)](Interactive-Prompting.md)
 - [Performance Optimization (pools, caching, lazy parsing, parallel execution)](Performance-Optimization.md)
+- [Batch Operations (multi-target commands, parallel execution)](Batch-Operations.md)
+- [Wizard System (branching decision trees, multi-step workflows)](Wizard-System.md)
 
 If you're new, read the Overview and then Builder API. The rest are deep dives you can consult as needed.
