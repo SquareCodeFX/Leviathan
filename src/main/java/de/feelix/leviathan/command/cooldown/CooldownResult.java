@@ -1,8 +1,5 @@
 package de.feelix.leviathan.command.cooldown;
 
-
-import lombok.Getter;
-
 /**
  * <p>
  * Class: CooldownResult
@@ -15,7 +12,6 @@ import lombok.Getter;
  * </p>
  */
 public class CooldownResult {
-    @Getter
     private final boolean onCooldown;
     private final long remainingMillis;
 

@@ -134,6 +134,13 @@ public final class Arg<T> {
     }
 
     /**
+     * @return true if this argument is variadic (accepts multiple values as a List)
+     */
+    public boolean isVariadic() {
+        return context.variadic();
+    }
+
+    /**
      * @return the description for this argument, used in help/documentation, or null if not set
      */
     public @Nullable String description() {
@@ -244,7 +251,8 @@ public final class Arg<T> {
             .didYouMean(context.didYouMean())
             .defaultValue(context.defaultValue())
             .description(context.description())
-            .aliases(new ArrayList<>(context.aliases()));
+            .aliases(new ArrayList<>(context.aliases()))
+            .variadic(context.variadic());
         for (ArgContext.Validator<?> validator : context.customValidators()) {
             b.addValidator(validator);
         }
