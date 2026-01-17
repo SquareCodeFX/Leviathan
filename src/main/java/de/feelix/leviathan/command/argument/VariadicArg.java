@@ -217,6 +217,7 @@ public final class VariadicArg<T> {
         return new Arg<>(name, listParser, ArgContext.builder()
                 .description(description)
                 .greedy(delimiter == null) // Greedy if space-delimited
+                .variadic(true)
                 .build());
     }
 
@@ -231,6 +232,7 @@ public final class VariadicArg<T> {
         return new Arg<>(name, listParser, ArgContext.builder()
                 .from(context)
                 .greedy(delimiter == null && !context.greedy()) // Greedy if space-delimited unless explicitly set
+                .variadic(true)
                 .build());
     }
 

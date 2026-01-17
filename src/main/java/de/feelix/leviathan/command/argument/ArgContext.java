@@ -277,6 +277,9 @@ public final class ArgContext {
     // Argument group name (for grouping in help/errors)
     private final @Nullable String group;
 
+    // Whether this argument is variadic (accepts multiple values as a List)
+    private final boolean variadic;
+
     private ArgContext(boolean optional,
                        boolean greedy,
                        @Nullable String permission,
@@ -302,7 +305,8 @@ public final class ArgContext {
                        @Nullable List<String> aliases,
                        @Nullable List<Transformer<?>> transformers,
                        boolean interactive,
-                       @Nullable String group) {
+                       @Nullable String group,
+                       boolean variadic) {
         this.optional = optional;
         this.greedy = greedy;
         this.permission = (permission == null || permission.isBlank()) ? null : permission;
@@ -335,6 +339,7 @@ public final class ArgContext {
         this.transformers = Collections.unmodifiableList(transformerList);
         this.interactive = interactive;
         this.group = (group == null || group.isBlank()) ? null : group;
+        this.variadic = variadic;
     }
 
     public static @NotNull Builder builder() {
@@ -550,6 +555,15 @@ public final class ArgContext {
         return group != null;
     }
 
+    /**
+     * Check if this argument is variadic (accepts multiple values as a List).
+     *
+     * @return true if the argument is variadic
+     */
+    public boolean variadic() {
+        return variadic;
+    }
+
     public static final class Builder {
         private boolean optional;
         private boolean greedy;
@@ -579,6 +593,7 @@ public final class ArgContext {
         private @NotNull List<Transformer<?>> transformers = new ArrayList<>();
         private boolean interactive = false;
         private @Nullable String group;
+        private boolean variadic = false;
 
         public @NotNull Builder optional(boolean optional) {
             this.optional = optional;
@@ -1192,6 +1207,19 @@ public final class ArgContext {
             return group(group);
         }
 
+        // ==================== Variadic Flag ====================
+
+        /**
+         * Mark this argument as variadic (accepts multiple values as a List).
+         *
+         * @param variadic true if the argument is variadic
+         * @return this builder
+         */
+        public @NotNull Builder variadic(boolean variadic) {
+            this.variadic = variadic;
+            return this;
+        }
+
         /**
          * Alias for {@link #completionsPredefined(List)}.
          * Set the predefined completions for this argument.
@@ -1239,6 +1267,7 @@ public final class ArgContext {
             this.transformers = new ArrayList<>(context.transformers());
             this.interactive = context.interactive();
             this.group = context.group();
+            this.variadic = context.variadic();
             return this;
         }
 
@@ -1248,7 +1277,7 @@ public final class ArgContext {
                 completionsDynamicAsync, completionsPredefinedAsync,
                 intMin, intMax, longMin, longMax, doubleMin, doubleMax, floatMin, floatMax,
                 stringMinLength, stringMaxLength, stringPattern, customValidators, didYouMean,
-                defaultValue, description, aliases, transformers, interactive, group
+                defaultValue, description, aliases, transformers, interactive, group, variadic
             );
         }
     }
