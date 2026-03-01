@@ -105,7 +105,8 @@ public final class PaginationService<T> {
         validatePageNumber(pageNumber);
 
         if (!config.isAsyncEnabled()) {
-            return CompletableFuture.supplyAsync(() -> getPage(pageNumber), executor);
+            // Async disabled: compute synchronously and wrap in a completed future
+            return CompletableFuture.completedFuture(getPage(pageNumber));
         }
 
         CacheKey cacheKey = createCacheKey(pageNumber);

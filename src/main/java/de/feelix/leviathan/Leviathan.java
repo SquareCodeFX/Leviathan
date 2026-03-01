@@ -9,7 +9,6 @@ import de.feelix.leviathan.command.pagination.config.PaginationConfig;
 import de.feelix.leviathan.command.pagination.domain.PaginatedResult;
 
 import java.util.Collection;
-import java.util.List;
 
 /**
  * Main API facade for the Leviathan command framework.
@@ -114,18 +113,6 @@ public final class Leviathan {
      * @see PaginationHelper#paginate(Collection)
      */
     public static <T> @NotNull PaginationHelper.PaginatedOutputBuilder<T> paginate(@NotNull Collection<T> items) {
-        return PaginationHelper.paginate(items);
-    }
-
-    /**
-     * Start building a paginated output from a list of items.
-     *
-     * @param items the items to paginate
-     * @param <T>   the type of items
-     * @return a new PaginatedOutputBuilder
-     * @see PaginationHelper#paginate(List)
-     */
-    public static <T> @NotNull PaginationHelper.PaginatedOutputBuilder<T> paginate(@NotNull List<T> items) {
         return PaginationHelper.paginate(items);
     }
 

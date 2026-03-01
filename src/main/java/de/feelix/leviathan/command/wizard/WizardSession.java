@@ -305,16 +305,29 @@ public final class WizardSession {
         if (option.isNavigation()) {
             navigateTo(option.nextNodeId());
         } else if (option.isTerminal()) {
-            try {
-                WizardAction action = option.action();
-                if (action != null) {
-                    action.execute(context);
-                }
+            if (executeActionSafely(option.action())) {
                 complete();
-            } catch (Exception e) {
-                player.sendMessage("§cAn error occurred: " + e.getMessage());
-                plugin.getLogger().warning("Wizard action failed: " + e.getMessage());
             }
+        }
+    }
+
+    /**
+     * Execute a wizard action safely, logging and reporting any errors.
+     *
+     * @param action the action to execute, may be null (no-op)
+     * @return true if the action succeeded (or was null), false if it threw an exception
+     */
+    private boolean executeActionSafely(@Nullable WizardAction action) {
+        if (action == null) {
+            return true;
+        }
+        try {
+            action.execute(context);
+            return true;
+        } catch (Exception e) {
+            player.sendMessage("§cAn error occurred: " + e.getMessage());
+            plugin.getLogger().warning("Wizard action failed: " + e.getMessage());
+            return false;
         }
     }
 
@@ -362,16 +375,9 @@ public final class WizardSession {
 
         // Handle action nodes automatically
         if (currentNode.isAction()) {
-            WizardAction action = currentNode.action();
-            if (action != null) {
-                try {
-                    action.execute(context);
-                } catch (Exception e) {
-                    player.sendMessage("§cAn error occurred: " + e.getMessage());
-                    return;
-                }
+            if (!executeActionSafely(currentNode.action())) {
+                return;
             }
-
             String nextId = currentNode.nextNodeId();
             if (nextId != null) {
                 navigateTo(nextId);
@@ -383,14 +389,7 @@ public final class WizardSession {
 
         // Handle terminal nodes
         if (currentNode.isTerminal()) {
-            WizardAction action = currentNode.action();
-            if (action != null) {
-                try {
-                    action.execute(context);
-                } catch (Exception e) {
-                    player.sendMessage("§cAn error occurred: " + e.getMessage());
-                }
-            }
+            executeActionSafely(currentNode.action());
             complete();
             return;
         }

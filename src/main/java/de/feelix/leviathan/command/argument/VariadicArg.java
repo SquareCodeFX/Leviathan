@@ -7,7 +7,9 @@ import org.bukkit.command.CommandSender;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
@@ -258,6 +260,7 @@ public final class VariadicArg<T> {
 
                 List<T> results = new ArrayList<>();
                 List<String> errors = new ArrayList<>();
+                Set<T> seen = allowDuplicates ? null : new HashSet<>();
 
                 for (String part : parts) {
                     String trimmed = part.trim();
@@ -269,8 +272,8 @@ public final class VariadicArg<T> {
                     if (result.isSuccess()) {
                         T value = result.value().orElse(null);
                         if (value != null) {
-                            // Check for duplicates if not allowed
-                            if (!allowDuplicates && results.contains(value)) {
+                            // Check for duplicates if not allowed (O(1) with HashSet)
+                            if (seen != null && !seen.add(value)) {
                                 errors.add("Duplicate value: " + trimmed);
                             } else {
                                 results.add(value);

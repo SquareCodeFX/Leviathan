@@ -67,23 +67,22 @@ public final class ValidationHelper {
         }
 
         // Numeric range validation using helper method
-        if (value instanceof Integer) {
-            String error = validateNumericRange((Integer) value, ctx.intMin(), ctx.intMax(), messages);
+        if (value instanceof Integer intVal) {
+            String error = validateNumericRange(intVal, ctx.intMin(), ctx.intMax(), messages);
             if (error != null) return error;
-        } else if (value instanceof Long) {
-            String error = validateNumericRange((Long) value, ctx.longMin(), ctx.longMax(), messages);
+        } else if (value instanceof Long longVal) {
+            String error = validateNumericRange(longVal, ctx.longMin(), ctx.longMax(), messages);
             if (error != null) return error;
-        } else if (value instanceof Double) {
-            String error = validateNumericRange((Double) value, ctx.doubleMin(), ctx.doubleMax(), messages);
+        } else if (value instanceof Double doubleVal) {
+            String error = validateNumericRange(doubleVal, ctx.doubleMin(), ctx.doubleMax(), messages);
             if (error != null) return error;
-        } else if (value instanceof Float) {
-            String error = validateNumericRange((Float) value, ctx.floatMin(), ctx.floatMax(), messages);
+        } else if (value instanceof Float floatVal) {
+            String error = validateNumericRange(floatVal, ctx.floatMin(), ctx.floatMax(), messages);
             if (error != null) return error;
         }
 
         // String validation
-        if (value instanceof String) {
-            String strVal = (String) value;
+        if (value instanceof String strVal) {
             if (ctx.stringMinLength() != null && strVal.length() < ctx.stringMinLength()) {
                 return messages.stringTooShort(ctx.stringMinLength(), strVal.length());
             }

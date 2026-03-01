@@ -34,6 +34,17 @@ public final class TabCompletionHandler {
     }
 
     /**
+     * Check if a sender lacks a given permission.
+     *
+     * @param sender     the command sender
+     * @param permission the permission string (may be null or empty)
+     * @return true if permission is defined and the sender does not have it
+     */
+    private static boolean lacksPermission(@NotNull CommandSender sender, @Nullable String permission) {
+        return permission != null && !permission.isEmpty() && !sender.hasPermission(permission);
+    }
+
+    /**
      * Generate tab completions for the given command context.
      *
      * @param sender       the command sender requesting completions
@@ -56,8 +67,7 @@ public final class TabCompletionHandler {
         Preconditions.checkNotNull(command, "command");
 
         // Gate completions by command-level permission
-        if (command.permission() != null && !command.permission().isEmpty()
-            && !sender.hasPermission(command.permission())) {
+        if (lacksPermission(sender, command.permission())) {
             return Collections.emptyList();
         }
 
@@ -185,8 +195,7 @@ public final class TabCompletionHandler {
         Arg<?> current = command.args().get(currentArgIndex);
 
         // Check per-argument permission
-        if (current.permission() != null && !current.permission().isEmpty()
-            && !sender.hasPermission(current.permission())) {
+        if (lacksPermission(sender, current.permission())) {
             return Collections.emptyList();
         }
 
@@ -252,8 +261,7 @@ public final class TabCompletionHandler {
             List<String> names = new ArrayList<>();
             List<String> allSubcommandNames = new ArrayList<>();
             for (Map.Entry<String, SlashCommand> e : command.subcommands().entrySet()) {
-                String perm = e.getValue().permission();
-                if (perm != null && !perm.isEmpty() && !sender.hasPermission(perm)) continue;
+                if (lacksPermission(sender, e.getValue().permission())) continue;
                 String key = e.getKey();
                 allSubcommandNames.add(key);
                 if (key.startsWith(firstLow)) {
@@ -329,8 +337,7 @@ public final class TabCompletionHandler {
             Arg<?> prev = command.args().get(i);
 
             // Check per-argument permission
-            if (prev.permission() != null && !prev.permission().isEmpty()
-                && !sender.hasPermission(prev.permission())) {
+            if (lacksPermission(sender, prev.permission())) {
                 return false;
             }
 
@@ -702,8 +709,7 @@ public final class TabCompletionHandler {
             // Suggest long form flags
             for (Flag flag : flags) {
                 // Check permission
-                if (flag.permission() != null && !flag.permission().isEmpty()
-                    && !sender.hasPermission(flag.permission())) {
+                if (lacksPermission(sender, flag.permission())) {
                     continue;
                 }
 
@@ -736,8 +742,7 @@ public final class TabCompletionHandler {
             // Suggest key-value keys with --key= format
             for (KeyValue<?> kv : keyValues) {
                 // Check permission
-                if (kv.permission() != null && !kv.permission().isEmpty()
-                    && !sender.hasPermission(kv.permission())) {
+                if (lacksPermission(sender, kv.permission())) {
                     continue;
                 }
 
@@ -749,21 +754,7 @@ public final class TabCompletionHandler {
 
                 if (keyLower.startsWith(prefix)) {
                     String suggestion = "--" + key + "=";
-
-                    // Build info hint
-                    List<String> hints = new ArrayList<>();
-                    hints.add(kv.parser().getTypeName());
-                    if (kv.required()) {
-                        hints.add("required");
-                    }
-                    if (kv.defaultValue() != null) {
-                        hints.add("default=" + kv.defaultValue());
-                    }
-                    if (kv.multipleValues()) {
-                        hints.add("multi");
-                    }
-
-                    suggestion += messages.tabCompletionHint(String.join(", ", hints));
+                    suggestion += messages.tabCompletionHint(buildKeyValueHint(kv));
                     completions.add(suggestion);
                 }
             }
@@ -774,8 +765,7 @@ public final class TabCompletionHandler {
             // Suggest short form flags
             for (Flag flag : flags) {
                 // Check permission
-                if (flag.permission() != null && !flag.permission().isEmpty()
-                    && !sender.hasPermission(flag.permission())) {
+                if (lacksPermission(sender, flag.permission())) {
                     continue;
                 }
 
@@ -804,8 +794,7 @@ public final class TabCompletionHandler {
             // Suggest key= or key: formats for key-value pairs
             for (KeyValue<?> kv : keyValues) {
                 // Check permission
-                if (kv.permission() != null && !kv.permission().isEmpty()
-                    && !sender.hasPermission(kv.permission())) {
+                if (lacksPermission(sender, kv.permission())) {
                     continue;
                 }
 
@@ -817,21 +806,7 @@ public final class TabCompletionHandler {
 
                 if (keyLower.startsWith(tokenLower)) {
                     String suggestion = key + "=";
-
-                    // Build info hint
-                    List<String> hints = new ArrayList<>();
-                    hints.add(kv.parser().getTypeName());
-                    if (kv.required()) {
-                        hints.add("required");
-                    }
-                    if (kv.defaultValue() != null) {
-                        hints.add("default=" + kv.defaultValue());
-                    }
-                    if (kv.multipleValues()) {
-                        hints.add("multi");
-                    }
-
-                    suggestion += messages.tabCompletionHint(String.join(", ", hints));
+                    suggestion += messages.tabCompletionHint(buildKeyValueHint(kv));
                     completions.add(suggestion);
                 }
             }
@@ -842,8 +817,7 @@ public final class TabCompletionHandler {
                 // Optimized: use simple loops instead of stream().anyMatch() for small collections
                 boolean hasAvailableFlags = false;
                 for (Flag flag : flags) {
-                    if (flag.permission() != null && !flag.permission().isEmpty()
-                        && !sender.hasPermission(flag.permission())) {
+                    if (lacksPermission(sender, flag.permission())) {
                         continue;
                     }
                     String checkKey = flag.longForm() != null
@@ -857,8 +831,7 @@ public final class TabCompletionHandler {
 
                 boolean hasAvailableKeyValues = false;
                 for (KeyValue<?> kv : keyValues) {
-                    if (kv.permission() != null && !kv.permission().isEmpty()
-                        && !sender.hasPermission(kv.permission())) {
+                    if (lacksPermission(sender, kv.permission())) {
                         continue;
                     }
                     if (!kv.multipleValues() && usedKeyValues.contains(kv.key().toLowerCase(Locale.ROOT))) {
@@ -913,6 +886,24 @@ public final class TabCompletionHandler {
 
         Collections.sort(completions);
         return completions;
+    }
+
+    /**
+     * Build a hint string describing a key-value pair's metadata.
+     */
+    private static @NotNull String buildKeyValueHint(@NotNull KeyValue<?> kv) {
+        List<String> hints = new ArrayList<>();
+        hints.add(kv.parser().getTypeName());
+        if (kv.required()) {
+            hints.add("required");
+        }
+        if (kv.defaultValue() != null) {
+            hints.add("default=" + kv.defaultValue());
+        }
+        if (kv.multipleValues()) {
+            hints.add("multi");
+        }
+        return String.join(", ", hints);
     }
 
     /**

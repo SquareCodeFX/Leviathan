@@ -7,7 +7,6 @@ import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import de.feelix.leviathan.exceptions.ParsingException;
-import de.feelix.leviathan.util.Preconditions;
 import de.feelix.leviathan.annotations.NotNull;
 
 import java.util.*;
@@ -57,8 +56,6 @@ public final class ArgParsers {
 
             @Override
             public ParseResult<Integer> parse(String input, CommandSender sender) {
-                Preconditions.checkNotNull(input, "input");
-                Preconditions.checkNotNull(sender, "sender");
                 try {
                     return ParseResult.success(Integer.parseInt(input));
                 } catch (NumberFormatException e) {
@@ -68,8 +65,6 @@ public final class ArgParsers {
 
             @Override
             public List<String> complete(String input, CommandSender sender) {
-                Preconditions.checkNotNull(input, "input");
-                Preconditions.checkNotNull(sender, "sender");
                 return Collections.emptyList();
             }
         };
@@ -89,8 +84,6 @@ public final class ArgParsers {
 
             @Override
             public ParseResult<Long> parse(String input, CommandSender sender) {
-                Preconditions.checkNotNull(input, "input");
-                Preconditions.checkNotNull(sender, "sender");
                 try {
                     return ParseResult.success(Long.parseLong(input));
                 } catch (NumberFormatException e) {
@@ -100,8 +93,6 @@ public final class ArgParsers {
 
             @Override
             public List<String> complete(String input, CommandSender sender) {
-                Preconditions.checkNotNull(input, "input");
-                Preconditions.checkNotNull(sender, "sender");
                 return Collections.emptyList();
             }
         };
@@ -121,20 +112,15 @@ public final class ArgParsers {
 
             @Override
             public ParseResult<String> parse(String input, CommandSender sender) {
-                Preconditions.checkNotNull(input, "input");
-                Preconditions.checkNotNull(sender, "sender");
                 return ParseResult.success(input);
             }
 
             @Override
             public List<String> complete(String input, CommandSender sender) {
-                Preconditions.checkNotNull(input, "input");
-                Preconditions.checkNotNull(sender, "sender");
                 return Collections.emptyList();
             }
         };
     }
-
 
     /**
      * Parser for a UUID in canonical string form.
@@ -150,8 +136,6 @@ public final class ArgParsers {
 
             @Override
             public ParseResult<UUID> parse(String input, CommandSender sender) {
-                Preconditions.checkNotNull(input, "input");
-                Preconditions.checkNotNull(sender, "sender");
                 try {
                     return ParseResult.success(UUID.fromString(input));
                 } catch (IllegalArgumentException e) {
@@ -161,8 +145,6 @@ public final class ArgParsers {
 
             @Override
             public List<String> complete(String input, CommandSender sender) {
-                Preconditions.checkNotNull(input, "input");
-                Preconditions.checkNotNull(sender, "sender");
                 return Collections.emptyList();
             }
         };
@@ -214,8 +196,6 @@ public final class ArgParsers {
 
             @Override
             public ParseResult<T> parse(String input, CommandSender sender) {
-                Preconditions.checkNotNull(input, "input");
-                Preconditions.checkNotNull(sender, "sender");
                 T v = lower.get(input.toLowerCase(Locale.ROOT));
                 if (v == null) return ParseResult.error("expected one of: " + String.join(", ", lower.keySet()));
                 return ParseResult.success(v);
@@ -223,8 +203,6 @@ public final class ArgParsers {
 
             @Override
             public List<String> complete(String input, CommandSender sender) {
-                Preconditions.checkNotNull(input, "input");
-                Preconditions.checkNotNull(sender, "sender");
                 return startingWith(input, lower.keySet());
             }
         };
@@ -263,8 +241,6 @@ public final class ArgParsers {
 
             @Override
             public ParseResult<T> parse(String input, CommandSender sender) {
-                Preconditions.checkNotNull(input, "input");
-                Preconditions.checkNotNull(sender, "sender");
                 for (ArgumentParser<? extends T> p : list) {
                     ParseResult<? extends T> res = p.parse(input, sender);
                     if (res.isSuccess()) {
@@ -276,8 +252,6 @@ public final class ArgParsers {
 
             @Override
             public List<String> complete(String input, CommandSender sender) {
-                Preconditions.checkNotNull(input, "input");
-                Preconditions.checkNotNull(sender, "sender");
                 Set<String> combined = new LinkedHashSet<>();
                 for (ArgumentParser<? extends T> p : list) {
                     combined.addAll(p.complete(input, sender));
@@ -302,11 +276,8 @@ public final class ArgParsers {
 
             @Override
             public ParseResult<Double> parse(String input, CommandSender sender) {
-                Preconditions.checkNotNull(input, "input");
-                Preconditions.checkNotNull(sender, "sender");
                 try {
                     double value = Double.parseDouble(input);
-                    // Security: Reject special values that could cause unexpected behavior
                     if (Double.isNaN(value) || Double.isInfinite(value)) {
                         return ParseResult.error("special values (NaN, Infinity) are not allowed");
                     }
@@ -318,8 +289,6 @@ public final class ArgParsers {
 
             @Override
             public List<String> complete(String input, CommandSender sender) {
-                Preconditions.checkNotNull(input, "input");
-                Preconditions.checkNotNull(sender, "sender");
                 return Collections.emptyList();
             }
         };
@@ -340,11 +309,8 @@ public final class ArgParsers {
 
             @Override
             public ParseResult<Float> parse(String input, CommandSender sender) {
-                Preconditions.checkNotNull(input, "input");
-                Preconditions.checkNotNull(sender, "sender");
                 try {
                     float value = Float.parseFloat(input);
-                    // Security: Reject special values that could cause unexpected behavior
                     if (Float.isNaN(value) || Float.isInfinite(value)) {
                         return ParseResult.error("special values (NaN, Infinity) are not allowed");
                     }
@@ -356,8 +322,6 @@ public final class ArgParsers {
 
             @Override
             public List<String> complete(String input, CommandSender sender) {
-                Preconditions.checkNotNull(input, "input");
-                Preconditions.checkNotNull(sender, "sender");
                 return Collections.emptyList();
             }
         };
@@ -378,8 +342,6 @@ public final class ArgParsers {
 
             @Override
             public ParseResult<Boolean> parse(String input, CommandSender sender) {
-                Preconditions.checkNotNull(input, "input");
-                Preconditions.checkNotNull(sender, "sender");
                 String lower = input.toLowerCase(Locale.ROOT);
                 return switch (lower) {
                     case "true", "yes", "on", "1" -> ParseResult.success(true);
@@ -390,8 +352,6 @@ public final class ArgParsers {
 
             @Override
             public List<String> complete(String input, CommandSender sender) {
-                Preconditions.checkNotNull(input, "input");
-                Preconditions.checkNotNull(sender, "sender");
                 return startingWith(input, List.of("true", "false", "yes", "no", "on", "off"));
             }
         };
@@ -411,8 +371,6 @@ public final class ArgParsers {
 
             @Override
             public ParseResult<Player> parse(String input, CommandSender sender) {
-                Preconditions.checkNotNull(input, "input");
-                Preconditions.checkNotNull(sender, "sender");
                 Player player = Bukkit.getPlayer(input);
                 if (player == null) {
                     return ParseResult.error("player '" + input + "' not found or offline");
@@ -422,8 +380,6 @@ public final class ArgParsers {
 
             @Override
             public List<String> complete(String input, CommandSender sender) {
-                Preconditions.checkNotNull(input, "input");
-                Preconditions.checkNotNull(sender, "sender");
                 return startingWith(
                     input, Bukkit.getOnlinePlayers().stream()
                         .map(Player::getName)
@@ -448,8 +404,6 @@ public final class ArgParsers {
 
             @Override
             public ParseResult<OfflinePlayer> parse(String input, CommandSender sender) {
-                Preconditions.checkNotNull(input, "input");
-                Preconditions.checkNotNull(sender, "sender");
                 @SuppressWarnings("deprecation")
                 OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(input);
                 return ParseResult.success(offlinePlayer);
@@ -457,8 +411,6 @@ public final class ArgParsers {
 
             @Override
             public List<String> complete(String input, CommandSender sender) {
-                Preconditions.checkNotNull(input, "input");
-                Preconditions.checkNotNull(sender, "sender");
                 return startingWith(
                     input, Bukkit.getOnlinePlayers().stream()
                         .map(Player::getName)
@@ -482,8 +434,6 @@ public final class ArgParsers {
 
             @Override
             public ParseResult<World> parse(String input, CommandSender sender) {
-                Preconditions.checkNotNull(input, "input");
-                Preconditions.checkNotNull(sender, "sender");
                 World world = Bukkit.getWorld(input);
                 if (world == null) {
                     return ParseResult.error("world '" + input + "' not found");
@@ -493,8 +443,6 @@ public final class ArgParsers {
 
             @Override
             public List<String> complete(String input, CommandSender sender) {
-                Preconditions.checkNotNull(input, "input");
-                Preconditions.checkNotNull(sender, "sender");
                 return startingWith(
                     input, Bukkit.getWorlds().stream()
                         .map(World::getName)
@@ -518,8 +466,6 @@ public final class ArgParsers {
 
             @Override
             public ParseResult<Material> parse(String input, CommandSender sender) {
-                Preconditions.checkNotNull(input, "input");
-                Preconditions.checkNotNull(sender, "sender");
                 try {
                     Material material = Material.valueOf(input.toUpperCase(Locale.ROOT));
                     return ParseResult.success(material);
@@ -530,9 +476,6 @@ public final class ArgParsers {
 
             @Override
             public List<String> complete(String input, CommandSender sender) {
-                Preconditions.checkNotNull(input, "input");
-                Preconditions.checkNotNull(sender, "sender");
-                // Use cached completions for performance
                 return startingWith(input, MATERIAL_COMPLETIONS);
             }
         };
@@ -566,8 +509,6 @@ public final class ArgParsers {
 
             @Override
             public ParseResult<E> parse(String input, CommandSender sender) {
-                Preconditions.checkNotNull(input, "input");
-                Preconditions.checkNotNull(sender, "sender");
                 E value = lowerMap.get(input.toLowerCase(Locale.ROOT));
                 if (value == null) {
                     return ParseResult.error("unknown " + typeName + " '" + input + "'");
@@ -577,8 +518,6 @@ public final class ArgParsers {
 
             @Override
             public List<String> complete(String input, CommandSender sender) {
-                Preconditions.checkNotNull(input, "input");
-                Preconditions.checkNotNull(sender, "sender");
                 return startingWith(input, lowerMap.keySet());
             }
         };
@@ -627,7 +566,6 @@ public final class ArgParsers {
             throw new ParsingException("enumParserWithAliases requires an enum class with at least one constant");
         }
 
-        // Build combined map: standard enum names (lowercase) + custom aliases (lowercase)
         Map<String, E> combined = new LinkedHashMap<>();
         for (E constant : constants) {
             combined.put(constant.name().toLowerCase(Locale.ROOT), constant);
@@ -652,8 +590,6 @@ public final class ArgParsers {
 
             @Override
             public ParseResult<E> parse(String input, CommandSender sender) {
-                Preconditions.checkNotNull(input, "input");
-                Preconditions.checkNotNull(sender, "sender");
                 E value = combined.get(input.toLowerCase(Locale.ROOT));
                 if (value == null) {
                     return ParseResult.error("unknown " + typeName + " '" + input + "'");
@@ -663,9 +599,6 @@ public final class ArgParsers {
 
             @Override
             public List<String> complete(String input, CommandSender sender) {
-                Preconditions.checkNotNull(input, "input");
-                Preconditions.checkNotNull(sender, "sender");
-                // Only show standard names in completions, not aliases (cleaner UX)
                 return startingWith(input, completions);
             }
         };
@@ -781,9 +714,6 @@ public final class ArgParsers {
 
         @Override
         public ParseResult<Long> parse(String input, CommandSender sender) {
-            Preconditions.checkNotNull(input, "input");
-            Preconditions.checkNotNull(sender, "sender");
-
             String trimmed = input.trim().toLowerCase(Locale.ROOT);
             if (trimmed.isEmpty()) {
                 return ParseResult.error("duration cannot be empty");
@@ -883,9 +813,6 @@ public final class ArgParsers {
 
         @Override
         public List<String> complete(String input, CommandSender sender) {
-            Preconditions.checkNotNull(input, "input");
-            Preconditions.checkNotNull(sender, "sender");
-
             if (input.isEmpty()) {
                 return new ArrayList<>(EXAMPLE_COMPLETIONS);
             }
@@ -928,45 +855,22 @@ public final class ArgParsers {
         StringBuilder sb = new StringBuilder();
         long remaining = millis;
 
-        long years = remaining / (365L * 24 * 60 * 60 * 1000);
-        if (years > 0) {
-            sb.append(years).append("y ");
-            remaining %= (365L * 24 * 60 * 60 * 1000);
+        // Reuse the same unit definitions as DurationParser
+        for (Map.Entry<String, Long> entry : DurationParser.UNIT_MILLIS.entrySet()) {
+            String unit = entry.getKey();
+            long unitMillis = entry.getValue();
+            if ("ms".equals(unit)) {
+                continue; // Skip milliseconds in formatted output
+            }
+            long count = remaining / unitMillis;
+            if (count > 0) {
+                sb.append(count).append(unit).append(' ');
+                remaining %= unitMillis;
+            }
         }
 
-        long months = remaining / (30L * 24 * 60 * 60 * 1000);
-        if (months > 0) {
-            sb.append(months).append("mo ");
-            remaining %= (30L * 24 * 60 * 60 * 1000);
-        }
-
-        long weeks = remaining / (7L * 24 * 60 * 60 * 1000);
-        if (weeks > 0) {
-            sb.append(weeks).append("w ");
-            remaining %= (7L * 24 * 60 * 60 * 1000);
-        }
-
-        long days = remaining / (24L * 60 * 60 * 1000);
-        if (days > 0) {
-            sb.append(days).append("d ");
-            remaining %= (24L * 60 * 60 * 1000);
-        }
-
-        long hours = remaining / (60L * 60 * 1000);
-        if (hours > 0) {
-            sb.append(hours).append("h ");
-            remaining %= (60L * 60 * 1000);
-        }
-
-        long minutes = remaining / (60L * 1000);
-        if (minutes > 0) {
-            sb.append(minutes).append("m ");
-            remaining %= (60L * 1000);
-        }
-
-        long seconds = remaining / 1000;
-        if (seconds > 0 || sb.isEmpty()) {
-            sb.append(seconds).append("s");
+        if (sb.isEmpty()) {
+            sb.append("0s");
         }
 
         return sb.toString().trim();

@@ -821,6 +821,33 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
     }
 
     /**
+     * Sanitize all string values in a key-value pair map.
+     */
+    private @NotNull Map<String, Object> sanitizeKeyValuePairs(@NotNull Map<String, Object> kvPairs) {
+        Map<String, Object> sanitized = new LinkedHashMap<>();
+        for (Map.Entry<String, Object> entry : kvPairs.entrySet()) {
+            Object value = entry.getValue();
+            sanitized.put(entry.getKey(), value instanceof String ? sanitizeString((String) value) : value);
+        }
+        return sanitized;
+    }
+
+    /**
+     * Sanitize all string values in a multi-value pair map.
+     */
+    private @NotNull Map<String, List<Object>> sanitizeMultiValuePairs(@NotNull Map<String, List<Object>> multiPairs) {
+        Map<String, List<Object>> sanitized = new LinkedHashMap<>();
+        for (Map.Entry<String, List<Object>> entry : multiPairs.entrySet()) {
+            List<Object> sanitizedList = new ArrayList<>();
+            for (Object value : entry.getValue()) {
+                sanitizedList.add(value instanceof String ? sanitizeString((String) value) : value);
+            }
+            sanitized.put(entry.getKey(), sanitizedList);
+        }
+        return sanitized;
+    }
+
+    /**
      * Compute the usage string based on the configured arguments and subcommands.
      * Called once during construction to cache the result.
      */
@@ -1146,31 +1173,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
 
             // Apply input sanitization to string values in key-value pairs if enabled
             if (sanitizeInputs) {
-                Map<String, Object> sanitizedKvPairs = new LinkedHashMap<>();
-                for (Map.Entry<String, Object> entry : keyValuePairs.entrySet()) {
-                    Object value = entry.getValue();
-                    if (value instanceof String) {
-                        sanitizedKvPairs.put(entry.getKey(), sanitizeString((String) value));
-                    } else {
-                        sanitizedKvPairs.put(entry.getKey(), value);
-                    }
-                }
-                keyValuePairs = sanitizedKvPairs;
-
-                // Also sanitize multi-value pairs
-                Map<String, List<Object>> sanitizedMultiPairs = new LinkedHashMap<>();
-                for (Map.Entry<String, List<Object>> entry : multiValuePairs.entrySet()) {
-                    List<Object> sanitizedList = new ArrayList<>();
-                    for (Object value : entry.getValue()) {
-                        if (value instanceof String) {
-                            sanitizedList.add(sanitizeString((String) value));
-                        } else {
-                            sanitizedList.add(value);
-                        }
-                    }
-                    sanitizedMultiPairs.put(entry.getKey(), sanitizedList);
-                }
-                multiValuePairs = sanitizedMultiPairs;
+                keyValuePairs = sanitizeKeyValuePairs(keyValuePairs);
+                multiValuePairs = sanitizeMultiValuePairs(multiValuePairs);
             }
 
             // Use remaining args (after extracting flags/key-values) for positional argument parsing
@@ -2056,31 +2060,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
 
             // Apply input sanitization to string values in key-value pairs if enabled
             if (sanitizeInputs) {
-                Map<String, Object> sanitizedKvPairs = new LinkedHashMap<>();
-                for (Map.Entry<String, Object> entry : keyValuePairs.entrySet()) {
-                    Object value = entry.getValue();
-                    if (value instanceof String) {
-                        sanitizedKvPairs.put(entry.getKey(), sanitizeString((String) value));
-                    } else {
-                        sanitizedKvPairs.put(entry.getKey(), value);
-                    }
-                }
-                keyValuePairs = sanitizedKvPairs;
-
-                // Also sanitize multi-value pairs
-                Map<String, List<Object>> sanitizedMultiPairs = new LinkedHashMap<>();
-                for (Map.Entry<String, List<Object>> entry : multiValuePairs.entrySet()) {
-                    List<Object> sanitizedList = new ArrayList<>();
-                    for (Object value : entry.getValue()) {
-                        if (value instanceof String) {
-                            sanitizedList.add(sanitizeString((String) value));
-                        } else {
-                            sanitizedList.add(value);
-                        }
-                    }
-                    sanitizedMultiPairs.put(entry.getKey(), sanitizedList);
-                }
-                multiValuePairs = sanitizedMultiPairs;
+                keyValuePairs = sanitizeKeyValuePairs(keyValuePairs);
+                multiValuePairs = sanitizeMultiValuePairs(multiValuePairs);
             }
 
             positionalArgs = flagKvResult.remainingArgs().toArray(new String[0]);
@@ -2475,30 +2456,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
             multiValuePairs = flagKvResult.multiValuePairs();
 
             if (sanitizeInputs) {
-                Map<String, Object> sanitizedKvPairs = new LinkedHashMap<>();
-                for (Map.Entry<String, Object> entry : keyValuePairs.entrySet()) {
-                    Object value = entry.getValue();
-                    if (value instanceof String) {
-                        sanitizedKvPairs.put(entry.getKey(), sanitizeString((String) value));
-                    } else {
-                        sanitizedKvPairs.put(entry.getKey(), value);
-                    }
-                }
-                keyValuePairs = sanitizedKvPairs;
-
-                Map<String, List<Object>> sanitizedMultiPairs = new LinkedHashMap<>();
-                for (Map.Entry<String, List<Object>> entry : multiValuePairs.entrySet()) {
-                    List<Object> sanitizedList = new ArrayList<>();
-                    for (Object value : entry.getValue()) {
-                        if (value instanceof String) {
-                            sanitizedList.add(sanitizeString((String) value));
-                        } else {
-                            sanitizedList.add(value);
-                        }
-                    }
-                    sanitizedMultiPairs.put(entry.getKey(), sanitizedList);
-                }
-                multiValuePairs = sanitizedMultiPairs;
+                keyValuePairs = sanitizeKeyValuePairs(keyValuePairs);
+                multiValuePairs = sanitizeMultiValuePairs(multiValuePairs);
             }
 
             positionalArgs = flagKvResult.remainingArgs().toArray(new String[0]);

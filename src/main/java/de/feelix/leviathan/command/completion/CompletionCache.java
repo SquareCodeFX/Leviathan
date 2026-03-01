@@ -40,13 +40,14 @@ public final class CompletionCache {
 
     /**
      * A cached entry with expiration time.
+     * Completions are stored as an unmodifiable list to avoid copying on every access.
      */
     private static final class CacheEntry {
         final List<String> completions;
         final long expiresAt;
 
         CacheEntry(List<String> completions, long expiresAt) {
-            this.completions = completions;
+            this.completions = Collections.unmodifiableList(new ArrayList<>(completions));
             this.expiresAt = expiresAt;
         }
 
@@ -131,7 +132,7 @@ public final class CompletionCache {
 
         // Check if entry exists and is not expired
         if (entry != null && !entry.isExpired()) {
-            return new ArrayList<>(entry.completions);
+            return entry.completions;
         }
 
         // Compute new completions
@@ -140,11 +141,12 @@ public final class CompletionCache {
             completions = Collections.emptyList();
         }
 
-        // Store in cache (without triggering another lazyCleanup)
+        // Store in cache — CacheEntry makes a defensive unmodifiable copy
         long expiresAt = System.currentTimeMillis() + ttlMillis;
-        cache.put(key, new CacheEntry(new ArrayList<>(completions), expiresAt));
+        CacheEntry newEntry = new CacheEntry(completions, expiresAt);
+        cache.put(key, newEntry);
 
-        return new ArrayList<>(completions);
+        return newEntry.completions;
     }
 
     /**
@@ -163,7 +165,7 @@ public final class CompletionCache {
         if (entry == null || entry.isExpired()) {
             return null;
         }
-        return new ArrayList<>(entry.completions);
+        return entry.completions;
     }
 
     /**
@@ -190,7 +192,7 @@ public final class CompletionCache {
         }
 
         long expiresAt = System.currentTimeMillis() + ttlMillis;
-        cache.put(key, new CacheEntry(new ArrayList<>(completions), expiresAt));
+        cache.put(key, new CacheEntry(completions, expiresAt));
     }
 
     /**

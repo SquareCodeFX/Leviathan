@@ -6,18 +6,15 @@ import de.feelix.leviathan.command.argument.Arg;
 import de.feelix.leviathan.command.core.CommandContext;
 import de.feelix.leviathan.command.message.DefaultMessageProvider;
 import de.feelix.leviathan.command.message.MessageProvider;
+import de.feelix.leviathan.util.LazyCleanupProvider;
 import de.feelix.leviathan.util.Preconditions;
-import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.Iterator;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
-import java.util.function.Predicate;
 
 /**
  * Interactive prompting system for gathering missing command arguments from users.
@@ -44,9 +41,8 @@ public final class InteractivePrompt {
     // Session timeout in seconds
     private static final long DEFAULT_TIMEOUT_SECONDS = 60;
 
-    // Lazy cleanup: track operations and clean periodically
-    private static final java.util.concurrent.atomic.AtomicLong operationCount = new java.util.concurrent.atomic.AtomicLong(0);
-    private static final int CLEANUP_INTERVAL_OPS = 10; // Clean every N operations
+    // Lazy cleanup using shared utility
+    private static final LazyCleanupProvider cleanupProvider = LazyCleanupProvider.withInterval(10);
 
     private InteractivePrompt() {
         throw new AssertionError("Utility class");
@@ -57,10 +53,7 @@ public final class InteractivePrompt {
      * Called automatically on session operations.
      */
     private static void lazyCleanup() {
-        long ops = operationCount.incrementAndGet();
-        if (ops % CLEANUP_INTERVAL_OPS == 0) {
-            cleanupExpiredSessions();
-        }
+        cleanupProvider.maybeCleanup(InteractivePrompt::cleanupExpiredSessions);
     }
 
     /**

@@ -53,29 +53,17 @@ public final class ChoiceArg<T> {
     private final boolean caseSensitive;
     private final String description;
     private final ArgumentParser<T> parser;
-    // Cached lowercase-to-original map for O(1) case-insensitive lookups
-    private final Map<String, String> lowerToOriginalKey;
-    // Cached lowercase choice map for case-insensitive lookups
+    // Cached lowercase choice map for O(1) case-insensitive lookups
     private final Map<String, Choice<T>> lowerCaseChoices;
 
     private ChoiceArg(Builder<T> builder) {
         this.name = builder.name;
         this.choices = Collections.unmodifiableMap(new LinkedHashMap<>(builder.choices));
         this.choiceKeys = Collections.unmodifiableList(new ArrayList<>(builder.choices.keySet()));
-        // Build lowercase lookup cache once at construction time
-        if (builder.caseSensitive) {
-            this.lowerToOriginalKey = Collections.emptyMap();
-        } else {
-            Map<String, String> lowerMap = new HashMap<>();
-            for (String key : builder.choices.keySet()) {
-                lowerMap.put(key.toLowerCase(Locale.ROOT), key);
-            }
-            this.lowerToOriginalKey = Collections.unmodifiableMap(lowerMap);
-        }
         this.caseSensitive = builder.caseSensitive;
         this.description = builder.description;
 
-        // Build lowercase lookup map for efficient case-insensitive matching
+        // Build lowercase lookup map once at construction time for case-insensitive matching
         if (!caseSensitive) {
             Map<String, Choice<T>> lowerMap = new HashMap<>();
             for (Map.Entry<String, Choice<T>> entry : builder.choices.entrySet()) {
@@ -302,10 +290,7 @@ public final class ChoiceArg<T> {
         if (caseSensitive) {
             return choices.get(key);
         }
-        // Optimized: use cached lowercase map for O(1) lookup instead of O(n) iteration
-        String lowerKey = key.toLowerCase(Locale.ROOT);
-        String originalKey = lowerToOriginalKey.get(lowerKey);
-        return originalKey != null ? choices.get(originalKey) : null;
+        return lowerCaseChoices.get(key.toLowerCase(Locale.ROOT));
     }
 
     private ArgumentParser<T> createParser() {

@@ -5,10 +5,8 @@ import de.feelix.leviathan.annotations.Nullable;
 import de.feelix.leviathan.command.argument.Arg;
 import de.feelix.leviathan.command.flag.Flag;
 import de.feelix.leviathan.command.flag.KeyValue;
-import org.bukkit.command.CommandSender;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * Interface for customizing help message formatting.
@@ -115,6 +113,9 @@ public interface HelpFormatter {
 
     /**
      * Assemble the complete help message from individual parts.
+     * <p>
+     * The default implementation appends header, usage, then each non-empty section
+     * (Arguments, Flags, Options, Subcommands) with section headers, and finally the footer.
      *
      * @param header        formatted header
      * @param usage         formatted usage
@@ -126,13 +127,43 @@ public interface HelpFormatter {
      * @return complete help message
      */
     @NotNull
-    String assembleHelp(@NotNull String header,
-                        @NotNull String usage,
-                        @NotNull List<String> arguments,
-                        @NotNull List<String> flags,
-                        @NotNull List<String> keyValues,
-                        @NotNull List<String> subcommands,
-                        @NotNull String footer);
+    default String assembleHelp(@NotNull String header,
+                                @NotNull String usage,
+                                @NotNull List<String> arguments,
+                                @NotNull List<String> flags,
+                                @NotNull List<String> keyValues,
+                                @NotNull List<String> subcommands,
+                                @NotNull String footer) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(header);
+        sb.append(usage);
+
+        if (!arguments.isEmpty()) {
+            sb.append(formatSectionHeader("Arguments"));
+            arguments.forEach(sb::append);
+        }
+
+        if (!flags.isEmpty()) {
+            sb.append(formatSectionHeader("Flags"));
+            flags.forEach(sb::append);
+        }
+
+        if (!keyValues.isEmpty()) {
+            sb.append(formatSectionHeader("Options"));
+            keyValues.forEach(sb::append);
+        }
+
+        if (!subcommands.isEmpty()) {
+            sb.append(formatSectionHeader("Subcommands"));
+            subcommands.forEach(sb::append);
+        }
+
+        if (!footer.isEmpty()) {
+            sb.append("\n").append(footer);
+        }
+
+        return sb.toString();
+    }
 
     // ==================== Default Implementation ====================
 
@@ -245,45 +276,6 @@ public interface HelpFormatter {
         public @NotNull String formatFooter(@NotNull String commandPath) {
             return "§8Use /" + commandPath + " help <subcommand> for more info";
         }
-
-        @Override
-        public @NotNull String assembleHelp(@NotNull String header,
-                                            @NotNull String usage,
-                                            @NotNull List<String> arguments,
-                                            @NotNull List<String> flags,
-                                            @NotNull List<String> keyValues,
-                                            @NotNull List<String> subcommands,
-                                            @NotNull String footer) {
-            StringBuilder sb = new StringBuilder();
-            sb.append(header);
-            sb.append(usage);
-
-            if (!arguments.isEmpty()) {
-                sb.append(formatSectionHeader("Arguments"));
-                arguments.forEach(sb::append);
-            }
-
-            if (!flags.isEmpty()) {
-                sb.append(formatSectionHeader("Flags"));
-                flags.forEach(sb::append);
-            }
-
-            if (!keyValues.isEmpty()) {
-                sb.append(formatSectionHeader("Options"));
-                keyValues.forEach(sb::append);
-            }
-
-            if (!subcommands.isEmpty()) {
-                sb.append(formatSectionHeader("Subcommands"));
-                subcommands.forEach(sb::append);
-            }
-
-            if (!footer.isEmpty()) {
-                sb.append("\n").append(footer);
-            }
-
-            return sb.toString();
-        }
     }
 
     /**
@@ -376,45 +368,6 @@ public interface HelpFormatter {
         @Override
         public @NotNull String formatFooter(@NotNull String commandPath) {
             return "Use /" + commandPath + " help <subcommand> for more info";
-        }
-
-        @Override
-        public @NotNull String assembleHelp(@NotNull String header,
-                                            @NotNull String usage,
-                                            @NotNull List<String> arguments,
-                                            @NotNull List<String> flags,
-                                            @NotNull List<String> keyValues,
-                                            @NotNull List<String> subcommands,
-                                            @NotNull String footer) {
-            StringBuilder sb = new StringBuilder();
-            sb.append(header);
-            sb.append(usage);
-
-            if (!arguments.isEmpty()) {
-                sb.append(formatSectionHeader("Arguments"));
-                arguments.forEach(sb::append);
-            }
-
-            if (!flags.isEmpty()) {
-                sb.append(formatSectionHeader("Flags"));
-                flags.forEach(sb::append);
-            }
-
-            if (!keyValues.isEmpty()) {
-                sb.append(formatSectionHeader("Options"));
-                keyValues.forEach(sb::append);
-            }
-
-            if (!subcommands.isEmpty()) {
-                sb.append(formatSectionHeader("Subcommands"));
-                subcommands.forEach(sb::append);
-            }
-
-            if (!footer.isEmpty()) {
-                sb.append("\n").append(footer);
-            }
-
-            return sb.toString();
         }
     }
 }

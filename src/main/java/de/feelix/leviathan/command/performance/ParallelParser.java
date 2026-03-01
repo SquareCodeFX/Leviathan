@@ -53,7 +53,7 @@ import java.util.function.BiFunction;
  * Map<String, Object> results = batch.execute(sender);
  * }</pre>
  */
-public final class ParallelParser {
+public final class ParallelParser implements AutoCloseable {
 
     private final ExecutorService executor;
     private final int parallelThreshold;
@@ -263,6 +263,15 @@ public final class ParallelParser {
                 Thread.currentThread().interrupt();
             }
         }
+    }
+
+    /**
+     * Implements {@link AutoCloseable} by delegating to {@link #shutdown()}.
+     * Enables try-with-resources usage for proper resource management.
+     */
+    @Override
+    public void close() {
+        shutdown();
     }
 
     /**

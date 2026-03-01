@@ -8,10 +8,8 @@ import de.feelix.leviathan.util.Preconditions;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Pattern;
-import java.util.function.Predicate;
 
 /**
  * Pre-compiles command structures for faster runtime execution.
