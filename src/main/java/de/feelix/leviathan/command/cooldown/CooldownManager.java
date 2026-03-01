@@ -33,6 +33,9 @@ public final class CooldownManager {
     // Grace period after cooldown expires before cleanup (30 seconds - reduced from 60 to prevent memory buildup)
     private static final long CLEANUP_GRACE_PERIOD_MS = 30 * 1000L;
 
+    // Conservative default duration for cleanup when no duration info is tracked (1 hour)
+    private static final long DEFAULT_CLEANUP_DURATION_MS = 60 * 60 * 1000L;
+
     private CooldownManager() {
         // Utility class - prevent instantiation
     }
@@ -243,8 +246,7 @@ public final class CooldownManager {
             Long duration = userCooldownDurations.get(commandName);
 
             if (duration == null) {
-                // No duration info, use conservative default (1 hour)
-                duration = 60 * 60 * 1000L;
+                duration = DEFAULT_CLEANUP_DURATION_MS;
             }
 
             // Add grace period to avoid cleaning up entries too early
@@ -274,8 +276,7 @@ public final class CooldownManager {
             Long duration = serverCooldownDurations.get(commandName);
 
             if (duration == null) {
-                // No duration info, use conservative default (1 hour)
-                duration = 60 * 60 * 1000L;
+                duration = DEFAULT_CLEANUP_DURATION_MS;
             }
 
             long expirationThreshold = currentTime - duration - CLEANUP_GRACE_PERIOD_MS;

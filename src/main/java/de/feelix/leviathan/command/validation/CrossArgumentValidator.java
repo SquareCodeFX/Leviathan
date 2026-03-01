@@ -1,6 +1,5 @@
 package de.feelix.leviathan.command.validation;
 
-
 import de.feelix.leviathan.command.core.CommandContext;
 import de.feelix.leviathan.annotations.NotNull;
 
@@ -9,7 +8,6 @@ import de.feelix.leviathan.annotations.Nullable;
 import java.util.List;
 import java.util.function.BiPredicate;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 /**
  * Cross-argument validator for validating relationships between multiple arguments.
