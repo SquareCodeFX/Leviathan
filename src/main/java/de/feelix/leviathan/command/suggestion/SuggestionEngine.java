@@ -77,7 +77,7 @@ public final class SuggestionEngine {
             return Suggestion.empty(input);
         }
 
-        List<String> optionsList = new ArrayList<>(options);
+        List<String> optionsList = (options instanceof List<String> list) ? list : new ArrayList<>(options);
         List<String> similar = StringSimilarity.findSimilar(input, optionsList, maxSuggestions, minSimilarity);
 
         return new Suggestion(input, similar);

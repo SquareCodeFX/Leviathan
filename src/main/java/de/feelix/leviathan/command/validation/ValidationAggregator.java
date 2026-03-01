@@ -577,14 +577,8 @@ public final class ValidationAggregator {
      * @param messages the message provider for formatting
      */
     public void sendErrors(@NotNull org.bukkit.command.CommandSender sender, @NotNull MessageProvider messages) {
-        Preconditions.checkNotNull(sender, "sender");
         Preconditions.checkNotNull(messages, "messages");
-        if (errors.isEmpty()) return;
-
-        sender.sendMessage(messages.validationErrorsHeader());
-        for (ValidationError error : errors) {
-            sender.sendMessage("  " + error.formatColored(messages));
-        }
+        sendErrorsWithHeader(sender, messages.validationErrorsHeader(), messages);
     }
 
     /**
