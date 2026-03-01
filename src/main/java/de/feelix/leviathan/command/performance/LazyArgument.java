@@ -300,24 +300,6 @@ public abstract class LazyArgument<T> {
         return this;
     }
 
-    // ==================== Deprecated Alias ====================
-
-    /**
-     * @deprecated Use {@link #isComputed()} instead
-     */
-    @Deprecated
-    public boolean isParsed() {
-        return isComputed();
-    }
-
-    /**
-     * @deprecated Use {@link #compute()} instead
-     */
-    @Deprecated
-    public @NotNull LazyArgument<T> parse() {
-        return compute();
-    }
-
     // ==================== Implementation: Parsed Argument ====================
 
     /**

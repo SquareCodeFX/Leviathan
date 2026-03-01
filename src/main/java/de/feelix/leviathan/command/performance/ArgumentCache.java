@@ -518,23 +518,6 @@ public final class ArgumentCache {
     // ==================== Internal Classes ====================
 
     /**
-     * Internal cache entry with expiration.
-     */
-    private static final class CacheEntry<T> {
-        final T value;
-        final long expiresAt;
-
-        CacheEntry(T value, long expiresAt) {
-            this.value = value;
-            this.expiresAt = expiresAt;
-        }
-
-        boolean isExpired() {
-            return System.currentTimeMillis() > expiresAt;
-        }
-    }
-
-    /**
      * A cached value with lazy refresh.
      */
     private static final class CachedValue<T> {

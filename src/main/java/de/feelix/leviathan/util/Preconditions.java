@@ -25,8 +25,7 @@ public final class Preconditions {
      */
     public static <T> @NotNull T checkNotNull(T value, @Nullable String paramName) {
         if (value == null) {
-            String name = (paramName == null || paramName.isBlank()) ? "parameter" : paramName;
-            throw new ApiMisuseException("@NotNull parameter '" + name + "' is null");
+            throw new ApiMisuseException("@NotNull parameter '" + resolveParamName(paramName, "parameter") + "' is null");
         }
         return value;
     }
@@ -38,8 +37,7 @@ public final class Preconditions {
     public static @NotNull String checkNotBlank(String value, @Nullable String paramName) {
         checkNotNull(value, paramName);
         if (value.isBlank()) {
-            String name = (paramName == null || paramName.isBlank()) ? "string" : paramName;
-            throw new ApiMisuseException("@NotNull @NotBlank parameter '" + name + "' is blank");
+            throw new ApiMisuseException("@NotNull @NotBlank parameter '" + resolveParamName(paramName, "string") + "' is blank");
         }
         return value;
     }
@@ -72,8 +70,7 @@ public final class Preconditions {
      */
     public static long checkNonNegative(long value, @Nullable String paramName) {
         if (value < 0) {
-            String name = (paramName == null || paramName.isBlank()) ? "parameter" : paramName;
-            throw new ApiMisuseException("Parameter '" + name + "' must be non-negative, but was: " + value);
+            throw new ApiMisuseException("Parameter '" + resolveParamName(paramName, "parameter") + "' must be non-negative, but was: " + value);
         }
         return value;
     }
@@ -88,9 +85,16 @@ public final class Preconditions {
      */
     public static int checkNonNegative(int value, @Nullable String paramName) {
         if (value < 0) {
-            String name = (paramName == null || paramName.isBlank()) ? "parameter" : paramName;
-            throw new ApiMisuseException("Parameter '" + name + "' must be non-negative, but was: " + value);
+            throw new ApiMisuseException("Parameter '" + resolveParamName(paramName, "parameter") + "' must be non-negative, but was: " + value);
         }
         return value;
+    }
+
+    /**
+     * Resolve the parameter name to use in error messages, falling back to the given default
+     * if the provided name is null or blank.
+     */
+    private static @NotNull String resolveParamName(@Nullable String paramName, @NotNull String fallback) {
+        return (paramName == null || paramName.isBlank()) ? fallback : paramName;
     }
 }

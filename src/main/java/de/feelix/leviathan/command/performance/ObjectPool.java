@@ -167,12 +167,15 @@ public final class ObjectPool<T> {
             }
         }
 
-        // Only add to pool if under capacity
-        if (currentSize.get() < maxSize) {
-            pool.offerFirst(obj);
-            currentSize.incrementAndGet();
-        }
-        // Otherwise, let GC handle it
+        // Only add to pool if under capacity (use CAS to avoid over-capacity race)
+        int current;
+        do {
+            current = currentSize.get();
+            if (current >= maxSize) {
+                return; // At capacity, let GC handle it
+            }
+        } while (!currentSize.compareAndSet(current, current + 1));
+        pool.offerFirst(obj);
     }
 
     /**

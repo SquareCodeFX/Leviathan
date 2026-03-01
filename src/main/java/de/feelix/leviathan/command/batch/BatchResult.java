@@ -24,14 +24,32 @@ import java.util.stream.Collectors;
  */
 public final class BatchResult<T> {
 
+    private static final int MAX_DISPLAYED_FAILURES = 5;
+
     private final List<BatchEntry<T>> entries;
     private final long totalExecutionTimeNanos;
     private final boolean parallel;
+
+    // Cached counts computed once at construction time
+    private final int cachedSuccessCount;
+    private final int cachedFailureCount;
 
     private BatchResult(List<BatchEntry<T>> entries, long totalExecutionTimeNanos, boolean parallel) {
         this.entries = Collections.unmodifiableList(new ArrayList<>(entries));
         this.totalExecutionTimeNanos = totalExecutionTimeNanos;
         this.parallel = parallel;
+        // Pre-compute counts to avoid repeated stream traversals
+        int successes = 0;
+        int failures = 0;
+        for (BatchEntry<T> entry : this.entries) {
+            if (entry.isSuccess()) {
+                successes++;
+            } else if (entry.isFailure()) {
+                failures++;
+            }
+        }
+        this.cachedSuccessCount = successes;
+        this.cachedFailureCount = failures;
     }
 
     /**
@@ -99,42 +117,42 @@ public final class BatchResult<T> {
      * @return the number of successful entries
      */
     public int successCount() {
-        return (int) entries.stream().filter(BatchEntry::isSuccess).count();
+        return cachedSuccessCount;
     }
 
     /**
      * @return the number of failed entries
      */
     public int failureCount() {
-        return (int) entries.stream().filter(BatchEntry::isFailure).count();
+        return cachedFailureCount;
     }
 
     /**
      * @return true if all entries succeeded
      */
     public boolean allSucceeded() {
-        return !entries.isEmpty() && entries.stream().allMatch(BatchEntry::isSuccess);
+        return !entries.isEmpty() && cachedSuccessCount == entries.size();
     }
 
     /**
      * @return true if all entries failed
      */
     public boolean allFailed() {
-        return !entries.isEmpty() && entries.stream().allMatch(BatchEntry::isFailure);
+        return !entries.isEmpty() && cachedFailureCount == entries.size();
     }
 
     /**
      * @return true if at least one entry succeeded
      */
     public boolean hasSuccesses() {
-        return entries.stream().anyMatch(BatchEntry::isSuccess);
+        return cachedSuccessCount > 0;
     }
 
     /**
      * @return true if at least one entry failed
      */
     public boolean hasFailures() {
-        return entries.stream().anyMatch(BatchEntry::isFailure);
+        return cachedFailureCount > 0;
     }
 
     /**
@@ -269,8 +287,8 @@ public final class BatchResult<T> {
             sb.append("§c§lFailures:\n");
             int count = 0;
             for (BatchEntry<T> entry : failures()) {
-                if (count >= 5) {
-                    sb.append(String.format("§7  ... and %d more failures\n", failureCount() - 5));
+                if (count >= MAX_DISPLAYED_FAILURES) {
+                    sb.append(String.format("§7  ... and %d more failures\n", failureCount() - MAX_DISPLAYED_FAILURES));
                     break;
                 }
                 sb.append(String.format("§c  - %s: %s\n",

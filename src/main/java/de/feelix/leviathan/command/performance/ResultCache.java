@@ -445,12 +445,17 @@ public final class ResultCache {
 
     /**
      * Ensure capacity by evicting if necessary.
+     * Uses a synchronized block to make the check-then-evict operation atomic.
      */
     private void ensureCapacity() {
         if (cache.size() >= maxSize) {
-            evictExpired();
-            if (cache.size() >= maxSize) {
-                evictOldest();
+            synchronized (this) {
+                if (cache.size() >= maxSize) {
+                    evictExpired();
+                }
+                if (cache.size() >= maxSize) {
+                    evictOldest();
+                }
             }
         }
     }
@@ -580,23 +585,6 @@ public final class ResultCache {
     }
 
     // ==================== Internal Classes ====================
-
-    /**
-     * Internal cache entry.
-     */
-    private static final class CacheEntry<T> {
-        final T value;
-        final long expiresAt;
-
-        CacheEntry(T value, long expiresAt) {
-            this.value = value;
-            this.expiresAt = expiresAt;
-        }
-
-        boolean isExpired() {
-            return System.currentTimeMillis() > expiresAt;
-        }
-    }
 
     /**
      * Cache statistics snapshot.
