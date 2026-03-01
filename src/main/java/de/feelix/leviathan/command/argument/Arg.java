@@ -27,6 +27,7 @@ public final class Arg<T> {
     private final OptionType optionType; // broad type hint for mapping
     private final @Nullable Predicate<CommandContext> condition; // conditional argument evaluation
     private final @Nullable Function<T, T> transformer; // value transformation
+    private final java.util.List<String> allNamesCache; // cached immutable list of name + aliases
 
     /**
      * Create an argument with default context.
@@ -96,6 +97,12 @@ public final class Arg<T> {
             inferred = OptionType.UNKNOWN;
         }
         this.optionType = inferred;
+
+        // Pre-compute immutable allNames list (Arg is immutable, so this is safe to cache)
+        java.util.List<String> names = new ArrayList<>();
+        names.add(name);
+        names.addAll(context.aliases());
+        this.allNamesCache = java.util.Collections.unmodifiableList(names);
     }
 
     /**
@@ -184,10 +191,7 @@ public final class Arg<T> {
      * @return a list containing the primary name followed by all aliases
      */
     public @NotNull java.util.List<String> allNames() {
-        java.util.List<String> allNames = new java.util.ArrayList<>();
-        allNames.add(name);
-        allNames.addAll(context.aliases());
-        return java.util.Collections.unmodifiableList(allNames);
+        return allNamesCache;
     }
 
     /**
