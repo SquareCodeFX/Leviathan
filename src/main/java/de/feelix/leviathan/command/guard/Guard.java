@@ -8,6 +8,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 /**
  * Declarative guard that must pass before command execution and tab completion.
@@ -77,6 +78,24 @@ public interface Guard {
     }
 
     /**
+     * Internal helper that creates a guard requiring the sender to be a Player satisfying the given predicate.
+     */
+    private static @NotNull Guard playerGuard(@NotNull Predicate<Player> predicate,
+                                               @NotNull Supplier<String> errorMessage) {
+        return new Guard() {
+            @Override
+            public boolean test(@NotNull CommandSender sender) {
+                return sender instanceof Player p && predicate.test(p);
+            }
+
+            @Override
+            public @NotNull String errorMessage() {
+                return errorMessage.get();
+            }
+        };
+    }
+
+    /**
      * Creates a world-based guard that checks if the sender (must be a player) is in the specified world.
      *
      * @param worldName the name of the world to check
@@ -86,18 +105,8 @@ public interface Guard {
     static @NotNull Guard inWorld(@NotNull String worldName, @NotNull MessageProvider messages) {
         Preconditions.checkNotNull(worldName, "worldName");
         Preconditions.checkNotNull(messages, "messages");
-        return new Guard() {
-            @Override
-            public boolean test(@NotNull CommandSender sender) {
-                if (!(sender instanceof Player p)) return false;
-                return p.getWorld().getName().equalsIgnoreCase(worldName);
-            }
-
-            @Override
-            public @NotNull String errorMessage() {
-                return messages.guardInWorld(worldName);
-            }
-        };
+        return playerGuard(p -> p.getWorld().getName().equalsIgnoreCase(worldName),
+                           () -> messages.guardInWorld(worldName));
     }
 
     /**
@@ -110,18 +119,8 @@ public interface Guard {
     static @NotNull Guard inGameMode(@NotNull GameMode gameMode, @NotNull MessageProvider messages) {
         Preconditions.checkNotNull(gameMode, "gameMode");
         Preconditions.checkNotNull(messages, "messages");
-        return new Guard() {
-            @Override
-            public boolean test(@NotNull CommandSender sender) {
-                if (!(sender instanceof Player p)) return false;
-                return p.getGameMode() == gameMode;
-            }
-
-            @Override
-            public @NotNull String errorMessage() {
-                return messages.guardGameMode(gameMode.name());
-            }
-        };
+        return playerGuard(p -> p.getGameMode() == gameMode,
+                           () -> messages.guardGameMode(gameMode.name()));
     }
 
     /**
@@ -132,17 +131,7 @@ public interface Guard {
      */
     static @NotNull Guard opOnly(@NotNull MessageProvider messages) {
         Preconditions.checkNotNull(messages, "messages");
-        return new Guard() {
-            @Override
-            public boolean test(@NotNull CommandSender sender) {
-                return sender.isOp();
-            }
-
-            @Override
-            public @NotNull String errorMessage() {
-                return messages.guardOpOnly();
-            }
-        };
+        return custom(CommandSender::isOp, messages.guardOpOnly());
     }
 
     /**
@@ -155,19 +144,8 @@ public interface Guard {
      */
     static @NotNull Guard levelRange(int minLevel, int maxLevel, @NotNull MessageProvider messages) {
         Preconditions.checkNotNull(messages, "messages");
-        return new Guard() {
-            @Override
-            public boolean test(@NotNull CommandSender sender) {
-                if (!(sender instanceof Player p)) return false;
-                int level = p.getLevel();
-                return level >= minLevel && level <= maxLevel;
-            }
-
-            @Override
-            public @NotNull String errorMessage() {
-                return messages.guardLevelRange(minLevel, maxLevel);
-            }
-        };
+        return playerGuard(p -> { int level = p.getLevel(); return level >= minLevel && level <= maxLevel; },
+                           () -> messages.guardLevelRange(minLevel, maxLevel));
     }
 
     /**
@@ -179,18 +157,8 @@ public interface Guard {
      */
     static @NotNull Guard minLevel(int minLevel, @NotNull MessageProvider messages) {
         Preconditions.checkNotNull(messages, "messages");
-        return new Guard() {
-            @Override
-            public boolean test(@NotNull CommandSender sender) {
-                if (!(sender instanceof Player p)) return false;
-                return p.getLevel() >= minLevel;
-            }
-
-            @Override
-            public @NotNull String errorMessage() {
-                return messages.guardMinLevel(minLevel);
-            }
-        };
+        return playerGuard(p -> p.getLevel() >= minLevel,
+                           () -> messages.guardMinLevel(minLevel));
     }
 
     /**
@@ -202,18 +170,8 @@ public interface Guard {
      */
     static @NotNull Guard healthAbove(double minHealth, @NotNull MessageProvider messages) {
         Preconditions.checkNotNull(messages, "messages");
-        return new Guard() {
-            @Override
-            public boolean test(@NotNull CommandSender sender) {
-                if (!(sender instanceof Player p)) return false;
-                return p.getHealth() > minHealth;
-            }
-
-            @Override
-            public @NotNull String errorMessage() {
-                return messages.guardHealthAbove(minHealth);
-            }
-        };
+        return playerGuard(p -> p.getHealth() > minHealth,
+                           () -> messages.guardHealthAbove(minHealth));
     }
 
     /**
@@ -225,18 +183,8 @@ public interface Guard {
      */
     static @NotNull Guard foodLevelAbove(int minFoodLevel, @NotNull MessageProvider messages) {
         Preconditions.checkNotNull(messages, "messages");
-        return new Guard() {
-            @Override
-            public boolean test(@NotNull CommandSender sender) {
-                if (!(sender instanceof Player p)) return false;
-                return p.getFoodLevel() > minFoodLevel;
-            }
-
-            @Override
-            public @NotNull String errorMessage() {
-                return messages.guardFoodLevelAbove(minFoodLevel);
-            }
-        };
+        return playerGuard(p -> p.getFoodLevel() > minFoodLevel,
+                           () -> messages.guardFoodLevelAbove(minFoodLevel));
     }
 
     /**
@@ -247,18 +195,7 @@ public interface Guard {
      */
     static @NotNull Guard isFlying(@NotNull MessageProvider messages) {
         Preconditions.checkNotNull(messages, "messages");
-        return new Guard() {
-            @Override
-            public boolean test(@NotNull CommandSender sender) {
-                if (!(sender instanceof Player p)) return false;
-                return p.isFlying();
-            }
-
-            @Override
-            public @NotNull String errorMessage() {
-                return messages.guardFlying();
-            }
-        };
+        return playerGuard(Player::isFlying, () -> messages.guardFlying());
     }
 
     /**
