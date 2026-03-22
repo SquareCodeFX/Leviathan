@@ -142,6 +142,20 @@ public final class CommandContext {
     }
 
     /**
+     * Filter a list of objects by element type and return an unmodifiable typed list.
+     */
+    @SuppressWarnings("unchecked")
+    private static <T> @NotNull List<T> filterByType(@NotNull List<?> source, @NotNull Class<T> elementType) {
+        List<T> result = new ArrayList<>();
+        for (Object element : source) {
+            if (elementType.isInstance(element)) {
+                result.add((T) element);
+            }
+        }
+        return Collections.unmodifiableList(result);
+    }
+
+    /**
      * Resolve an argument name or alias to the primary name.
      * If the given name is an alias, returns the primary name.
      * If not an alias, returns the original name.
@@ -444,20 +458,12 @@ public final class CommandContext {
      * @param <T>         the element type of the list
      * @return the list with verified element types, or an empty list if not present
      */
-    @SuppressWarnings("unchecked")
     public @NotNull <T> List<T> getList(@NotNull String name, @NotNull Class<T> elementType) {
         Preconditions.checkNotNull(name, "name");
         Preconditions.checkNotNull(elementType, "elementType");
         Object o = values.get(resolveName(name));
         if (o instanceof List<?> list) {
-            // Verify element types
-            List<T> result = new ArrayList<>();
-            for (Object element : list) {
-                if (elementType.isInstance(element)) {
-                    result.add((T) element);
-                }
-            }
-            return Collections.unmodifiableList(result);
+            return filterByType(list, elementType);
         }
         return Collections.emptyList();
     }
@@ -803,19 +809,12 @@ public final class CommandContext {
      * @param <T>         the element type
      * @return list of values matching the type, or empty list
      */
-    @SuppressWarnings("unchecked")
     public @NotNull <T> List<T> getMultiValue(@NotNull String name, @NotNull Class<T> elementType) {
         Preconditions.checkNotNull(name, "name");
         Preconditions.checkNotNull(elementType, "elementType");
         List<Object> values = multiValuePairs.get(name);
         if (values == null) return Collections.emptyList();
-        List<T> result = new ArrayList<>();
-        for (Object value : values) {
-            if (elementType.isInstance(value)) {
-                result.add((T) value);
-            }
-        }
-        return Collections.unmodifiableList(result);
+        return filterByType(values, elementType);
     }
 
     /**

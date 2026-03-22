@@ -8,6 +8,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
@@ -187,7 +188,7 @@ public final class ObjectPool<T> {
      * @param <R>    the result type
      * @return the result of the action
      */
-    public <R> R withPooled(@NotNull java.util.function.Function<T, R> action) {
+    public <R> R withPooled(@NotNull Function<T, R> action) {
         Preconditions.checkNotNull(action, "action");
         T obj = borrow();
         try {

@@ -186,13 +186,8 @@ public final class CompletionCache {
         // Lazy cleanup on access
         lazyCleanup();
 
-        // Enforce max size by removing expired entries first
-        if (cache.size() >= maxSize) {
-            evictExpired();
-        }
-
-        // If still at max size, remove oldest entry
-        if (cache.size() >= maxSize) {
+        // Enforce max size by removing expired entries first, then oldest if needed
+        if (cache.size() >= maxSize && evictExpired() == 0) {
             evictOldest();
         }
 

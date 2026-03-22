@@ -1619,12 +1619,7 @@ public final class SlashCommandBuilder {
     @SafeVarargs
     public final @NotNull SlashCommandBuilder arguments(@NotNull Arg<?>... arguments) {
         Preconditions.checkNotNull(arguments, "arguments");
-        for (Arg<?> argument : arguments) {
-            if (argument != null) {
-                this.args.add(argument);
-            }
-        }
-        return this;
+        return arguments(java.util.Arrays.asList(arguments));
     }
 
     /**

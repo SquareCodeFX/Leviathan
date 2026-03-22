@@ -1,8 +1,10 @@
 package de.feelix.leviathan.util;
 
+import de.feelix.leviathan.command.batch.BatchExecutor;
 import de.feelix.leviathan.command.cooldown.CooldownManager;
 import de.feelix.leviathan.command.core.SlashCommand;
 import de.feelix.leviathan.command.interactive.InteractivePrompt;
+import de.feelix.leviathan.command.wizard.WizardManager;
 
 /**
  * Utility class for cleaning up all static resources in the SlashCommand framework.
@@ -46,8 +48,10 @@ public final class ResourceCleanup {
      */
     public static void cleanupAll() {
         InteractivePrompt.clearAllSessions();
+        WizardManager.clearAllSessions();
         SlashCommand.clearAllConfirmations();
         CooldownManager.clearAllCooldowns();
+        BatchExecutor.shutdown();
     }
 
     /**
@@ -74,6 +78,9 @@ public final class ResourceCleanup {
 
         // Clean up interactive sessions
         InteractivePrompt.cleanupPlayer(playerUuid);
+
+        // Clean up wizard sessions
+        WizardManager.cleanupPlayer(playerUuid);
 
         // Clean up pending confirmations
         SlashCommand.clearConfirmationsForSender(playerName);
