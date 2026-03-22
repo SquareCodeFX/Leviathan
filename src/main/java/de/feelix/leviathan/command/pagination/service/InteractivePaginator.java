@@ -13,6 +13,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Interactive paginator with state management and navigation helpers.
@@ -343,8 +345,8 @@ public final class InteractivePaginator<T> {
                 listener.accept(event);
             } catch (RuntimeException e) {
                 // Don't let listener exceptions break pagination, but log for debugging
-                java.util.logging.Logger.getLogger(InteractivePaginator.class.getName())
-                    .log(java.util.logging.Level.WARNING, "Pagination event listener threw exception", e);
+                Logger.getLogger(InteractivePaginator.class.getName())
+                    .log(Level.WARNING, "Pagination event listener threw exception", e);
             }
         }
     }

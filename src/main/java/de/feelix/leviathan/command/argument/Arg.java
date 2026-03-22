@@ -8,6 +8,8 @@ import de.feelix.leviathan.exceptions.CommandConfigurationException;
 import de.feelix.leviathan.util.Preconditions;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -99,10 +101,10 @@ public final class Arg<T> {
         this.optionType = inferred;
 
         // Pre-compute immutable allNames list (Arg is immutable, so this is safe to cache)
-        java.util.List<String> names = new ArrayList<>();
+        List<String> names = new ArrayList<>();
         names.add(name);
         names.addAll(context.aliases());
-        this.allNamesCache = java.util.Collections.unmodifiableList(names);
+        this.allNamesCache = Collections.unmodifiableList(names);
     }
 
     /**
