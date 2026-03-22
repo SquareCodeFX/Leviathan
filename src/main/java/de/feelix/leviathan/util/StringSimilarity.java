@@ -37,7 +37,7 @@ public final class StringSimilarity {
     private static final Map<String, Integer> distanceCache = new LinkedHashMap<>(CACHE_MAX_SIZE, 0.75f, true) {
         @Override
         protected boolean removeEldestEntry(Map.Entry<String, Integer> eldest) {
-            return size() > CACHE_MAX_SIZE;
+            return size() >= CACHE_MAX_SIZE;
         }
     };
 

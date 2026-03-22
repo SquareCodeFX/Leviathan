@@ -11,6 +11,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 
 /**
  * A comprehensive exception handler that prints detailed diagnostic information
@@ -52,6 +53,7 @@ public class DetailedExceptionHandler implements ExceptionHandler {
     private static final String THIN_SEPARATOR = "─".repeat(70);
     // Thread-safe: DateTimeFormatter is immutable and thread-safe, unlike SimpleDateFormat
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
+    private static final Pattern NEWLINE_PATTERN = Pattern.compile("\\r?\\n|\\r");
 
     private final Logger logger;
     private final boolean includeThreadDump;
@@ -145,7 +147,7 @@ public class DetailedExceptionHandler implements ExceptionHandler {
         appendFooter(report);
 
         // Log the complete report (handle all newline types)
-        for (String line : report.toString().split("\\r?\\n|\\r")) {
+        for (String line : NEWLINE_PATTERN.split(report.toString())) {
             if (!line.isEmpty()) {
                 logger.severe(line);
             }
@@ -193,7 +195,7 @@ public class DetailedExceptionHandler implements ExceptionHandler {
         StringWriter sw = new StringWriter();
         exception.printStackTrace(new PrintWriter(sw));
         // Handle all newline types (\n, \r\n, \r)
-        for (String line : sw.toString().split("\\r?\\n|\\r")) {
+        for (String line : NEWLINE_PATTERN.split(sw.toString())) {
             if (!line.isEmpty()) {
                 report.append("    ").append(line).append("\n");
             }

@@ -27,8 +27,19 @@ import de.feelix.leviathan.util.Preconditions;
 import org.bukkit.command.CommandSender;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BiConsumer;
+import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 /**
@@ -1395,7 +1406,7 @@ public final class SlashCommandBuilder {
      * @return this builder
      */
     public @NotNull SlashCommandBuilder beforeExecution(
-        @NotNull java.util.function.BiConsumer<org.bukkit.command.CommandSender, CommandContext> action) {
+        @NotNull BiConsumer<org.bukkit.command.CommandSender, CommandContext> action) {
         Preconditions.checkNotNull(action, "action");
         return beforeExecution(ExecutionHook.Before.of(action));
     }
@@ -1447,7 +1458,7 @@ public final class SlashCommandBuilder {
      * @return this builder
      */
     public @NotNull SlashCommandBuilder afterExecution(
-        @NotNull java.util.function.BiConsumer<org.bukkit.command.CommandSender, CommandContext> action) {
+        @NotNull BiConsumer<org.bukkit.command.CommandSender, CommandContext> action) {
         Preconditions.checkNotNull(action, "action");
         return afterExecution(ExecutionHook.After.of(action));
     }
@@ -1459,7 +1470,7 @@ public final class SlashCommandBuilder {
      * @return this builder
      */
     public @NotNull SlashCommandBuilder onSuccess(
-        @NotNull java.util.function.BiConsumer<org.bukkit.command.CommandSender, CommandContext> action) {
+        @NotNull BiConsumer<org.bukkit.command.CommandSender, CommandContext> action) {
         Preconditions.checkNotNull(action, "action");
         return afterExecution(ExecutionHook.After.onSuccess(action));
     }
@@ -1612,12 +1623,7 @@ public final class SlashCommandBuilder {
     @SafeVarargs
     public final @NotNull SlashCommandBuilder arguments(@NotNull Arg<?>... arguments) {
         Preconditions.checkNotNull(arguments, "arguments");
-        for (Arg<?> argument : arguments) {
-            if (argument != null) {
-                this.args.add(argument);
-            }
-        }
-        return this;
+        return arguments(Arrays.asList(arguments));
     }
 
     /**
@@ -2006,7 +2012,7 @@ public final class SlashCommandBuilder {
      * @param subs      subcommands to register if condition is true
      * @return this builder
      */
-    public @NotNull SlashCommandBuilder subIf(@NotNull java.util.function.BooleanSupplier condition,
+    public @NotNull SlashCommandBuilder subIf(@NotNull BooleanSupplier condition,
                                                @Nullable SlashCommand... subs) {
         Preconditions.checkNotNull(condition, "condition");
         if (condition.getAsBoolean()) {
@@ -2510,7 +2516,7 @@ public final class SlashCommandBuilder {
      * @return this builder
      */
     public @NotNull SlashCommandBuilder batch(@NotNull String targetArgName,
-                                               @NotNull java.util.function.Consumer<BatchConfig.Builder> configurer) {
+                                               @NotNull Consumer<BatchConfig.Builder> configurer) {
         Preconditions.checkNotNull(targetArgName, "targetArgName");
         Preconditions.checkNotNull(configurer, "configurer");
         this.batchTargetArg = targetArgName;
@@ -2642,7 +2648,7 @@ public final class SlashCommandBuilder {
      * @return this builder
      */
     public @NotNull SlashCommandBuilder wizard(@NotNull String name,
-                                                @NotNull java.util.function.Consumer<WizardDefinition.Builder> configurer) {
+                                                @NotNull Consumer<WizardDefinition.Builder> configurer) {
         Preconditions.checkNotNull(name, "name");
         Preconditions.checkNotNull(configurer, "configurer");
         WizardDefinition.Builder builder = WizardDefinition.builder(name);

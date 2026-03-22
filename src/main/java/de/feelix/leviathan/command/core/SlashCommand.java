@@ -55,12 +55,27 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.util.*;
-import java.util.regex.Pattern;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.logging.Level;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -81,11 +96,11 @@ import java.util.stream.Collectors;
 public final class SlashCommand implements CommandExecutor, TabCompleter {
 
     // Confirmation tracking: maps "commandName:senderName" to expiration time (System.currentTimeMillis())
-    private static final Map<String, Long> pendingConfirmations = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final Map<String, Long> pendingConfirmations = new ConcurrentHashMap<>();
     private static final long CONFIRMATION_TIMEOUT_MILLIS = 10000L; // 10 seconds
 
     // Lazy cleanup for confirmations
-    private static final java.util.concurrent.atomic.AtomicLong confirmationOpCount = new java.util.concurrent.atomic.AtomicLong(0);
+    private static final AtomicLong confirmationOpCount = new AtomicLong(0);
     private static final int CONFIRMATION_CLEANUP_INTERVAL = 20; // Clean every N operations
 
     // Cached regex pattern for whitespace normalization (avoids recompilation on every call)
@@ -937,8 +952,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         Throwable current = throwable;
         java.util.Set<Throwable> seen = new java.util.HashSet<>(); // Prevent infinite loops
         while (current != null && seen.add(current)) {
-            if (current instanceof java.util.concurrent.ExecutionException
-                || current instanceof java.util.concurrent.CompletionException
+            if (current instanceof ExecutionException
+                || current instanceof CompletionException
                 || current instanceof java.lang.reflect.InvocationTargetException) {
                 Throwable cause = current.getCause();
                 if (cause != null && cause != current) {
@@ -1245,7 +1260,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                     try {
                         CommandContext tempCtx = CommandContext.createInternal(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
                         willBeSkippedByCondition = !futureArg.condition().test(tempCtx);
-                    } catch (Throwable ignored) {
+                    } catch (RuntimeException ignored) {
                         // If we can't evaluate, assume it won't be skipped
                     }
                 }
@@ -1409,7 +1424,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                     try {
                         CommandContext tempCtx = CommandContext.createInternal(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
                         skippedByCondition = !arg.condition().test(tempCtx);
-                    } catch (Throwable ignored) {
+                    } catch (RuntimeException ignored) {
                         // If condition evaluation fails here, we already handled it during parsing
                     }
                 }
@@ -2114,7 +2129,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                     try {
                         CommandContext tempCtx = CommandContext.createInternal(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
                         willBeSkippedByCondition = !futureArg.condition().test(tempCtx);
-                    } catch (Throwable ignored) {
+                    } catch (RuntimeException ignored) {
                     }
                 }
 
@@ -2213,7 +2228,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                     try {
                         CommandContext tempCtx = CommandContext.createInternal(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
                         skippedByCondition = !arg.condition().test(tempCtx);
-                    } catch (Throwable ignored) {
+                    } catch (RuntimeException ignored) {
                     }
                 }
 
@@ -2522,7 +2537,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                     try {
                         CommandContext tempCtx = CommandContext.createInternal(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
                         willBeSkippedByCondition = !futureArg.condition().test(tempCtx);
-                    } catch (Throwable ignored) {
+                    } catch (RuntimeException ignored) {
                     }
                 }
 
@@ -2585,7 +2600,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                             if (!suggestions.isEmpty()) {
                                 parseError = parseError.withSuggestions(suggestions);
                             }
-                        } catch (Throwable ignored) {
+                        } catch (RuntimeException ignored) {
                             // Silently ignore errors in suggestion generation
                         }
                     }
@@ -2654,7 +2669,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                     try {
                         CommandContext tempCtx = CommandContext.createInternal(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
                         skippedByCondition = !arg.condition().test(tempCtx);
-                    } catch (Throwable ignored) {
+                    } catch (RuntimeException ignored) {
                     }
                 }
 

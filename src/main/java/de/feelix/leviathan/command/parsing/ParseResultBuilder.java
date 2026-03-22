@@ -5,7 +5,11 @@ import de.feelix.leviathan.command.core.CommandContext;
 import de.feelix.leviathan.command.error.ErrorType;
 import de.feelix.leviathan.util.Preconditions;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Builder for creating {@link CommandParseResult} instances, primarily for testing purposes.

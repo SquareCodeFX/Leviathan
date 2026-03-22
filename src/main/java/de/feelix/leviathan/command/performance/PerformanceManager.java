@@ -4,9 +4,11 @@ import de.feelix.leviathan.annotations.NotNull;
 import de.feelix.leviathan.annotations.Nullable;
 import de.feelix.leviathan.util.Preconditions;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 /**
  * Central management class for all performance optimization features.
@@ -200,7 +202,7 @@ public final class PerformanceManager {
      * @param builder the function to build the string
      * @return the built string
      */
-    public @NotNull String buildString(@NotNull java.util.function.Consumer<StringBuilder> builder) {
+    public @NotNull String buildString(@NotNull Consumer<StringBuilder> builder) {
         Preconditions.checkNotNull(builder, "builder");
         return stringBuilderPool.withPooled(sb -> {
             builder.accept(sb);

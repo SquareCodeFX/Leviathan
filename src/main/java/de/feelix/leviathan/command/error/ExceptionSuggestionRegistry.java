@@ -17,107 +17,91 @@ import java.util.function.Predicate;
  */
 public final class ExceptionSuggestionRegistry {
 
-    private static final Map<Class<? extends Throwable>, List<String>> TYPE_SUGGESTIONS = new LinkedHashMap<>();
-    private static final Map<Predicate<String>, List<String>> NAME_PATTERN_SUGGESTIONS = new LinkedHashMap<>();
-    private static final Map<Predicate<String>, List<String>> MESSAGE_PATTERN_SUGGESTIONS = new LinkedHashMap<>();
+    private static final Map<Class<? extends Throwable>, List<String>> TYPE_SUGGESTIONS;
+    private static final Map<Predicate<String>, List<String>> NAME_PATTERN_SUGGESTIONS;
+    private static final Map<Predicate<String>, List<String>> MESSAGE_PATTERN_SUGGESTIONS;
     private static final List<String> DEFAULT_SUGGESTIONS;
 
     static {
+        Map<Class<? extends Throwable>, List<String>> typeSuggestions = new LinkedHashMap<>();
+        Map<Predicate<String>, List<String>> namePatterns = new LinkedHashMap<>();
+        Map<Predicate<String>, List<String>> messagePatterns = new LinkedHashMap<>();
+
         // Initialize type-based suggestions
-        registerTypeSuggestion(
-            NullPointerException.class,
+        typeSuggestions.put(NullPointerException.class, List.of(
             "A null value was accessed where an object was expected",
             "Check if all required dependencies are initialized",
             "Verify method return values before using them",
-            "Consider using Optional or null checks"
-        );
+            "Consider using Optional or null checks"));
 
-        registerTypeSuggestion(
-            IllegalArgumentException.class,
+        typeSuggestions.put(IllegalArgumentException.class, List.of(
             "An invalid argument was passed to a method",
             "Check argument validation before method calls",
-            "Review the expected parameter constraints"
-        );
+            "Review the expected parameter constraints"));
 
-        registerTypeSuggestion(
-            IllegalStateException.class,
+        typeSuggestions.put(IllegalStateException.class, List.of(
             "Object is in an invalid state for the operation",
             "Check initialization order of components",
-            "Verify that prerequisites are met before operation"
-        );
+            "Verify that prerequisites are met before operation"));
 
-        registerTypeSuggestion(
-            ClassCastException.class,
+        typeSuggestions.put(ClassCastException.class, List.of(
             "Type casting failed - incompatible types",
             "Check generic type parameters",
-            "Verify object types before casting"
-        );
+            "Verify object types before casting"));
 
-        registerTypeSuggestion(
-            IndexOutOfBoundsException.class,
+        typeSuggestions.put(IndexOutOfBoundsException.class, List.of(
             "Array or list index is out of valid range",
             "Check array/list bounds before accessing",
-            "Verify loop conditions and index calculations"
-        );
+            "Verify loop conditions and index calculations"));
 
-        registerTypeSuggestion(
-            NumberFormatException.class,
+        typeSuggestions.put(NumberFormatException.class, List.of(
             "String could not be parsed as a number",
             "Validate input format before parsing",
-            "Check for empty strings or non-numeric characters"
-        );
+            "Check for empty strings or non-numeric characters"));
 
-        registerTypeSuggestion(
-            UnsupportedOperationException.class,
+        typeSuggestions.put(UnsupportedOperationException.class, List.of(
             "Operation is not supported by this implementation",
             "Check if using an immutable collection",
-            "Verify API compatibility"
-        );
+            "Verify API compatibility"));
 
-        registerTypeSuggestion(
-            SecurityException.class,
+        typeSuggestions.put(SecurityException.class, List.of(
             "Security manager denied the operation",
             "Check security policy configuration",
-            "Verify required permissions are granted"
-        );
+            "Verify required permissions are granted"));
 
         // Initialize name pattern-based suggestions
-        registerNamePatternSuggestion(
-            name -> name.contains("SQL") || name.contains("Database"),
+        namePatterns.put(name -> name.contains("SQL") || name.contains("Database"), List.of(
             "Database operation failed",
             "Check database connection and credentials",
-            "Verify SQL syntax and table existence"
-        );
+            "Verify SQL syntax and table existence"));
 
-        registerNamePatternSuggestion(
-            name -> name.contains("IO") || name.contains("File"),
+        namePatterns.put(name -> name.contains("IO") || name.contains("File"), List.of(
             "I/O operation failed",
             "Check file permissions and path validity",
-            "Verify disk space and file existence"
-        );
+            "Verify disk space and file existence"));
 
-        registerNamePatternSuggestion(
-            name -> name.contains("Timeout") || name.contains("Connection"),
+        namePatterns.put(name -> name.contains("Timeout") || name.contains("Connection"), List.of(
             "Network or connection timeout occurred",
             "Check network connectivity",
-            "Verify remote service availability"
-        );
+            "Verify remote service availability"));
 
         // Initialize message pattern-based suggestions
-        registerMessagePatternSuggestion(
+        messagePatterns.put(
             msg -> msg.toLowerCase().contains("null"),
-            "Exception message mentions 'null' - check for uninitialized variables"
-        );
+            List.of("Exception message mentions 'null' - check for uninitialized variables"));
 
-        registerMessagePatternSuggestion(
+        messagePatterns.put(
             msg -> msg.toLowerCase().contains("not found") || msg.toLowerCase().contains("missing"),
-            "Something is missing - check configuration and dependencies"
-        );
+            List.of("Something is missing - check configuration and dependencies"));
 
-        registerMessagePatternSuggestion(
+        messagePatterns.put(
             msg -> msg.toLowerCase().contains("denied") || msg.toLowerCase().contains("permission"),
-            "Access was denied - check permissions and access rights"
-        );
+            List.of("Access was denied - check permissions and access rights"));
+
+        // Freeze all maps as unmodifiable
+        TYPE_SUGGESTIONS = Collections.unmodifiableMap(typeSuggestions);
+        NAME_PATTERN_SUGGESTIONS = Collections.unmodifiableMap(namePatterns);
+        MESSAGE_PATTERN_SUGGESTIONS = Collections.unmodifiableMap(messagePatterns);
 
         // Default suggestions
         DEFAULT_SUGGESTIONS = List.of(
@@ -129,18 +113,6 @@ public final class ExceptionSuggestionRegistry {
 
     private ExceptionSuggestionRegistry() {
         // Utility class
-    }
-
-    private static void registerTypeSuggestion(Class<? extends Throwable> type, String... suggestions) {
-        TYPE_SUGGESTIONS.put(type, List.of(suggestions));
-    }
-
-    private static void registerNamePatternSuggestion(Predicate<String> pattern, String... suggestions) {
-        NAME_PATTERN_SUGGESTIONS.put(pattern, List.of(suggestions));
-    }
-
-    private static void registerMessagePatternSuggestion(Predicate<String> pattern, String... suggestions) {
-        MESSAGE_PATTERN_SUGGESTIONS.put(pattern, List.of(suggestions));
     }
 
     /**

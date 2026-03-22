@@ -5,7 +5,11 @@ import de.feelix.leviathan.command.pagination.exception.CacheException;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.*;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;

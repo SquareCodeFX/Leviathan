@@ -17,6 +17,9 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.stream.IntStream;
 
 /**
  * Main pagination service providing core pagination functionality.
@@ -254,7 +257,7 @@ public final class PaginationService<T> {
             throw new IllegalArgumentException("Start page must be <= end page");
         }
 
-        return java.util.stream.IntStream.rangeClosed(startPage, endPage)
+        return IntStream.rangeClosed(startPage, endPage)
             .mapToObj(this::getPage)
             .toList();
     }
@@ -275,7 +278,7 @@ public final class PaginationService<T> {
             throw new IllegalArgumentException("Start page must be <= end page");
         }
 
-        List<CompletableFuture<PaginatedResult<T>>> futures = java.util.stream.IntStream
+        List<CompletableFuture<PaginatedResult<T>>> futures = IntStream
             .rangeClosed(startPage, endPage)
             .mapToObj(this::getPageAsync)
             .toList();
@@ -308,8 +311,10 @@ public final class PaginationService<T> {
                 executor.submit(() -> {
                     try {
                         getPage(pageToFetch);
-                    } catch (Exception ignored) {
-                        // Prefetch failures are non-critical
+                    } catch (RuntimeException e) {
+                        // Prefetch failures are non-critical; log at fine level for debugging
+                        Logger.getLogger(PaginationService.class.getName())
+                            .log(Level.FINE, "Prefetch failed for page " + pageToFetch, e);
                     }
                 });
             }

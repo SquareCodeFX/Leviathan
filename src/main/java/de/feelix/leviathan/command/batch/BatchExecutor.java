@@ -10,8 +10,10 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 
@@ -278,9 +280,13 @@ public final class BatchExecutor {
                     config.timeoutMillis() > 0 ? config.timeoutMillis() : Long.MAX_VALUE,
                     TimeUnit.MILLISECONDS
             );
-        } catch (Exception e) {
-            // Timeout or interruption - mark remaining as skipped
+        } catch (TimeoutException e) {
+            plugin.getLogger().log(Level.WARNING, "Batch execution timed out", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             plugin.getLogger().log(Level.WARNING, "Batch execution interrupted", e);
+        } catch (ExecutionException e) {
+            plugin.getLogger().log(Level.WARNING, "Batch execution failed", e.getCause());
         }
 
         // Collect results

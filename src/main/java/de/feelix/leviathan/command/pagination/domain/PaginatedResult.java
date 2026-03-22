@@ -4,9 +4,19 @@ import de.feelix.leviathan.command.pagination.config.PaginationConfig;
 import lombok.Getter;
 import org.jetbrains.annotations.NotNull;
 
+import java.time.Duration;
 import java.time.Instant;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 /**
  * Immutable container for paginated data with metadata.
@@ -111,7 +121,7 @@ public final class PaginatedResult<T> implements Iterable<T> {
     /**
      * Filters items while maintaining pagination metadata.
      */
-    public PaginatedResult<T> filter(java.util.function.Predicate<? super T> predicate) {
+    public PaginatedResult<T> filter(Predicate<? super T> predicate) {
         Objects.requireNonNull(predicate, "Predicate cannot be null");
         List<T> filteredItems = new ArrayList<>();
         for (T item : items) {
@@ -158,7 +168,7 @@ public final class PaginatedResult<T> implements Iterable<T> {
     /**
      * Checks if this result is still fresh based on TTL.
      */
-    public boolean isFresh(java.time.Duration ttl) {
+    public boolean isFresh(Duration ttl) {
         return createdAt.plus(ttl).isAfter(Instant.now());
     }
 

@@ -8,10 +8,17 @@ import de.feelix.leviathan.command.argument.ParseResult;
 import de.feelix.leviathan.util.Preconditions;
 import org.bukkit.command.CommandSender;
 
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.BiFunction;
 
 /**
  * Parallel argument parser for concurrent parsing of independent arguments.

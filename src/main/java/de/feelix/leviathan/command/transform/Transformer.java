@@ -4,8 +4,10 @@ import de.feelix.leviathan.annotations.NotNull;
 import de.feelix.leviathan.annotations.Nullable;
 
 import java.util.Locale;
+import java.util.Map;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
+import java.util.regex.Pattern;
 
 /**
  * A transformer that modifies parsed argument values after parsing but before validation.
@@ -92,6 +94,9 @@ public interface Transformer<T> {
         return value -> this.transform(before.transform(value));
     }
 
+    // Pre-compiled patterns for frequently used regex operations
+    Pattern WHITESPACE_PATTERN = Pattern.compile("\\s+");
+
     // ==================== String Transformers ====================
 
     /**
@@ -127,7 +132,7 @@ public interface Transformer<T> {
      * @return a whitespace normalizing transformer
      */
     static @NotNull Transformer<String> normalizeWhitespace() {
-        return value -> value == null ? null : value.trim().replaceAll("\\s+", " ");
+        return value -> value == null ? null : WHITESPACE_PATTERN.matcher(value.trim()).replaceAll(" ");
     }
 
     /**
@@ -136,7 +141,7 @@ public interface Transformer<T> {
      * @return a whitespace stripping transformer
      */
     static @NotNull Transformer<String> stripWhitespace() {
-        return value -> value == null ? null : value.replaceAll("\\s+", "");
+        return value -> value == null ? null : WHITESPACE_PATTERN.matcher(value).replaceAll("");
     }
 
     /**
@@ -159,7 +164,8 @@ public interface Transformer<T> {
      * @return a replacing transformer
      */
     static @NotNull Transformer<String> replace(@NotNull String pattern, @NotNull String replacement) {
-        return value -> value == null ? null : value.replaceAll(pattern, replacement);
+        Pattern compiled = Pattern.compile(pattern);
+        return value -> value == null ? null : compiled.matcher(value).replaceAll(replacement);
     }
 
     /**
@@ -188,7 +194,7 @@ public interface Transformer<T> {
      * @param shortcuts map of shortcut -> full value
      * @return a shortcut expanding transformer
      */
-    static @NotNull Transformer<String> expandShortcuts(@NotNull java.util.Map<String, String> shortcuts) {
+    static @NotNull Transformer<String> expandShortcuts(@NotNull Map<String, String> shortcuts) {
         return value -> {
             if (value == null) return null;
             String lower = value.toLowerCase(Locale.ROOT);

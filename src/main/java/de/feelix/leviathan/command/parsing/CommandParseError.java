@@ -6,8 +6,10 @@ import de.feelix.leviathan.command.error.ErrorType;
 import de.feelix.leviathan.util.Preconditions;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Represents a single parsing error that occurred during command argument parsing.
@@ -251,7 +253,7 @@ public final class CommandParseError {
     public @NotNull CommandParseError withSuggestions(@NotNull String... suggestions) {
         Preconditions.checkNotNull(suggestions, "suggestions");
         return new CommandParseError(this.type, this.message, this.argumentName, this.rawInput,
-            java.util.Arrays.asList(suggestions));
+            Arrays.asList(suggestions));
     }
 
     // ==================== Accessors ====================
@@ -397,13 +399,13 @@ public final class CommandParseError {
         CommandParseError that = (CommandParseError) o;
         return type == that.type &&
                message.equals(that.message) &&
-               java.util.Objects.equals(argumentName, that.argumentName) &&
-               java.util.Objects.equals(rawInput, that.rawInput) &&
+               Objects.equals(argumentName, that.argumentName) &&
+               Objects.equals(rawInput, that.rawInput) &&
                suggestions.equals(that.suggestions);
     }
 
     @Override
     public int hashCode() {
-        return java.util.Objects.hash(type, message, argumentName, rawInput, suggestions);
+        return Objects.hash(type, message, argumentName, rawInput, suggestions);
     }
 }

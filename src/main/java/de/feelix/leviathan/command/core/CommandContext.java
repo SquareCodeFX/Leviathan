@@ -8,7 +8,15 @@ import de.feelix.leviathan.exceptions.ApiMisuseException;
 import de.feelix.leviathan.util.Preconditions;
 import org.bukkit.entity.Player;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -132,6 +140,20 @@ public final class CommandContext {
             this.rawArgs = Preconditions.checkNotNull(rawArgs, "rawArgs"); // No clone for internal use
             this.aliasToNameMap = Collections.unmodifiableMap(Preconditions.checkNotNull(aliasToNameMap, "aliasToNameMap"));
         }
+    }
+
+    /**
+     * Filter a list of objects by element type and return an unmodifiable typed list.
+     */
+    @SuppressWarnings("unchecked")
+    private static <T> @NotNull List<T> filterByType(@NotNull List<?> source, @NotNull Class<T> elementType) {
+        List<T> result = new ArrayList<>();
+        for (Object element : source) {
+            if (elementType.isInstance(element)) {
+                result.add((T) element);
+            }
+        }
+        return Collections.unmodifiableList(result);
     }
 
     /**
@@ -437,20 +459,12 @@ public final class CommandContext {
      * @param <T>         the element type of the list
      * @return the list with verified element types, or an empty list if not present
      */
-    @SuppressWarnings("unchecked")
     public @NotNull <T> List<T> getList(@NotNull String name, @NotNull Class<T> elementType) {
         Preconditions.checkNotNull(name, "name");
         Preconditions.checkNotNull(elementType, "elementType");
         Object o = values.get(resolveName(name));
         if (o instanceof List<?> list) {
-            // Verify element types
-            List<T> result = new ArrayList<>();
-            for (Object element : list) {
-                if (elementType.isInstance(element)) {
-                    result.add((T) element);
-                }
-            }
-            return Collections.unmodifiableList(result);
+            return filterByType(list, elementType);
         }
         return Collections.emptyList();
     }
@@ -796,19 +810,12 @@ public final class CommandContext {
      * @param <T>         the element type
      * @return list of values matching the type, or empty list
      */
-    @SuppressWarnings("unchecked")
     public @NotNull <T> List<T> getMultiValue(@NotNull String name, @NotNull Class<T> elementType) {
         Preconditions.checkNotNull(name, "name");
         Preconditions.checkNotNull(elementType, "elementType");
         List<Object> values = multiValuePairs.get(name);
         if (values == null) return Collections.emptyList();
-        List<T> result = new ArrayList<>();
-        for (Object value : values) {
-            if (elementType.isInstance(value)) {
-                result.add((T) value);
-            }
-        }
-        return Collections.unmodifiableList(result);
+        return filterByType(values, elementType);
     }
 
     /**
@@ -1009,7 +1016,7 @@ public final class CommandContext {
      * @param <T>    the type
      */
     public <T> void ifPresent(@NotNull String name, @NotNull Class<T> type,
-                              @NotNull java.util.function.Consumer<T> action) {
+                              @NotNull Consumer<T> action) {
         Preconditions.checkNotNull(name, "name");
         Preconditions.checkNotNull(type, "type");
         Preconditions.checkNotNull(action, "action");
@@ -1304,7 +1311,7 @@ public final class CommandContext {
      * @param names  the argument names that must all be present
      * @return true if action was executed, false if arguments were missing
      */
-    public boolean ifAllPresent(@NotNull java.util.function.Consumer<CommandContext> action, @NotNull String... names) {
+    public boolean ifAllPresent(@NotNull Consumer<CommandContext> action, @NotNull String... names) {
         Preconditions.checkNotNull(action, "action");
         if (hasAll(names)) {
             action.accept(this);
@@ -1320,7 +1327,7 @@ public final class CommandContext {
      * @param names  the argument names where at least one must be present
      * @return true if action was executed, false if no arguments were present
      */
-    public boolean ifAnyPresent(@NotNull java.util.function.Consumer<CommandContext> action, @NotNull String... names) {
+    public boolean ifAnyPresent(@NotNull Consumer<CommandContext> action, @NotNull String... names) {
         Preconditions.checkNotNull(action, "action");
         if (hasAny(names)) {
             action.accept(this);

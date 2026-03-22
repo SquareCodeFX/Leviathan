@@ -8,11 +8,14 @@ import de.feelix.leviathan.util.Preconditions;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 /**
@@ -319,7 +322,7 @@ public final class ResultCache {
      *
      * @param predicate the predicate to test keys
      */
-    public void invalidateIf(@NotNull java.util.function.Predicate<String> predicate) {
+    public void invalidateIf(@NotNull Predicate<String> predicate) {
         Preconditions.checkNotNull(predicate, "predicate");
         int removed = 0;
         Iterator<String> it = cache.keySet().iterator();

@@ -4,9 +4,14 @@ import de.feelix.leviathan.annotations.NotNull;
 import de.feelix.leviathan.annotations.Nullable;
 import de.feelix.leviathan.util.Preconditions;
 
-import java.util.*;
-import java.util.function.Function;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.function.Predicate;
+import java.util.regex.Pattern;
 
 /**
  * A reusable validation profile that defines a set of validation rules for command parsing.
@@ -416,8 +421,9 @@ public final class ValidationProfile {
          */
         public @NotNull Builder requireMatches(@NotNull String argumentName, @NotNull String pattern) {
             Preconditions.checkNotNull(pattern, "pattern");
+            Pattern compiled = Pattern.compile(pattern);
             return addArgumentRule(argumentName,
-                value -> value instanceof String && ((String) value).matches(pattern),
+                value -> value instanceof String && compiled.matcher((String) value).matches(),
                 "Argument '" + argumentName + "' must match pattern: " + pattern);
         }
 

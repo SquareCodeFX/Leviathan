@@ -1,8 +1,12 @@
 package de.feelix.leviathan.util;
 
+import de.feelix.leviathan.command.batch.BatchExecutor;
 import de.feelix.leviathan.command.cooldown.CooldownManager;
 import de.feelix.leviathan.command.core.SlashCommand;
 import de.feelix.leviathan.command.interactive.InteractivePrompt;
+import de.feelix.leviathan.command.wizard.WizardManager;
+
+import java.util.UUID;
 
 /**
  * Utility class for cleaning up all static resources in the SlashCommand framework.
@@ -46,8 +50,10 @@ public final class ResourceCleanup {
      */
     public static void cleanupAll() {
         InteractivePrompt.clearAllSessions();
+        WizardManager.clearAllSessions();
         SlashCommand.clearAllConfirmations();
         CooldownManager.clearAllCooldowns();
+        BatchExecutor.shutdown();
     }
 
     /**
@@ -68,12 +74,15 @@ public final class ResourceCleanup {
      * @param playerName the name of the player
      * @param playerUuid the UUID of the player
      */
-    public static void cleanupForPlayer(String playerName, java.util.UUID playerUuid) {
+    public static void cleanupForPlayer(String playerName, UUID playerUuid) {
         Preconditions.checkNotNull(playerName, "playerName");
         Preconditions.checkNotNull(playerUuid, "playerUuid");
 
         // Clean up interactive sessions
         InteractivePrompt.cleanupPlayer(playerUuid);
+
+        // Clean up wizard sessions
+        WizardManager.cleanupPlayer(playerUuid);
 
         // Clean up pending confirmations
         SlashCommand.clearConfirmationsForSender(playerName);
@@ -84,11 +93,11 @@ public final class ResourceCleanup {
 
     /**
      * Clean up interactive session for a player by UUID.
-     * Delegates to {@link InteractivePrompt#cleanupPlayer(java.util.UUID)}.
+     * Delegates to {@link InteractivePrompt#cleanupPlayer(UUID)}.
      *
      * @param playerUuid the UUID of the player
      */
-    public static void cleanupInteractiveSession(java.util.UUID playerUuid) {
+    public static void cleanupInteractiveSession(UUID playerUuid) {
         Preconditions.checkNotNull(playerUuid, "playerUuid");
         InteractivePrompt.cleanupPlayer(playerUuid);
     }

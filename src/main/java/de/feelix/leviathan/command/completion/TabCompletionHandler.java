@@ -17,7 +17,16 @@ import de.feelix.leviathan.util.StringSimilarity;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
@@ -82,7 +91,8 @@ public final class TabCompletionHandler {
                 if (!g.test(sender)) {
                     return Collections.emptyList();
                 }
-            } catch (Throwable ignored) {
+            } catch (Exception e) {
+                // Guard evaluation failed; deny completions for safety
                 return Collections.emptyList();
             }
         }
@@ -113,7 +123,7 @@ public final class TabCompletionHandler {
                     new de.feelix.leviathan.command.flag.FlagAndKeyValueParser(command.flags(), command.keyValues());
                 parsedFlagsKv = flagKvParser.parse(providedArgs, sender);
                 positionalArgs = parsedFlagsKv.remainingArgs().toArray(new String[0]);
-            } catch (Throwable t) {
+            } catch (Exception t) {
                 // If parsing fails, fall back to treating all as positional
                 if (command.plugin() != null) {
                     command.plugin().getLogger().log(
