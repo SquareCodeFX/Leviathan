@@ -4,6 +4,9 @@ import de.feelix.leviathan.annotations.NotNull;
 import de.feelix.leviathan.annotations.Nullable;
 import org.bukkit.command.CommandSender;
 
+import java.util.function.BiConsumer;
+import java.util.function.BiPredicate;
+
 /**
  * Hook interface for intercepting command execution at various stages.
  * <p>
@@ -61,7 +64,7 @@ public final class ExecutionHook {
          * @param action action to perform before execution
          * @return a before hook
          */
-        static Before of(@NotNull java.util.function.BiConsumer<CommandSender, CommandContext> action) {
+        static Before of(@NotNull BiConsumer<CommandSender, CommandContext> action) {
             return (sender, context) -> {
                 action.accept(sender, context);
                 return BeforeResult.proceed();
@@ -75,7 +78,7 @@ public final class ExecutionHook {
          * @param errorMessage message to show if validation fails (can be null)
          * @return a before hook
          */
-        static Before validating(@NotNull java.util.function.BiPredicate<CommandSender, CommandContext> validator,
+        static Before validating(@NotNull BiPredicate<CommandSender, CommandContext> validator,
                                   @Nullable String errorMessage) {
             return (sender, context) -> {
                 if (validator.test(sender, context)) {
@@ -175,7 +178,7 @@ public final class ExecutionHook {
          * @param action action to perform after execution
          * @return an after hook
          */
-        static After of(@NotNull java.util.function.BiConsumer<CommandSender, CommandContext> action) {
+        static After of(@NotNull BiConsumer<CommandSender, CommandContext> action) {
             return (sender, context, result) -> action.accept(sender, context);
         }
 
@@ -185,7 +188,7 @@ public final class ExecutionHook {
          * @param action action to perform on successful execution
          * @return an after hook
          */
-        static After onSuccess(@NotNull java.util.function.BiConsumer<CommandSender, CommandContext> action) {
+        static After onSuccess(@NotNull BiConsumer<CommandSender, CommandContext> action) {
             return (sender, context, result) -> {
                 if (result.isSuccess()) {
                     action.accept(sender, context);

@@ -11,6 +11,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
 /**
@@ -59,7 +61,7 @@ public final class ArgContext {
          * @return a dynamic completion provider
          */
         static @NotNull DynamicCompletionProvider contextBased(
-            @NotNull java.util.function.Function<DynamicCompletionContext, List<String>> provider) {
+            @NotNull Function<DynamicCompletionContext, List<String>> provider) {
             Preconditions.checkNotNull(provider, "provider");
             return provider::apply;
         }
@@ -200,7 +202,7 @@ public final class ArgContext {
          * @return an async supplier wrapping the synchronous one
          */
         static @NotNull AsyncPredefinedCompletionSupplier fromSync(
-            @NotNull java.util.function.Supplier<List<String>> supplier) {
+            @NotNull Supplier<List<String>> supplier) {
             Preconditions.checkNotNull(supplier, "supplier");
             return () -> CompletableFuture.supplyAsync(supplier);
         }

@@ -7,6 +7,8 @@ import de.feelix.leviathan.util.Preconditions;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 /**
  * Defines a complete wizard with all its nodes.
@@ -251,7 +253,7 @@ public final class WizardDefinition {
          * @return this builder
          */
         public @NotNull Builder question(@NotNull String id, @NotNull String questionText,
-                                          @NotNull java.util.function.Consumer<WizardNode.Builder> configurator) {
+                                          @NotNull Consumer<WizardNode.Builder> configurator) {
             WizardNode.Builder nodeBuilder = WizardNode.question(id, questionText);
             configurator.accept(nodeBuilder);
             return node(nodeBuilder.build());
@@ -308,7 +310,7 @@ public final class WizardDefinition {
          * @param unit    the time unit
          * @return this builder
          */
-        public @NotNull Builder timeout(long timeout, @NotNull java.util.concurrent.TimeUnit unit) {
+        public @NotNull Builder timeout(long timeout, @NotNull TimeUnit unit) {
             this.timeoutMillis = unit.toMillis(timeout);
             return this;
         }

@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -1015,7 +1016,7 @@ public final class CommandContext {
      * @param <T>    the type
      */
     public <T> void ifPresent(@NotNull String name, @NotNull Class<T> type,
-                              @NotNull java.util.function.Consumer<T> action) {
+                              @NotNull Consumer<T> action) {
         Preconditions.checkNotNull(name, "name");
         Preconditions.checkNotNull(type, "type");
         Preconditions.checkNotNull(action, "action");
@@ -1310,7 +1311,7 @@ public final class CommandContext {
      * @param names  the argument names that must all be present
      * @return true if action was executed, false if arguments were missing
      */
-    public boolean ifAllPresent(@NotNull java.util.function.Consumer<CommandContext> action, @NotNull String... names) {
+    public boolean ifAllPresent(@NotNull Consumer<CommandContext> action, @NotNull String... names) {
         Preconditions.checkNotNull(action, "action");
         if (hasAll(names)) {
             action.accept(this);
@@ -1326,7 +1327,7 @@ public final class CommandContext {
      * @param names  the argument names where at least one must be present
      * @return true if action was executed, false if no arguments were present
      */
-    public boolean ifAnyPresent(@NotNull java.util.function.Consumer<CommandContext> action, @NotNull String... names) {
+    public boolean ifAnyPresent(@NotNull Consumer<CommandContext> action, @NotNull String... names) {
         Preconditions.checkNotNull(action, "action");
         if (hasAny(names)) {
             action.accept(this);

@@ -68,7 +68,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.regex.Pattern;
@@ -92,11 +96,11 @@ import java.util.stream.Collectors;
 public final class SlashCommand implements CommandExecutor, TabCompleter {
 
     // Confirmation tracking: maps "commandName:senderName" to expiration time (System.currentTimeMillis())
-    private static final Map<String, Long> pendingConfirmations = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final Map<String, Long> pendingConfirmations = new ConcurrentHashMap<>();
     private static final long CONFIRMATION_TIMEOUT_MILLIS = 10000L; // 10 seconds
 
     // Lazy cleanup for confirmations
-    private static final java.util.concurrent.atomic.AtomicLong confirmationOpCount = new java.util.concurrent.atomic.AtomicLong(0);
+    private static final AtomicLong confirmationOpCount = new AtomicLong(0);
     private static final int CONFIRMATION_CLEANUP_INTERVAL = 20; // Clean every N operations
 
     // Cached regex pattern for whitespace normalization (avoids recompilation on every call)
@@ -948,8 +952,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         Throwable current = throwable;
         java.util.Set<Throwable> seen = new java.util.HashSet<>(); // Prevent infinite loops
         while (current != null && seen.add(current)) {
-            if (current instanceof java.util.concurrent.ExecutionException
-                || current instanceof java.util.concurrent.CompletionException
+            if (current instanceof ExecutionException
+                || current instanceof CompletionException
                 || current instanceof java.lang.reflect.InvocationTargetException) {
                 Throwable cause = current.getCause();
                 if (cause != null && cause != current) {
