@@ -12,6 +12,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Engine for generating "Did you mean...?" suggestions when parsing fails.
@@ -240,7 +241,7 @@ public final class SuggestionEngine {
             }
             return suggestions.stream()
                 .map(s -> "'" + s + "'")
-                .collect(java.util.stream.Collectors.joining(", "));
+                .collect(Collectors.joining(", "));
         }
 
         /**
