@@ -9,9 +9,18 @@ import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 /**
@@ -105,8 +114,8 @@ public final class ArgumentCache {
     private static final LazyCleanupProvider cleanupProvider = LazyCleanupProvider.withInterval(100);
 
     // Statistics
-    private static final java.util.concurrent.atomic.AtomicLong hits = new java.util.concurrent.atomic.AtomicLong(0);
-    private static final java.util.concurrent.atomic.AtomicLong misses = new java.util.concurrent.atomic.AtomicLong(0);
+    private static final AtomicLong hits = new AtomicLong(0);
+    private static final AtomicLong misses = new AtomicLong(0);
 
     // ==================== Player Names ====================
 

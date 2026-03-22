@@ -55,12 +55,23 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.util.*;
-import java.util.regex.Pattern;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.logging.Level;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -1245,7 +1256,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                     try {
                         CommandContext tempCtx = CommandContext.createInternal(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
                         willBeSkippedByCondition = !futureArg.condition().test(tempCtx);
-                    } catch (Throwable ignored) {
+                    } catch (RuntimeException ignored) {
                         // If we can't evaluate, assume it won't be skipped
                     }
                 }
@@ -1409,7 +1420,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                     try {
                         CommandContext tempCtx = CommandContext.createInternal(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
                         skippedByCondition = !arg.condition().test(tempCtx);
-                    } catch (Throwable ignored) {
+                    } catch (RuntimeException ignored) {
                         // If condition evaluation fails here, we already handled it during parsing
                     }
                 }
@@ -2114,7 +2125,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                     try {
                         CommandContext tempCtx = CommandContext.createInternal(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
                         willBeSkippedByCondition = !futureArg.condition().test(tempCtx);
-                    } catch (Throwable ignored) {
+                    } catch (RuntimeException ignored) {
                     }
                 }
 
@@ -2213,7 +2224,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                     try {
                         CommandContext tempCtx = CommandContext.createInternal(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
                         skippedByCondition = !arg.condition().test(tempCtx);
-                    } catch (Throwable ignored) {
+                    } catch (RuntimeException ignored) {
                     }
                 }
 
@@ -2522,7 +2533,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                     try {
                         CommandContext tempCtx = CommandContext.createInternal(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
                         willBeSkippedByCondition = !futureArg.condition().test(tempCtx);
-                    } catch (Throwable ignored) {
+                    } catch (RuntimeException ignored) {
                     }
                 }
 
@@ -2585,7 +2596,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                             if (!suggestions.isEmpty()) {
                                 parseError = parseError.withSuggestions(suggestions);
                             }
-                        } catch (Throwable ignored) {
+                        } catch (RuntimeException ignored) {
                             // Silently ignore errors in suggestion generation
                         }
                     }
@@ -2654,7 +2665,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                     try {
                         CommandContext tempCtx = CommandContext.createInternal(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
                         skippedByCondition = !arg.condition().test(tempCtx);
-                    } catch (Throwable ignored) {
+                    } catch (RuntimeException ignored) {
                     }
                 }
 

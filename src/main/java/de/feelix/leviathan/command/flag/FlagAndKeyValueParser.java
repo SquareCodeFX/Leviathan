@@ -6,7 +6,12 @@ import de.feelix.leviathan.command.argument.ParseResult;
 import de.feelix.leviathan.exceptions.ParsingException;
 import org.bukkit.command.CommandSender;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 /**

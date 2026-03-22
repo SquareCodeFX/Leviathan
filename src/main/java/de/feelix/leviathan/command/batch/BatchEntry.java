@@ -175,7 +175,7 @@ public final class BatchEntry<T> {
             if (result instanceof String) {
                 return (String) result;
             }
-        } catch (Exception ignored) {
+        } catch (ReflectiveOperationException ignored) {
             // Fall through to next attempt
         }
 
@@ -185,7 +185,7 @@ public final class BatchEntry<T> {
             if (result instanceof String) {
                 return (String) result;
             }
-        } catch (Exception ignored) {
+        } catch (ReflectiveOperationException ignored) {
             // Fall through to toString
         }
 

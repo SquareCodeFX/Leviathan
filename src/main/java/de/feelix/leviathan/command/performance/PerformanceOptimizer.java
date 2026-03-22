@@ -8,8 +8,12 @@ import de.feelix.leviathan.command.core.CommandContext;
 import de.feelix.leviathan.util.Preconditions;
 import org.bukkit.command.CommandSender;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -178,7 +182,7 @@ public final class PerformanceOptimizer {
      * @param builder the builder function
      * @return the built string
      */
-    public static @NotNull String buildString(@NotNull java.util.function.Consumer<StringBuilder> builder) {
+    public static @NotNull String buildString(@NotNull Consumer<StringBuilder> builder) {
         return PerformanceManager.getInstance().buildString(builder);
     }
 

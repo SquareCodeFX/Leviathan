@@ -7,10 +7,16 @@ import de.feelix.leviathan.command.error.ErrorType;
 import de.feelix.leviathan.util.Preconditions;
 import org.bukkit.command.CommandSender;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
@@ -349,7 +355,7 @@ public final class CommandParseResult {
     public @NotNull List<CommandParseError> errorsByType(@NotNull ErrorType type) {
         Preconditions.checkNotNull(type, "type");
         // Optimized: simple loop instead of stream for small error lists
-        List<CommandParseError> result = new java.util.ArrayList<>();
+        List<CommandParseError> result = new ArrayList<>();
         for (CommandParseError error : errors) {
             if (error.type() == type) {
                 result.add(error);
@@ -367,7 +373,7 @@ public final class CommandParseResult {
     public @NotNull List<CommandParseError> errorsByCategory(@NotNull ErrorType.ErrorCategory category) {
         Preconditions.checkNotNull(category, "category");
         // Optimized: simple loop instead of stream for small error lists
-        List<CommandParseError> result = new java.util.ArrayList<>();
+        List<CommandParseError> result = new ArrayList<>();
         for (CommandParseError error : errors) {
             if (error.type().getCategory() == category) {
                 result.add(error);
@@ -385,7 +391,7 @@ public final class CommandParseResult {
     public @NotNull List<CommandParseError> errorsForArgument(@NotNull String argumentName) {
         Preconditions.checkNotNull(argumentName, "argumentName");
         // Optimized: simple loop instead of stream for small error lists
-        List<CommandParseError> result = new java.util.ArrayList<>();
+        List<CommandParseError> result = new ArrayList<>();
         for (CommandParseError error : errors) {
             if (argumentName.equals(error.argumentName())) {
                 result.add(error);
@@ -440,7 +446,7 @@ public final class CommandParseResult {
             return this;
         }
         // Optimized: simple loop instead of stream
-        List<CommandParseError> mappedErrors = new java.util.ArrayList<>(errors.size());
+        List<CommandParseError> mappedErrors = new ArrayList<>(errors.size());
         for (CommandParseError error : errors) {
             mappedErrors.add(mapper.apply(error));
         }
@@ -462,7 +468,7 @@ public final class CommandParseResult {
             return this;
         }
         // Optimized: simple loop instead of stream
-        List<CommandParseError> filteredErrors = new java.util.ArrayList<>();
+        List<CommandParseError> filteredErrors = new ArrayList<>();
         for (CommandParseError error : errors) {
             if (predicate.test(error)) {
                 filteredErrors.add(error);
@@ -611,7 +617,7 @@ public final class CommandParseResult {
      * @throws X if parsing failed
      */
     public <X extends Throwable> @NotNull CommandContext orElseThrow(
-        @NotNull java.util.function.Supplier<? extends X> exceptionSupplier) throws X {
+        @NotNull Supplier<? extends X> exceptionSupplier) throws X {
         Preconditions.checkNotNull(exceptionSupplier, "exceptionSupplier");
         if (context != null) {
             return context;
@@ -628,7 +634,7 @@ public final class CommandParseResult {
      */
     public @NotNull List<String> errorMessages() {
         // Optimized: simple loop instead of stream
-        List<String> messages = new java.util.ArrayList<>(errors.size());
+        List<String> messages = new ArrayList<>(errors.size());
         for (CommandParseError error : errors) {
             messages.add(error.message());
         }
@@ -662,7 +668,7 @@ public final class CommandParseResult {
      */
     public @NotNull List<String> formattedErrors() {
         // Optimized: simple loop instead of stream
-        List<String> formatted = new java.util.ArrayList<>(errors.size());
+        List<String> formatted = new ArrayList<>(errors.size());
         for (CommandParseError error : errors) {
             formatted.add(error.toFormattedString());
         }

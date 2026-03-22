@@ -8,7 +8,13 @@ import de.feelix.leviathan.command.pagination.datasource.PaginationDataSource;
 import de.feelix.leviathan.command.pagination.domain.PaginatedResult;
 import lombok.Getter;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -175,7 +181,7 @@ public final class PaginationManager {
         services.values().forEach(service -> {
             try {
                 service.invalidateCache();
-            } catch (Exception ignored) {
+            } catch (UnsupportedOperationException ignored) {
                 // Some services might not have cache enabled
             }
         });

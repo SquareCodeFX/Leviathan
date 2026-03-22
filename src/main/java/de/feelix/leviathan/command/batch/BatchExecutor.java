@@ -278,9 +278,13 @@ public final class BatchExecutor {
                     config.timeoutMillis() > 0 ? config.timeoutMillis() : Long.MAX_VALUE,
                     TimeUnit.MILLISECONDS
             );
-        } catch (Exception e) {
-            // Timeout or interruption - mark remaining as skipped
+        } catch (java.util.concurrent.TimeoutException e) {
+            plugin.getLogger().log(Level.WARNING, "Batch execution timed out", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             plugin.getLogger().log(Level.WARNING, "Batch execution interrupted", e);
+        } catch (java.util.concurrent.ExecutionException e) {
+            plugin.getLogger().log(Level.WARNING, "Batch execution failed", e.getCause());
         }
 
         // Collect results

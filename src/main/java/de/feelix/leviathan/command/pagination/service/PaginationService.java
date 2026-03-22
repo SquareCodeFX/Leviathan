@@ -308,8 +308,10 @@ public final class PaginationService<T> {
                 executor.submit(() -> {
                     try {
                         getPage(pageToFetch);
-                    } catch (Exception ignored) {
-                        // Prefetch failures are non-critical
+                    } catch (RuntimeException e) {
+                        // Prefetch failures are non-critical; log at fine level for debugging
+                        java.util.logging.Logger.getLogger(PaginationService.class.getName())
+                            .log(java.util.logging.Level.FINE, "Prefetch failed for page " + pageToFetch, e);
                     }
                 });
             }

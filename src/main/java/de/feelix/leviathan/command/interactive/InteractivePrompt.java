@@ -11,9 +11,14 @@ import de.feelix.leviathan.util.Preconditions;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 /**
@@ -380,15 +385,11 @@ public final class InteractivePrompt {
          */
         @SuppressWarnings("unchecked")
         private @Nullable Object parseInput(@NotNull Arg<?> arg, @NotNull String input) {
-            try {
-                var result = arg.parser().parse(input, player);
-                if (result.isSuccess()) {
-                    return result.value().orElse(null);
-                }
-                return null;
-            } catch (Exception e) {
-                return null;
+            var result = arg.parser().parse(input, player);
+            if (result.isSuccess()) {
+                return result.value().orElse(null);
             }
+            return null;
         }
 
         /**

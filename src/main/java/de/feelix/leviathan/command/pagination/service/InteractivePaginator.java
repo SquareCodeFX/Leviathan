@@ -5,7 +5,12 @@ import de.feelix.leviathan.command.pagination.domain.PaginatedResult;
 import de.feelix.leviathan.command.pagination.exception.InvalidPageException;
 import lombok.Getter;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
@@ -83,8 +88,14 @@ public final class InteractivePaginator<T> {
                 return result;
             })
             .exceptionally(e -> {
-                fireEvent(PaginationEvent.error((Exception) e.getCause(), currentResult));
-                throw (RuntimeException) e.getCause();
+                Throwable cause = e.getCause() != null ? e.getCause() : e;
+                Exception errorForEvent = cause instanceof Exception
+                    ? (Exception) cause : new RuntimeException(cause);
+                fireEvent(PaginationEvent.error(errorForEvent, currentResult));
+                if (cause instanceof RuntimeException) {
+                    throw (RuntimeException) cause;
+                }
+                throw new RuntimeException(cause);
             });
     }
 
@@ -330,8 +341,10 @@ public final class InteractivePaginator<T> {
         for (Consumer<PaginationEvent<T>> listener : eventListeners) {
             try {
                 listener.accept(event);
-            } catch (Exception ignored) {
-                // Don't let listener exceptions break pagination
+            } catch (RuntimeException e) {
+                // Don't let listener exceptions break pagination, but log for debugging
+                java.util.logging.Logger.getLogger(InteractivePaginator.class.getName())
+                    .log(java.util.logging.Level.WARNING, "Pagination event listener threw exception", e);
             }
         }
     }

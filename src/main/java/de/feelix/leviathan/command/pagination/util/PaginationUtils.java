@@ -8,7 +8,11 @@ import de.feelix.leviathan.command.pagination.domain.PageInfo;
 import de.feelix.leviathan.command.pagination.domain.PaginatedResult;
 import de.feelix.leviathan.command.pagination.exception.InvalidPageException;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
