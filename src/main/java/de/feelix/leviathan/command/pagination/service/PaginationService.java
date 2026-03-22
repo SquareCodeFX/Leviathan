@@ -278,7 +278,7 @@ public final class PaginationService<T> {
             throw new IllegalArgumentException("Start page must be <= end page");
         }
 
-        List<CompletableFuture<PaginatedResult<T>>> futures = java.util.stream.IntStream
+        List<CompletableFuture<PaginatedResult<T>>> futures = IntStream
             .rangeClosed(startPage, endPage)
             .mapToObj(this::getPageAsync)
             .toList();

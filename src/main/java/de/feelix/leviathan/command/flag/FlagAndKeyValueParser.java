@@ -179,9 +179,9 @@ public final class FlagAndKeyValueParser {
                 shortFormCache.put(flag.shortForm(), flag);
             }
             if (flag.longForm() != null) {
-                longFormCache.put(flag.longForm().toLowerCase(java.util.Locale.ROOT), flag);
+                longFormCache.put(flag.longForm().toLowerCase(Locale.ROOT), flag);
                 if (flag.supportsNegation()) {
-                    negatedLongFormCache.put(("no-" + flag.longForm()).toLowerCase(java.util.Locale.ROOT), flag);
+                    negatedLongFormCache.put(("no-" + flag.longForm()).toLowerCase(Locale.ROOT), flag);
                 }
             }
         }
@@ -189,7 +189,7 @@ public final class FlagAndKeyValueParser {
         this.keyValueCache = new HashMap<>();
         this.separatorPatterns = new HashMap<>();
         for (KeyValue<?> kv : keyValues) {
-            keyValueCache.put(kv.key().toLowerCase(java.util.Locale.ROOT), kv);
+            keyValueCache.put(kv.key().toLowerCase(Locale.ROOT), kv);
             // Pre-compile separator patterns for multi-value key-values
             if (kv.multipleValues() && kv.valueSeparator() != null) {
                 separatorPatterns.put(kv.name(), Pattern.compile(Pattern.quote(kv.valueSeparator())));
@@ -514,7 +514,7 @@ public final class FlagAndKeyValueParser {
      * Uses O(1) HashMap lookup instead of O(n) linear search.
      */
     private @Nullable Flag findFlagByLongForm(@NotNull String form) {
-        return longFormCache.get(form.toLowerCase(java.util.Locale.ROOT));
+        return longFormCache.get(form.toLowerCase(Locale.ROOT));
     }
 
     /**
@@ -522,7 +522,7 @@ public final class FlagAndKeyValueParser {
      * Uses O(1) HashMap lookup instead of O(n) linear search.
      */
     private @Nullable Flag findFlagByNegatedLongForm(@NotNull String form) {
-        return negatedLongFormCache.get(form.toLowerCase(java.util.Locale.ROOT));
+        return negatedLongFormCache.get(form.toLowerCase(Locale.ROOT));
     }
 
     /**
@@ -530,7 +530,7 @@ public final class FlagAndKeyValueParser {
      * Uses O(1) HashMap lookup instead of O(n) linear search.
      */
     private @Nullable KeyValue<?> findKeyValueByKey(@NotNull String key) {
-        return keyValueCache.get(key.toLowerCase(java.util.Locale.ROOT));
+        return keyValueCache.get(key.toLowerCase(Locale.ROOT));
     }
 
     /**
