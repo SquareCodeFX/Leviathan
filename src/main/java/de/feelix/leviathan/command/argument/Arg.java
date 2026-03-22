@@ -95,7 +95,7 @@ public final class Arg<T> {
         OptionType inferred;
         try {
             inferred = OptionType.fromTypeName(this.parser.getTypeName());
-        } catch (Throwable t) {
+        } catch (RuntimeException e) {
             inferred = OptionType.UNKNOWN;
         }
         this.optionType = inferred;

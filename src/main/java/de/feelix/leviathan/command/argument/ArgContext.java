@@ -1081,8 +1081,7 @@ public final class ArgContext {
          * @return this builder
          */
         public @NotNull Builder rangeHint(int min, int max) {
-            this.completionsPredefined = new ArrayList<>();
-            this.completionsPredefined.add("[" + min + "-" + max + "]");
+            this.completionsPredefined = new ArrayList<>(List.of("[" + min + "-" + max + "]"));
             return this;
         }
 
@@ -1096,8 +1095,7 @@ public final class ArgContext {
          * @return this builder
          */
         public @NotNull Builder rangeHint(long min, long max) {
-            this.completionsPredefined = new ArrayList<>();
-            this.completionsPredefined.add("[" + min + "-" + max + "]");
+            this.completionsPredefined = new ArrayList<>(List.of("[" + min + "-" + max + "]"));
             return this;
         }
 
@@ -1111,8 +1109,7 @@ public final class ArgContext {
          * @return this builder
          */
         public @NotNull Builder rangeHint(double min, double max) {
-            this.completionsPredefined = new ArrayList<>();
-            this.completionsPredefined.add("[" + min + "-" + max + "]");
+            this.completionsPredefined = new ArrayList<>(List.of("[" + min + "-" + max + "]"));
             return this;
         }
 
