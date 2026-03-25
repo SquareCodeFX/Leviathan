@@ -122,7 +122,10 @@ public final class PaginationManager {
      */
     @SuppressWarnings("unchecked")
     public <T> Optional<PaginationService<T>> getService(String name) {
-        return Optional.ofNullable((PaginationService<T>) services.get(name));
+        // Note: This cast is unchecked due to type erasure in the service registry.
+        // Callers must ensure the requested type T matches the type used at registration time.
+        PaginationService<?> service = services.get(name);
+        return Optional.ofNullable((PaginationService<T>) service);
     }
 
     /**

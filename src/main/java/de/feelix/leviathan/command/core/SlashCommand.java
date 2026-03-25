@@ -75,6 +75,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -104,6 +105,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
     // Lazy cleanup for confirmations
     private static final AtomicLong confirmationOpCount = new AtomicLong(0);
     private static final int CONFIRMATION_CLEANUP_INTERVAL = 20; // Clean every N operations
+
+    private static final Logger LOGGER = Logger.getLogger(SlashCommand.class.getName());
 
     // Cached regex pattern for whitespace normalization (avoids recompilation on every call)
     private static final Pattern WHITESPACE_PATTERN = Pattern.compile("\\s+");
@@ -1272,8 +1275,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                     try {
                         CommandContext tempCtx = CommandContext.createInternal(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
                         willBeSkippedByCondition = !futureArg.condition().test(tempCtx);
-                    } catch (RuntimeException ignored) {
-                        // If we can't evaluate, assume it won't be skipped
+                    } catch (RuntimeException e) {
+                        LOGGER.log(Level.FINE, "Exception evaluating argument condition", e);
                     }
                 }
 
@@ -2070,7 +2073,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         String[] positionalArgs = providedArgs;
 
         if (!flags.isEmpty() || !keyValues.isEmpty()) {
-            FlagAndKeyValueParser flagKvParser = new FlagAndKeyValueParser(flags, keyValues);
+            FlagAndKeyValueParser flagKvParser = cachedFlagKvParser != null ? cachedFlagKvParser : new FlagAndKeyValueParser(flags, keyValues);
             FlagAndKeyValueParser.ParsedResult flagKvResult = flagKvParser.parse(providedArgs, sender);
 
             if (!flagKvResult.isSuccess()) {
@@ -2470,7 +2473,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         String[] positionalArgs = providedArgs;
 
         if (!flags.isEmpty() || !keyValues.isEmpty()) {
-            FlagAndKeyValueParser flagKvParser = new FlagAndKeyValueParser(flags, keyValues);
+            FlagAndKeyValueParser flagKvParser = cachedFlagKvParser != null ? cachedFlagKvParser : new FlagAndKeyValueParser(flags, keyValues);
             FlagAndKeyValueParser.ParsedResult flagKvResult = flagKvParser.parse(providedArgs, sender);
 
             if (!flagKvResult.isSuccess()) {
