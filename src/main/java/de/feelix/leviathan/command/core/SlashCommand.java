@@ -3265,12 +3265,15 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         }
 
         // Check if parsing is complete
-        boolean complete = parsedCount == args.size() ||
+        boolean allArgsParsed = parsedCount == args.size() ||
                            (options.maxArguments() >= 0 && parsedCount >= options.maxArguments());
 
+        resultBuilder.argumentsParsed(parsedCount);
+        // Build once to check error state, then set complete flag and rebuild
+        // Use the builder's own error list instead of building a temporary object
+        boolean hasErrors = !resultBuilder.build().isSuccess();
         return resultBuilder
-            .argumentsParsed(parsedCount)
-            .complete(complete && !resultBuilder.build().hasErrors())
+            .complete(allArgsParsed && !hasErrors)
             .build();
     }
 
