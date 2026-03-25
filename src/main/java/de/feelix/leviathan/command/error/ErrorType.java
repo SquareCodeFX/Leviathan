@@ -48,6 +48,16 @@ public enum ErrorType {
     ),
 
     /**
+     * Command is on cooldown
+     */
+    COOLDOWN(
+        ErrorCategory.ACCESS,
+        "The command is on cooldown for this sender",
+        "Wait for the cooldown to expire before retrying",
+        "Consider adjusting cooldown duration if too restrictive"
+    ),
+
+    /**
      * Argument permission denied
      */
     ARGUMENT_PERMISSION(

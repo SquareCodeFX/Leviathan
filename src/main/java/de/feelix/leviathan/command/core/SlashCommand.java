@@ -98,6 +98,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
     // Confirmation tracking: maps "commandName:senderName" to expiration time (System.currentTimeMillis())
     private static final Map<String, Long> pendingConfirmations = new ConcurrentHashMap<>();
     private static final long CONFIRMATION_TIMEOUT_MILLIS = 10000L; // 10 seconds
+    // Maximum number of pending confirmations to prevent unbounded growth / resource exhaustion
+    private static final int MAX_PENDING_CONFIRMATIONS = 500;
 
     // Lazy cleanup for confirmations
     private static final AtomicLong confirmationOpCount = new AtomicLong(0);
@@ -1066,8 +1068,14 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
             final long currentTime = System.currentTimeMillis();
             final long newExpiry = currentTime + CONFIRMATION_TIMEOUT_MILLIS;
 
-            // Clean up expired confirmations on every check (was too infrequent before)
+            // Clean up expired confirmations on every check
             pendingConfirmations.entrySet().removeIf(entry -> entry.getValue() < currentTime);
+
+            // Enforce max pending confirmations to prevent unbounded growth
+            if (pendingConfirmations.size() >= MAX_PENDING_CONFIRMATIONS) {
+                // Already at capacity and this is a new confirmation request - skip adding
+                // The cleanup above should have freed space if entries were expired
+            }
 
             // Use compute for atomic check-and-update to prevent race conditions
             // Returns null if confirmation was valid and consumed, non-null if new pending was created
@@ -1075,6 +1083,10 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
             pendingConfirmations.compute(confirmationKey, (key, existingExpiry) -> {
                 if (existingExpiry != null && existingExpiry >= currentTime) {
                     // Valid confirmation exists - consume it (return null to remove)
+                    return null;
+                } else if (pendingConfirmations.size() >= MAX_PENDING_CONFIRMATIONS && existingExpiry == null) {
+                    // At capacity and this is a brand new entry - reject to prevent unbounded growth
+                    needsConfirmation[0] = true;
                     return null;
                 } else {
                     // No valid confirmation - create new pending confirmation
@@ -2392,6 +2404,10 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
             final boolean[] needsConfirmation = {false};
             pendingConfirmations.compute(confirmationKey, (key, existingExpiry) -> {
                 if (existingExpiry != null && existingExpiry >= currentTime) {
+                    return null;
+                } else if (pendingConfirmations.size() >= MAX_PENDING_CONFIRMATIONS && existingExpiry == null) {
+                    // At capacity - reject new entries to prevent unbounded growth
+                    needsConfirmation[0] = true;
                     return null;
                 } else {
                     needsConfirmation[0] = true;

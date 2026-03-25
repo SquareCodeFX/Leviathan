@@ -451,14 +451,13 @@ public final class ResultCache {
      * Uses a synchronized block to make the check-then-evict operation atomic.
      */
     private void ensureCapacity() {
-        if (cache.size() >= maxSize) {
-            synchronized (this) {
-                if (cache.size() >= maxSize) {
-                    evictExpired();
-                }
-                if (cache.size() >= maxSize) {
-                    evictOldest();
-                }
+        // Use synchronized for the entire check-then-evict sequence to avoid TOCTOU race
+        synchronized (this) {
+            if (cache.size() >= maxSize) {
+                evictExpired();
+            }
+            if (cache.size() >= maxSize) {
+                evictOldest();
             }
         }
     }

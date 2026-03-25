@@ -1,6 +1,7 @@
 package de.feelix.leviathan.command.parsing;
 
 import de.feelix.leviathan.annotations.NotNull;
+import de.feelix.leviathan.annotations.Nullable;
 import de.feelix.leviathan.util.Preconditions;
 
 import java.util.ArrayList;
@@ -79,7 +80,7 @@ public final class QuotedStringTokenizer {
         /**
          * @return the error message, or null if successful
          */
-        public String error() {
+        public @Nullable String error() {
             return error;
         }
     }

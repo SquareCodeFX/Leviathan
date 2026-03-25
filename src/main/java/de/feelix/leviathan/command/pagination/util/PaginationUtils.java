@@ -35,7 +35,9 @@ public final class PaginationUtils {
         if (pageSize <= 0) {
             throw new IllegalArgumentException("Page size must be positive");
         }
-        return (int) Math.ceil((double) totalElements / pageSize);
+        // Use integer arithmetic to avoid double precision issues and int overflow
+        long pages = (totalElements + pageSize - 1) / pageSize;
+        return (int) Math.min(pages, Integer.MAX_VALUE);
     }
 
     /**

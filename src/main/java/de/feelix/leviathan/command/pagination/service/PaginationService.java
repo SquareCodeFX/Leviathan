@@ -468,7 +468,8 @@ public final class PaginationService<T> {
         if (totalElements == 0) {
             return 1;
         }
-        return (int) Math.ceil((double) totalElements / config.getPageSize());
+        long pages = (totalElements + config.getPageSize() - 1) / config.getPageSize();
+        return (int) Math.min(pages, Integer.MAX_VALUE);
     }
 
     /**

@@ -94,9 +94,14 @@ public final class InteractivePrompt {
 
     /**
      * Clear all sessions. Use with caution - primarily for plugin shutdown.
-     * This will not trigger onCancel callbacks.
+     * Cancels all active sessions before clearing.
      */
     public static void clearAllSessions() {
+        for (PromptSession session : activeSessions.values()) {
+            if (session.isActive()) {
+                session.cancel();
+            }
+        }
         activeSessions.clear();
     }
 

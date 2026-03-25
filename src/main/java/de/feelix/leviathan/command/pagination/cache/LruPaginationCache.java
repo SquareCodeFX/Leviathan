@@ -203,8 +203,9 @@ public final class LruPaginationCache<K, V> implements PaginationCache<K, V> {
         // Lazy cleanup on access
         lazyCleanup();
 
-        // First, try with read lock only
-        lock.readLock().lock();
+        // Must use write lock because LinkedHashMap with accessOrder=true
+        // mutates internal linked list structure on get() calls
+        lock.writeLock().lock();
         try {
             CacheEntry<V> entry = cache.get(key);
             if (entry == null) {
@@ -216,25 +217,15 @@ public final class LruPaginationCache<K, V> implements PaginationCache<K, V> {
                 hitCount.incrementAndGet();
                 return Optional.of(entry.getValue());
             }
-            // Entry is expired - need to remove it
-            missCount.incrementAndGet();
-        } finally {
-            lock.readLock().unlock();
-        }
 
-        // Upgrade to write lock for removal (outside read lock to avoid deadlock)
-        lock.writeLock().lock();
-        try {
-            // Re-check in case another thread already removed it
-            CacheEntry<V> entry = cache.get(key);
-            if (entry != null && entry.isExpired()) {
-                cache.remove(key);
-                evictionCount.incrementAndGet();
-            }
+            // Entry is expired - remove it
+            missCount.incrementAndGet();
+            cache.remove(key);
+            evictionCount.incrementAndGet();
+            return Optional.empty();
         } finally {
             lock.writeLock().unlock();
         }
-        return Optional.empty();
     }
 
     @Override
@@ -344,11 +335,12 @@ public final class LruPaginationCache<K, V> implements PaginationCache<K, V> {
 
     @Override
     public int size() {
-        lock.readLock().lock();
+        // Use write lock because access-order LinkedHashMap is not safe for concurrent reads
+        lock.writeLock().lock();
         try {
             return cache.size();
         } finally {
-            lock.readLock().unlock();
+            lock.writeLock().unlock();
         }
     }
 
@@ -359,7 +351,7 @@ public final class LruPaginationCache<K, V> implements PaginationCache<K, V> {
 
     @Override
     public CacheStats getStats() {
-        lock.readLock().lock();
+        lock.writeLock().lock();
         try {
             return CacheStats.builder()
                 .hitCount(hitCount.get())
@@ -372,7 +364,7 @@ public final class LruPaginationCache<K, V> implements PaginationCache<K, V> {
                 .maxSize(maxSize)
                 .build();
         } finally {
-            lock.readLock().unlock();
+            lock.writeLock().unlock();
         }
     }
 

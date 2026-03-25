@@ -29,6 +29,8 @@ public final class WizardManager {
 
     // Active sessions: player UUID -> session
     private static final Map<UUID, WizardSession> activeSessions = new ConcurrentHashMap<>();
+    // Maximum number of concurrent sessions to prevent unbounded memory growth
+    private static final int MAX_ACTIVE_SESSIONS = 200;
 
     // Lazy cleanup tracking
     private static final AtomicLong operationCount = new AtomicLong(0);
@@ -136,6 +138,14 @@ public final class WizardManager {
         // Cancel any existing session
         cancelSession(player);
 
+        // Enforce max sessions to prevent unbounded memory growth
+        if (activeSessions.size() >= MAX_ACTIVE_SESSIONS) {
+            cleanupExpiredSessions();
+            if (activeSessions.size() >= MAX_ACTIVE_SESSIONS) {
+                throw new IllegalStateException("Maximum number of concurrent wizard sessions (" + MAX_ACTIVE_SESSIONS + ") reached");
+            }
+        }
+
         // Create and start new session
         WizardSession session = WizardSession.start(plugin, player, definition, commandContext);
         activeSessions.put(player.getUniqueId(), session);
@@ -144,7 +154,7 @@ public final class WizardManager {
         if (definition.timeoutMillis() > 0) {
             plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
                 WizardSession s = activeSessions.get(player.getUniqueId());
-                if (s != null && s.sessionId().equals(session.sessionId()) && s.isTimedOut()) {
+                if (s != null && s.sessionId().equals(session.sessionId()) && s.isActive() && s.isTimedOut()) {
                     s.timeout();
                     activeSessions.remove(player.getUniqueId());
                 }
@@ -205,9 +215,11 @@ public final class WizardManager {
             return false;
         }
 
-        // Check timeout
+        // Check timeout - only call timeout() if still active to prevent double-handling
         if (session.isTimedOut()) {
-            session.timeout();
+            if (session.isActive()) {
+                session.timeout();
+            }
             activeSessions.remove(player.getUniqueId());
             return true;
         }

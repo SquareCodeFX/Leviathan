@@ -5,6 +5,8 @@ import de.feelix.leviathan.annotations.Nullable;
 import de.feelix.leviathan.util.Preconditions;
 
 import java.util.function.Predicate;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Represents a selectable option in a wizard node.
@@ -153,6 +155,8 @@ public final class WizardOption {
         try {
             return condition.test(context);
         } catch (Exception e) {
+            Logger.getLogger(WizardOption.class.getName())
+                .log(Level.WARNING, "Exception in wizard option condition for '" + displayText + "'", e);
             return false;
         }
     }

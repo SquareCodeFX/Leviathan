@@ -239,8 +239,10 @@ public final class CooldownManager {
         long currentTime = System.currentTimeMillis();
         int cleanedCount = 0;
 
-        // Cleanup per-user cooldowns
-        for (Map.Entry<String, Map<String, Long>> commandEntry : perUserCooldowns.entrySet()) {
+        // Cleanup per-user cooldowns using iterator to safely remove entries during iteration
+        Iterator<Map.Entry<String, Map<String, Long>>> commandIterator = perUserCooldowns.entrySet().iterator();
+        while (commandIterator.hasNext()) {
+            Map.Entry<String, Map<String, Long>> commandEntry = commandIterator.next();
             String commandName = commandEntry.getKey();
             Map<String, Long> userCooldowns = commandEntry.getValue();
             Long duration = userCooldownDurations.get(commandName);
@@ -252,18 +254,18 @@ public final class CooldownManager {
             // Add grace period to avoid cleaning up entries too early
             long expirationThreshold = currentTime - duration - CLEANUP_GRACE_PERIOD_MS;
 
-            Iterator<Map.Entry<String, Long>> iterator = userCooldowns.entrySet().iterator();
-            while (iterator.hasNext()) {
-                Map.Entry<String, Long> userEntry = iterator.next();
+            Iterator<Map.Entry<String, Long>> userIterator = userCooldowns.entrySet().iterator();
+            while (userIterator.hasNext()) {
+                Map.Entry<String, Long> userEntry = userIterator.next();
                 if (userEntry.getValue() < expirationThreshold) {
-                    iterator.remove();
+                    userIterator.remove();
                     cleanedCount++;
                 }
             }
 
-            // Remove empty command maps
+            // Remove empty command maps using the command iterator
             if (userCooldowns.isEmpty()) {
-                perUserCooldowns.remove(commandName);
+                commandIterator.remove();
                 userCooldownDurations.remove(commandName);
             }
         }

@@ -12,6 +12,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Describes a single command argument with its parser and metadata.
@@ -96,6 +98,8 @@ public final class Arg<T> {
         try {
             inferred = OptionType.fromTypeName(this.parser.getTypeName());
         } catch (RuntimeException e) {
+            Logger.getLogger(Arg.class.getName())
+                .log(Level.FINE, "Could not infer OptionType for argument '" + name + "' from parser type '" + this.parser.getTypeName() + "'", e);
             inferred = OptionType.UNKNOWN;
         }
         this.optionType = inferred;
