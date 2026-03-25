@@ -3052,6 +3052,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
 
         Map<CommandSender, CommandParseResult> results = new LinkedHashMap<>();
         for (CommandSender sender : senders) {
+            if (sender == null) continue; // Skip null elements to prevent NPE
             results.put(sender, parse(sender, label, providedArgs));
         }
         return Collections.unmodifiableMap(results);
@@ -3077,6 +3078,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
 
         Map<CommandSender, CommandParseResult> results = new LinkedHashMap<>();
         for (CommandSender sender : senders) {
+            if (sender == null) continue; // Skip null elements to prevent NPE
             results.put(sender, parse(sender, label, providedArgs, options));
         }
         return Collections.unmodifiableMap(results);

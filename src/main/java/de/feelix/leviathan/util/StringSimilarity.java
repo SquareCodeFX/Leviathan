@@ -261,7 +261,11 @@ public final class StringSimilarity {
 
             if (distance <= maxAllowedDistance) {
                 double sim = 1.0 - ((double) distance / maxLen);
-                results.add(new SimilarityResult(candidate, sim));
+                // Precise check: ensure actual similarity meets the threshold
+                // (maxAllowedDistance is rounded for early termination, so verify exactly)
+                if (sim >= minSimilarity) {
+                    results.add(new SimilarityResult(candidate, sim));
+                }
             }
         }
 

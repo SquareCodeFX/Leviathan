@@ -1,6 +1,7 @@
 package de.feelix.leviathan.command.wizard;
 
 import de.feelix.leviathan.annotations.NotNull;
+import de.feelix.leviathan.util.Preconditions;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -53,9 +54,7 @@ public final class WizardChatListener implements Listener {
      * @param plugin the plugin to register with
      */
     public static void register(@NotNull JavaPlugin plugin) {
-        if (plugin == null) {
-            return;
-        }
+        Preconditions.checkNotNull(plugin, "plugin");
         synchronized (REGISTRATION_LOCK) {
             if (!registered) {
                 WizardChatListener listener = new WizardChatListener(plugin);

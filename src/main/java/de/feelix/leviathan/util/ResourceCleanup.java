@@ -6,6 +6,7 @@ import de.feelix.leviathan.command.core.SlashCommand;
 import de.feelix.leviathan.command.interactive.InteractivePrompt;
 import de.feelix.leviathan.command.performance.ArgumentCache;
 import de.feelix.leviathan.command.performance.CommandPrecompiler;
+import de.feelix.leviathan.command.wizard.WizardChatListener;
 import de.feelix.leviathan.command.wizard.WizardManager;
 
 import java.util.UUID;
@@ -62,6 +63,8 @@ public final class ResourceCleanup {
         // Clean up caches and compiled command data
         ArgumentCache.clearAll();
         CommandPrecompiler.clearAll();
+        // Reset wizard listener registration so it re-registers on next plugin enable
+        WizardChatListener.resetRegistration();
     }
 
     /**
