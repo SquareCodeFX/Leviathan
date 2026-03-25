@@ -19,9 +19,9 @@ SlashCommand cmd = SlashCommand.create("greet")
     .aliases("hello", "hi")
     .playersOnly()
     .argPlayer("target")
-    .executes(ctx -> {
+    .executes((sender, ctx) -> {
         Player p = ctx.get("target", Player.class);
-        ctx.get("sender", CommandSender.class).sendMessage("Hello, " + p.getName());
+        sender.sendMessage("Hello, " + p.getName());
     })
     .build();
 
@@ -113,18 +113,17 @@ Retrieve at runtime via `CommandContext.getKeyValue*(...)` or `getKeyValue(name,
 
 #### Metrics
 
-- `enableMetrics(boolean)` — Enable execution metrics collection. Default: false.
+**Note:** `CommandMetrics` is available as a standalone utility class but is not currently wired into the builder API. Use `CommandMetrics` directly for custom metrics tracking.
 
-When enabled, access metrics via `SlashCommand.metrics()`:
+~~`enableMetrics(boolean)`~~ and ~~`SlashCommand.metrics()`~~ do not exist on the builder or `SlashCommand`. The example below shows the `CommandMetrics` API when used standalone:
 
 ```java
 SlashCommand cmd = SlashCommand.create("example")
-    .enableMetrics(true)
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 
-// Later, retrieve metrics
-CommandMetrics metrics = cmd.metrics();
+// Use CommandMetrics directly as a standalone utility
+CommandMetrics metrics = new CommandMetrics();
 
 // Get individual statistics
 long total = metrics.getTotalExecutions();
@@ -194,4 +193,4 @@ Argument groups are validated after parsing. See [Guards-Validation-Permissions]
 #### Produce & Register
 
 - `build()` — Produce an immutable `SlashCommand`.
-- `register(JavaPlugin plugin)` — Shortcut to build and register in one chain in some flows; typically call on the built `SlashCommand`.
+- `register(JavaPlugin plugin)` — Called on the built `SlashCommand` instance (not on the builder). Always call `build()` first, then `register(plugin)` on the resulting `SlashCommand`.

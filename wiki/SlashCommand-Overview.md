@@ -26,8 +26,7 @@ This page introduces the Leviathan SlashCommand system: the architecture, lifecy
 ```java
 SlashCommand ping = SlashCommand.create("ping")
     .description("Simple latency check")
-    .executes(ctx -> {
-        CommandSender sender = ctx.get("sender", CommandSender.class);
+    .executes((sender, ctx) -> {
         sender.sendMessage("Pong!");
     })
     .build();
@@ -42,10 +41,10 @@ Attach hierarchical subcommands to create powerful command trees:
 ```java
 SlashCommand mathAdd = SlashCommand.create("add")
     .argInt("a").argInt("b")
-    .executes(ctx -> {
+    .executes((sender, ctx) -> {
         int a = ctx.get("a", Integer.class);
         int b = ctx.get("b", Integer.class);
-        ctx.get("sender", CommandSender.class).sendMessage("= " + (a + b));
+        sender.sendMessage("= " + (a + b));
     })
     .build();
 

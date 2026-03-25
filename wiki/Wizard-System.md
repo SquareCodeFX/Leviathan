@@ -79,14 +79,14 @@ Collect typed input from the user:
 Execute code and continue to another node:
 
 ```java
-.action("validate", ctx -> {
+.node(WizardNode.action("validate", ctx -> {
     // Perform validation or intermediate processing
     int amount = ctx.getInt("amount", 1);
     if (amount > 64) {
         ctx.player().sendMessage("Amount too high, setting to 64.");
-        ctx.put("amount", 64);
+        ctx.set("amount", 64);
     }
-}, "next-step")
+}).nextNode("next-step").build())
 ```
 
 ##### Terminal Nodes
@@ -157,10 +157,10 @@ The `WizardContext` provides access to collected data and navigation:
     }
 
     // Get the path taken through the wizard
-    List<String> path = ctx.navigationHistory();
+    List<String> path = ctx.navigationPath();
 
     // Get all choices made
-    Map<String, String> choices = ctx.choices();
+    List<WizardChoice> choices = ctx.choices();
 
     // Access the original command context
     CommandContext cmdCtx = ctx.commandContext();
@@ -209,7 +209,7 @@ Skip nodes based on previous answers:
     .option("diamond", "Diamond Armor", "enchant")
     .option("iron", "Iron Armor", "enchant")
     .option("none", "No Armor", "weapons")  // Skip enchant step
-    .skipIf(ctx -> ctx.getString("type", "").equals("utility"))
+    .skipWhen(ctx -> ctx.getString("type", "").equals("utility"))
 )
 ```
 
@@ -219,7 +219,7 @@ Configure session timeout:
 
 ```java
 WizardDefinition wizard = WizardDefinition.builder("setup")
-    .timeout(Duration.ofMinutes(5))  // Session expires after 5 minutes
+    .timeout(5, TimeUnit.MINUTES)  // Session expires after 5 minutes
     .timeoutMessage("Session expired. Please start again.")
     // ... nodes
     .build();
@@ -269,7 +269,7 @@ public void onQuit(PlayerQuitEvent event) {
 ```java
 WizardDefinition warpWizard = WizardDefinition.builder("create-warp")
     .description("Create a new warp point")
-    .timeout(Duration.ofMinutes(3))
+    .timeout(3, TimeUnit.MINUTES)
 
     // Step 1: Enter warp name
     .input("name", "warpName", "Enter the warp name:", ArgParsers.stringParser(), "visibility")

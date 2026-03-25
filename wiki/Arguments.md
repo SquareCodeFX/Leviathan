@@ -18,7 +18,7 @@ Example:
 SlashCommand tp = SlashCommand.create("tp")
     .argPlayer("target")
     .argWorld("world")
-    .executes(ctx -> {
+    .executes((sender, ctx) -> {
         Player target = ctx.get("target", Player.class);
         World world = ctx.get("world", World.class);
         // ... teleport logic
@@ -51,7 +51,7 @@ levels.put("hard", 3);
 
 SlashCommand set = SlashCommand.create("setdifficulty")
     .argChoices("mode", levels, "difficulty")
-    .executes(ctx -> {
+    .executes((sender, ctx) -> {
         int level = ctx.get("mode", Integer.class);
         // apply difficulty level
     })
@@ -234,7 +234,7 @@ SlashCommand give = SlashCommand.create("give")
     .argMaterial("item")
     .argIf("amount", ArgParsers.INT, ctx -> ctx.getFlag("bulk"))
     .flagLong("bulk", "bulk")
-    .executes(ctx -> {
+    .executes((sender, ctx) -> {
         int amount = ctx.getOrDefault("amount", Integer.class, 1);
         // ...
     })
@@ -296,7 +296,7 @@ Use `arg(name, ArgumentParser<T> parser)` to plug your own parser. Combine with 
 ```java
 SlashCommand custom = SlashCommand.create("custom")
     .arg("color", ArgParsers.enumParser(ChatColor.class))
-    .executes(ctx -> {
+    .executes((sender, ctx) -> {
         ChatColor c = ctx.get("color", ChatColor.class);
     })
     .build();
@@ -362,11 +362,11 @@ Using the fluent Arg API:
 
 ```java
 SlashCommand cmd = SlashCommand.create("give")
-    .arg(Arg.of("player", ArgParsers.PLAYER)
-        .withAliases("p", "target"))
-    .arg(Arg.of("amount", ArgParsers.INT)
-        .withAlias("amt")
-        .withAlias("n"))
+    .arg(new Arg<>("player", ArgParsers.PLAYER, ArgContext.builder()
+        .withAliases("p", "target").build()))
+    .arg(new Arg<>("amount", ArgParsers.INT, ArgContext.builder()
+        .addAlias("amt")
+        .addAlias("n").build()))
     .executes((sender, ctx) -> {
         // Access by alias
         Player p = ctx.get("p", Player.class);
@@ -414,8 +414,8 @@ Or using the fluent Arg API:
 
 ```java
 SlashCommand ban = SlashCommand.create("ban")
-    .argPlayer("target").withDescription("The player to ban")
-    .argString("reason").optional(true).withDescription("Reason for the ban")
+    .arg(new Arg<>("target", ArgParsers.playerParser(), ArgContext.builder().description("The player to ban").build()))
+    .arg(new Arg<>("reason", ArgParsers.stringParser(), ArgContext.builder().optional(true).description("Reason for the ban").build()))
     .executes((sender, ctx) -> { /* ... */ })
     .build();
 ```
@@ -492,8 +492,9 @@ For complex validation logic beyond simple ranges and patterns, use custom valid
 ##### Validator Interface
 
 ```java
+// Validator is a nested interface inside ArgContext
 @FunctionalInterface
-public interface Validator<T> {
+public interface ArgContext.Validator<T> {
     /**
      * @param value the value to validate
      * @return null if valid, or an error message if invalid
@@ -506,7 +507,7 @@ public interface Validator<T> {
 
 ```java
 // Validate username format
-Validator<String> usernameValidator = value -> {
+ArgContext.Validator<String> usernameValidator = value -> {
     if (value == null || value.isEmpty()) {
         return "Username cannot be empty";
     }
@@ -529,7 +530,7 @@ SlashCommand register = SlashCommand.create("register")
     .argString("username", ArgContext.builder()
         .addValidator(usernameValidator)
         .build())
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 ```
 
@@ -538,13 +539,13 @@ SlashCommand register = SlashCommand.create("register")
 You can chain multiple validators — they run in order, and the first error stops validation:
 
 ```java
-Validator<Integer> positiveValidator = value ->
+ArgContext.Validator<Integer> positiveValidator = value ->
     value == null || value <= 0 ? "Value must be positive" : null;
 
-Validator<Integer> evenValidator = value ->
+ArgContext.Validator<Integer> evenValidator = value ->
     value != null && value % 2 != 0 ? "Value must be even" : null;
 
-Validator<Integer> maxValidator = value ->
+ArgContext.Validator<Integer> maxValidator = value ->
     value != null && value > 1000 ? "Value cannot exceed 1000" : null;
 
 ArgContext ctx = ArgContext.builder()
@@ -555,7 +556,7 @@ ArgContext ctx = ArgContext.builder()
 
 SlashCommand cmd = SlashCommand.create("setvalue")
     .argInt("value", ctx)
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 ```
 
@@ -564,7 +565,7 @@ SlashCommand cmd = SlashCommand.create("setvalue")
 **Email validator:**
 
 ```java
-Validator<String> emailValidator = value -> {
+ArgContext.Validator<String> emailValidator = value -> {
     if (value == null) return "Email is required";
     if (!value.contains("@") || !value.contains(".")) {
         return "Invalid email format";
@@ -576,7 +577,7 @@ Validator<String> emailValidator = value -> {
 **Price validator (positive, max 2 decimals):**
 
 ```java
-Validator<Double> priceValidator = value -> {
+ArgContext.Validator<Double> priceValidator = value -> {
     if (value == null || value < 0) {
         return "Price must be non-negative";
     }
@@ -592,7 +593,7 @@ Validator<Double> priceValidator = value -> {
 **Unique name validator (check database):**
 
 ```java
-Validator<String> uniqueNameValidator = value -> {
+ArgContext.Validator<String> uniqueNameValidator = value -> {
     if (value == null) return "Name is required";
     if (database.nameExists(value)) {
         return "This name is already taken";
@@ -604,7 +605,7 @@ Validator<String> uniqueNameValidator = value -> {
 **Date range validator:**
 
 ```java
-Validator<String> futureDateValidator = value -> {
+ArgContext.Validator<String> futureDateValidator = value -> {
     if (value == null) return "Date is required";
     try {
         LocalDate date = LocalDate.parse(value);

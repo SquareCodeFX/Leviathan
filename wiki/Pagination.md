@@ -59,7 +59,7 @@ Combine with `argPage()` and `argPage(name, defaultPage)` to parse the desired p
 ```java
 SlashCommand listHomes = SlashCommand.create("listhomes")
     .argPage("page", 1)
-    .executes(ctx -> {
+    .executes((sender, ctx) -> {
         int page = ctx.get("page", Integer.class);
         PaginationDataSource<Home> ds = new ListDataSource<>(homeService.list(ctx));
         PaginatedResult<Home> result = ds.page(page, 10);

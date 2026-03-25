@@ -86,7 +86,7 @@ SuggestionEngine.Suggestion suggestion = SuggestionEngine.suggest(
     "input",           // User input
     options,           // Available options
     3,                 // Max suggestions to return
-    0.6                // Minimum similarity threshold (0.0-1.0)
+    0.4                // Minimum similarity threshold (0.0-1.0)
 );
 ```
 
