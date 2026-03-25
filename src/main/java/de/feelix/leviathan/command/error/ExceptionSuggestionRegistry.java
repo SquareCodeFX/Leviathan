@@ -1,6 +1,7 @@
 package de.feelix.leviathan.command.error;
 
 import de.feelix.leviathan.annotations.NotNull;
+import de.feelix.leviathan.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -163,7 +164,7 @@ public final class ExceptionSuggestionRegistry {
      * @return a list of additional suggestion strings
      */
     @NotNull
-    public static List<String> getMessageBasedSuggestions(@NotNull String message) {
+    public static List<String> getMessageBasedSuggestions(@Nullable String message) {
         if (message == null || message.isEmpty()) {
             return Collections.emptyList();
         }

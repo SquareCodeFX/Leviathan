@@ -142,7 +142,7 @@ public final class ParseResultBuilder {
     public @NotNull ParseResultBuilder withMultiValue(@NotNull String name, Object... values) {
         Preconditions.checkNotNull(name, "name");
         Preconditions.checkNotNull(values, "values");
-        multiValues.put(name, Arrays.asList(values));
+        multiValues.put(name, new ArrayList<>(Arrays.asList(values)));
         return this;
     }
 
@@ -311,6 +311,10 @@ public final class ParseResultBuilder {
                 builder.arguments.putAll(ctx.allArguments());
                 builder.flags.putAll(ctx.allFlags());
                 builder.keyValues.putAll(ctx.allKeyValues());
+                // Restore multi-values to prevent data loss when copying results
+                for (Map.Entry<String, List<Object>> entry : ctx.allMultiValues().entrySet()) {
+                    builder.multiValues.put(entry.getKey(), new ArrayList<>(entry.getValue()));
+                }
                 builder.aliasMap.putAll(ctx.aliasMap());
             }
         } else {

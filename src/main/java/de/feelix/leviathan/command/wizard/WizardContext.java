@@ -319,7 +319,7 @@ public final class WizardContext {
     /**
      * Mark the wizard as completed.
      */
-    public void complete() {
+    public synchronized void complete() {
         if (!completed && !cancelled) {
             completed = true;
             if (onComplete != null) {
@@ -331,7 +331,7 @@ public final class WizardContext {
     /**
      * Mark the wizard as cancelled.
      */
-    public void cancel() {
+    public synchronized void cancel() {
         if (!cancelled && !completed) {
             cancelled = true;
             if (onCancel != null) {

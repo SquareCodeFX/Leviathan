@@ -32,9 +32,9 @@ public final class WizardSession {
     private final WizardContext context;
     private final long startTimeMillis;
     private WizardNode currentNode;
-    private boolean active = true;
-    private boolean awaitingConfirmation = false;
-    private @Nullable WizardOption pendingOption;
+    private volatile boolean active = true;
+    private volatile boolean awaitingConfirmation = false;
+    private volatile @Nullable WizardOption pendingOption;
 
     private WizardSession(JavaPlugin plugin, Player player, WizardDefinition definition,
                           @Nullable CommandContext commandContext) {
@@ -355,19 +355,32 @@ public final class WizardSession {
     /**
      * Enter the current node.
      */
+    // Maximum skip chain depth to prevent infinite recursion from circular skip conditions
+    private static final int MAX_SKIP_DEPTH = 50;
+    private int skipDepth = 0;
+
     private void enterCurrentNode() {
         // Record navigation
         context.recordNavigation(currentNode.id());
 
-        // Check if node should be skipped
+        // Check if node should be skipped (with cycle detection)
         if (currentNode.shouldSkip(context)) {
-            String skipTo = currentNode.skipToNodeId();
-            if (skipTo != null) {
-                navigateTo(skipTo);
-            } else if (currentNode.nextNodeId() != null) {
-                navigateTo(currentNode.nextNodeId());
+            skipDepth++;
+            if (skipDepth > MAX_SKIP_DEPTH) {
+                // Break infinite skip loop — display the current node instead
+                skipDepth = 0;
+                player.sendMessage("§cWizard navigation error: skip loop detected. Displaying current node.");
+            } else {
+                String skipTo = currentNode.skipToNodeId();
+                if (skipTo != null) {
+                    navigateTo(skipTo);
+                } else if (currentNode.nextNodeId() != null) {
+                    navigateTo(currentNode.nextNodeId());
+                }
+                return;
             }
-            return;
+        } else {
+            skipDepth = 0;
         }
 
         // Call onEnter callback
@@ -402,6 +415,10 @@ public final class WizardSession {
      * Go back to the previous node.
      */
     public void goBack() {
+        // Reset confirmation state to prevent stale state from carrying over
+        awaitingConfirmation = false;
+        pendingOption = null;
+
         String previousId = context.goBack();
         if (previousId != null) {
             WizardNode node = definition.getNode(previousId);

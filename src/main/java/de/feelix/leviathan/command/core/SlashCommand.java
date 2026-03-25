@@ -1074,12 +1074,6 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
             // Clean up expired confirmations on every check
             pendingConfirmations.entrySet().removeIf(entry -> entry.getValue() < currentTime);
 
-            // Enforce max pending confirmations to prevent unbounded growth
-            if (pendingConfirmations.size() >= MAX_PENDING_CONFIRMATIONS) {
-                // Already at capacity and this is a new confirmation request - skip adding
-                // The cleanup above should have freed space if entries were expired
-            }
-
             // Use compute for atomic check-and-update to prevent race conditions
             // Returns null if confirmation was valid and consumed, non-null if new pending was created
             final boolean[] needsConfirmation = {false};

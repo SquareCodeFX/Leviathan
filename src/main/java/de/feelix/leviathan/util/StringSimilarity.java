@@ -254,7 +254,7 @@ public final class StringSimilarity {
             // similarity = 1.0 - (distance / maxLen)
             // minSimilarity <= 1.0 - (distance / maxLen)
             // distance <= (1.0 - minSimilarity) * maxLen
-            int maxAllowedDistance = (int) ((1.0 - minSimilarity) * maxLen);
+            int maxAllowedDistance = (int) Math.round((1.0 - minSimilarity) * maxLen);
 
             // Use threshold-based calculation for early termination
             int distance = levenshteinDistanceWithThreshold(input, candidate, maxAllowedDistance);
