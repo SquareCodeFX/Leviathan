@@ -2208,6 +2208,18 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                 }
             }
 
+            // Apply transformers from ArgContext (consistent with execute() path)
+            ArgContext argCtxForTransform = arg.context();
+            if (argCtxForTransform.hasTransformers() && parsedValue != null) {
+                try {
+                    parsedValue = argCtxForTransform.applyTransformers(parsedValue);
+                } catch (Throwable t) {
+                    errors.add(CommandParseError.internal(messages.argumentTransformationError(arg.name()))
+                        .forArgument(arg.name()));
+                    return CommandParseResult.failure(errors, providedArgs);
+                }
+            }
+
             // Apply validations from ArgContext
             ArgContext ctx = arg.context();
             String validationError;
@@ -2638,6 +2650,20 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                     @SuppressWarnings("unchecked")
                     Function<Object, Object> transformer = (Function<Object, Object>) arg.transformer();
                     parsedValue = transformer.apply(parsedValue);
+                } catch (Throwable t) {
+                    errors.add(CommandParseError.internal(messages.argumentTransformationError(arg.name()))
+                        .forArgument(arg.name()));
+                    if (!options.collectAllErrors()) {
+                        return CommandParseResult.failure(errors, providedArgs);
+                    }
+                }
+            }
+
+            // Apply transformers from ArgContext (consistent with execute() path)
+            ArgContext argCtxForTransform = arg.context();
+            if (argCtxForTransform.hasTransformers() && parsedValue != null) {
+                try {
+                    parsedValue = argCtxForTransform.applyTransformers(parsedValue);
                 } catch (Throwable t) {
                     errors.add(CommandParseError.internal(messages.argumentTransformationError(arg.name()))
                         .forArgument(arg.name()));
