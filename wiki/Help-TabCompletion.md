@@ -15,7 +15,7 @@ SlashCommand cmd = SlashCommand.create("example")
     .argInt("age")
     .flagLong("verbose", "verbose")
     .keyValueInt("limit", 25)
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 
 String usage = cmd.usage();
@@ -56,7 +56,7 @@ SlashCommand find = SlashCommand.create("find")
     .argStringWithCompletions("type", "user", "world", "item")
     .keyValueInt("limit", 25)
     .flagLong("exact", "exact")
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 ```
 

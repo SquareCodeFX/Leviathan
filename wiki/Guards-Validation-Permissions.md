@@ -14,7 +14,7 @@ SlashCommand ban = SlashCommand.create("ban")
     .permission("leviathan.admin.ban")
     .argPlayer("target")
     .argString("reason")
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 ```
 
@@ -37,19 +37,19 @@ Builder helpers:
 // Single permission
 SlashCommand admin = SlashCommand.create("admin")
     .requirePermission("myplugin.admin")
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 
 // Any of multiple permissions (OR logic)
 SlashCommand moderate = SlashCommand.create("moderate")
     .requireAnyPermission("myplugin.admin", "myplugin.moderator", "myplugin.helper")
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 
 // All permissions required (AND logic)
 SlashCommand superadmin = SlashCommand.create("superadmin")
     .requireAllPermissions("myplugin.admin", "myplugin.superadmin")
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 ```
 
@@ -63,7 +63,7 @@ Guard onlyAtNight = new Guard() {
 
 SlashCommand howl = SlashCommand.create("howl")
     .require(onlyAtNight)
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 ```
 
@@ -80,7 +80,7 @@ MessageProvider messages = new DefaultMessageProvider();
 
 SlashCommand admin = SlashCommand.create("admin")
     .require(Guard.permission("myplugin.admin", messages))
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 ```
 
@@ -91,7 +91,7 @@ Restrict command to a specific world:
 ```java
 SlashCommand spawn = SlashCommand.create("spawn")
     .require(Guard.inWorld("world_spawn", messages))
-    .executes(ctx -> {
+    .executes((sender, ctx) -> {
         // Only works in world_spawn
     })
     .build();
@@ -104,7 +104,7 @@ Require a specific game mode:
 ```java
 SlashCommand creative = SlashCommand.create("fly")
     .require(Guard.inGameMode(GameMode.CREATIVE, messages))
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 ```
 
@@ -115,7 +115,7 @@ Restrict to server operators:
 ```java
 SlashCommand op = SlashCommand.create("opcommand")
     .require(Guard.opOnly(messages))
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 ```
 
@@ -127,13 +127,13 @@ Check player experience level:
 // Minimum level required
 SlashCommand enchant = SlashCommand.create("superenchant")
     .require(Guard.minLevel(30, messages))
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 
 // Level must be within range
 SlashCommand midgame = SlashCommand.create("midgame")
     .require(Guard.levelRange(10, 50, messages))
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 ```
 
@@ -144,7 +144,7 @@ Check player health:
 ```java
 SlashCommand risky = SlashCommand.create("risky")
     .require(Guard.healthAbove(10.0, messages))  // Must have > 10 health
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 ```
 
@@ -155,7 +155,7 @@ Check player hunger:
 ```java
 SlashCommand run = SlashCommand.create("sprint")
     .require(Guard.foodLevelAbove(6, messages))  // Must have > 6 food
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 ```
 
@@ -166,7 +166,7 @@ Check if player is flying:
 ```java
 SlashCommand aerial = SlashCommand.create("airstrike")
     .require(Guard.isFlying(messages))
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 ```
 
@@ -184,7 +184,7 @@ SlashCommand day = SlashCommand.create("sunpower")
         },
         "This command only works during daytime!"
     ))
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 ```
 
@@ -201,7 +201,7 @@ SlashCommand elite = SlashCommand.create("elite")
         Guard.minLevel(50, messages),
         Guard.healthAbove(15.0, messages)
     )
-    .executes(ctx -> {
+    .executes((sender, ctx) -> {
         // Player must:
         // 1. Have myplugin.elite permission
         // 2. Be in world_arena
@@ -523,9 +523,10 @@ SlashCommand range = SlashCommand.create("range")
     .addCrossArgumentValidator(ctx -> {
         int min = ctx.get("min", Integer.class);
         int max = ctx.get("max", Integer.class);
-        if (min > max) throw new IllegalArgumentException("min must be <= max");
+        if (min > max) return "min must be <= max";
+        return null;
     })
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 ```
 
@@ -544,7 +545,7 @@ SlashCommand transfer = SlashCommand.create("transfer")
     .argInt("amount").optional(true)
     .flag("all", 'a', "all")
     .crossValidate(CrossArgumentValidator.mutuallyExclusive("amount", "all"))
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 
 // With custom error message
@@ -564,7 +565,7 @@ SlashCommand dateRange = SlashCommand.create("daterange")
     .argString("startDate").optional(true)
     .argString("endDate").optional(true)
     .crossValidate(CrossArgumentValidator.requiresAll("startDate", "endDate"))
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 ```
 
@@ -577,7 +578,7 @@ SlashCommand target = SlashCommand.create("target")
     .argPlayer("player").optional(true)
     .argString("coords").optional(true)
     .crossValidate(CrossArgumentValidator.requiresAny("player", "coords"))
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 ```
 
@@ -590,7 +591,7 @@ SlashCommand export = SlashCommand.create("export")
     .argString("output").optional(true)
     .argString("format").optional(true)
     .crossValidate(CrossArgumentValidator.requiresIfPresent("output", "format"))
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 
 // With custom message
@@ -611,7 +612,7 @@ SlashCommand range = SlashCommand.create("range")
     .argInt("min")
     .argInt("max")
     .crossValidate(CrossArgumentValidator.range("min", "max"))
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 
 // With custom message
@@ -634,7 +635,7 @@ SlashCommand dates = SlashCommand.create("dates")
         (start, end) -> start.compareTo(end) <= 0,
         "Start date must be before end date",
         String.class))
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 ```
 
@@ -649,7 +650,7 @@ SlashCommand trade = SlashCommand.create("trade")
         ctx -> ctx.getFlag("premium"),
         "Premium members must provide a verification code",
         "verificationCode"))
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 ```
 
@@ -664,7 +665,7 @@ SlashCommand complex = SlashCommand.create("complex")
         CrossArgumentValidator.requiresAny("player", "all"),
         CrossArgumentValidator.range("min", "max")
     ))
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 ```
 
@@ -683,7 +684,7 @@ SlashCommand export = SlashCommand.create("export")
     .argString("output-file").optional(true)
     // "output-file" can only be used if "save" flag is present
     .crossValidate(CrossArgumentValidator.dependsOn("output-file", "save"))
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 
 // With custom error message
@@ -702,7 +703,7 @@ SlashCommand cmd = SlashCommand.create("cmd")
     .argString("config")
     // "advanced-settings" requires both "mode" AND "config"
     .crossValidate(CrossArgumentValidator.dependsOnAll("advanced-settings", "mode", "config"))
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 ```
 
@@ -717,7 +718,7 @@ SlashCommand cmd = SlashCommand.create("cmd")
     .flagLong("save", "save")
     // "format" requires either "export" OR "save" (or both)
     .crossValidate(CrossArgumentValidator.dependsOnAny("format", "export", "save"))
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 ```
 
@@ -731,7 +732,7 @@ SlashCommand cmd = SlashCommand.create("cmd")
     .flagLong("quiet", "quiet")
     // "verbose" cannot be used when "quiet" is present
     .crossValidate(CrossArgumentValidator.excludedBy("verbose", "quiet"))
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 
 // Note: For two-way exclusion, use mutuallyExclusive() instead
@@ -747,7 +748,7 @@ SlashCommand cmd = SlashCommand.create("cmd")
     .flagLong("use-defaults", "use-defaults")
     // "config" is required UNLESS "use-defaults" is specified
     .crossValidate(CrossArgumentValidator.requiredUnless("config", "use-defaults"))
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 ```
 
@@ -761,7 +762,7 @@ SlashCommand login = SlashCommand.create("login")
     .argString("password").optional(true)
     // Both "username" and "password" must be provided together
     .crossValidate(CrossArgumentValidator.coDependent("username", "password"))
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 ```
 
@@ -775,7 +776,7 @@ SlashCommand admin = SlashCommand.create("admin")
     .flagLong("admin-action", "admin-action")
     // "level" must be "admin" when "admin-action" is used
     .crossValidate(CrossArgumentValidator.valueRequiredWhen("level", "admin", "admin-action"))
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 ```
 
@@ -790,7 +791,7 @@ SlashCommand workflow = SlashCommand.create("workflow")
     .argString("step3").optional(true)
     // step3 requires step2, step2 requires step1
     .crossValidate(CrossArgumentValidator.dependencyChain("step1", "step2", "step3"))
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 
 // Valid:   /workflow step1=a

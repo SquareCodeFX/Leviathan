@@ -9,8 +9,8 @@ SlashCommand greet = SlashCommand.create("greet")
     .description("Greets the specified player")
     .playersOnly()
     .argPlayer("target")
-    .executes(ctx -> {
-        Player me = ctx.get("sender", Player.class);
+    .executes((sender, ctx) -> {
+        Player me = (Player) sender;
         Player target = ctx.get("target", Player.class);
         target.sendMessage("" + me.getName() + " says hi!");
     })
@@ -28,7 +28,7 @@ Guard maintenanceEnabled = new Guard() {
 SlashCommand kickAll = SlashCommand.create("kickall")
     .permission("leviathan.admin.kickall")
     .require(maintenanceEnabled)
-    .executes(ctx -> {
+    .executes((sender, ctx) -> {
         // kick logic
     })
     .build();
@@ -41,7 +41,7 @@ SlashCommand backup = SlashCommand.create("backup")
     .flag("verbose", 'v', "verbose")
     .keyValueString("target")
     .keyValueBoolean("compress", true)
-    .executes(ctx -> {
+    .executes((sender, ctx) -> {
         boolean verbose = ctx.getFlag("verbose");
         String target = ctx.getKeyValueString("target");
         boolean compress = ctx.getKeyValueBoolean("compress", true);
@@ -54,10 +54,10 @@ SlashCommand backup = SlashCommand.create("backup")
 
 ```java
 SlashCommand map = SlashCommand.create("map")
-    .executesAsync((ctx, progress, token) -> {
+    .executesAsync((sender, ctx, token, progress) -> {
         for (int i = 0; i <= 100; i++) {
-            if (token.isCancelled()) return; // stop early
-            progress.set(i);
+            if (token.cancelled()) return; // stop early
+            progress.report("Progress: " + i + "%");
             // do work chunk
         }
     }, 20_000L)
@@ -69,7 +69,7 @@ SlashCommand map = SlashCommand.create("map")
 ```java
 SlashCommand add = SlashCommand.create("add")
     .argInt("a").argInt("b")
-    .executes(ctx -> ctx.get("sender", CommandSender.class).sendMessage(
+    .executes((sender, ctx) -> sender.sendMessage(
         String.valueOf(ctx.get("a", Integer.class) + ctx.get("b", Integer.class))))
     .build();
 
@@ -85,13 +85,13 @@ SlashCommand math = SlashCommand.create("math")
 ```java
 SlashCommand list = SlashCommand.create("listitems")
     .argPage("page", 1)
-    .executes(ctx -> {
+    .executes((sender, ctx) -> {
         int page = ctx.get("page", Integer.class);
         List<String> items = itemService.list();
         PaginationDataSource<String> ds = new ListDataSource<>(items);
         PaginatedResult<String> result = ds.page(page, 10);
-        for (String s : result.items()) ctx.get("sender", CommandSender.class).sendMessage(s);
-        ctx.get("sender", CommandSender.class).sendMessage(
+        for (String s : result.items()) sender.sendMessage(s);
+        sender.sendMessage(
             "Page " + result.pageInfo().current() + "/" + result.pageInfo().total());
     })
     .build();
@@ -105,7 +105,7 @@ SlashCommand give = SlashCommand.create("give")
     .argPlayer("target")
     .argMaterial("item")
     .argIf("amount", ArgParsers.INT, ctx -> ctx.getFlag("bulk"))
-    .executes(ctx -> {
+    .executes((sender, ctx) -> {
         int amount = ctx.getOrDefault("amount", Integer.class, 1);
         // give item
     })
@@ -120,9 +120,9 @@ The `parent()` method allows a subcommand to register itself to a parent builder
 // Traditional approach: parent registers children
 SlashCommand add = SlashCommand.create("add")
     .argInt("a").argInt("b")
-    .executes(ctx -> {
+    .executes((sender, ctx) -> {
         int sum = ctx.get("a", Integer.class) + ctx.get("b", Integer.class);
-        ctx.get("sender", CommandSender.class).sendMessage("Sum: " + sum);
+        sender.sendMessage("Sum: " + sum);
     })
     .build();
 

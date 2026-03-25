@@ -47,10 +47,10 @@ Or using the fluent Arg API:
 
 ```java
 SlashCommand cmd = SlashCommand.create("give")
-    .arg(Arg.of("player", ArgParsers.PLAYER)
+    .arg(new Arg<>("player", ArgParsers.PLAYER)
         .interactive(true)
         .withDescription("The recipient"))
-    .arg(Arg.of("item", ArgParsers.MATERIAL)
+    .arg(new Arg<>("item", ArgParsers.MATERIAL)
         .interactive(true)
         .withDescription("The item to give"))
     .executes((sender, ctx) -> { /* ... */ })
@@ -92,8 +92,8 @@ boolean active = InteractivePrompt.hasActiveSession(player);
 // Get the current session
 PromptSession session = InteractivePrompt.getSession(player);
 
-// Cancel a session programmatically
-InteractivePrompt.cancelSession(player);
+// Cancel a session programmatically (returns boolean indicating if a session was active)
+boolean cancelled = InteractivePrompt.cancelSession(player);
 
 // Clean up when player disconnects
 InteractivePrompt.cleanupPlayer(player);

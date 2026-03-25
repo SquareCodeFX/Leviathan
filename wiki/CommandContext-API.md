@@ -380,9 +380,9 @@ SlashCommand.create("teleport")
         .build())
     .build();
 
-// Or using fluent API on Arg
-Arg<Player> playerArg = Arg.of("player", playerParser())
-    .withAliases("p", "target", "t");
+// Or using ArgContext aliases
+Arg<Player> playerArg = new Arg<>("player", playerParser(),
+        ArgContext.builder().aliases("p", "target", "t").build());
 ```
 
 ##### Using Aliases in CommandContext

@@ -1205,13 +1205,12 @@ SlashCommand.builder("give")
         .build())
     .build();
 
-// Using Arg fluent API
-Arg<Player> playerArg = Arg.of("player", playerParser())
-    .withAliases("p", "target", "t");
+// Using Arg with aliases
+Arg<Player> playerArg = new Arg<>("player", playerParser(),
+        ArgContext.builder().aliases("p", "target", "t").build());
 
-Arg<Integer> amountArg = Arg.of("amount", intParser())
-    .withAlias("amt")
-    .withAlias("n");
+Arg<Integer> amountArg = new Arg<>("amount", intParser(),
+        ArgContext.builder().aliases("amt", "n").build());
 ```
 
 ### Using Aliases in CommandContext

@@ -41,8 +41,8 @@ SlashCommand cmd = SlashCommand.create("kick")
         .maxBatchSize(50)           // Maximum targets allowed (default: 100)
         .parallel(true)             // Enable parallel execution (default: false)
         .continueOnFailure(true)    // Continue if some targets fail (default: true)
-        .showProgress(true)         // Show progress messages (default: false)
-        .timeout(30_000)            // Timeout in milliseconds (default: 60000)
+        .showProgress(true)         // Show progress messages (default: true)
+        .timeoutMillis(30_000)            // Timeout in milliseconds (default: 30000)
     )
     .batchAction((Player player, BatchContext<Player> ctx) -> {
         String reason = ctx.argString("reason", "No reason");
@@ -59,8 +59,8 @@ SlashCommand cmd = SlashCommand.create("kick")
 | `maxBatchSize` | int | 100 | Maximum number of targets allowed |
 | `parallel` | boolean | false | Execute actions concurrently |
 | `continueOnFailure` | boolean | true | Continue processing after failures |
-| `showProgress` | boolean | false | Send progress messages to sender |
-| `timeout` | long | 60000 | Maximum execution time in milliseconds |
+| `showProgress` | boolean | true | Send progress messages to sender |
+| `timeout` | long | 30000 | Maximum execution time in milliseconds |
 
 #### BatchContext API
 
@@ -133,7 +133,7 @@ When `parallel(true)` is configured, batch operations execute concurrently:
 ```java
 .batch("players", config -> config
     .parallel(true)
-    .maxParallelism(4)  // Limit concurrent threads
+    .parallelism(4)  // Limit concurrent threads
 )
 ```
 

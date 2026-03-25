@@ -15,9 +15,9 @@ With timeout:
 ```java
 SlashCommand heavy = SlashCommand.create("heavy")
     .async(true)
-    .executesAsync((ctx, progress, cancellation) -> {
-        // periodically check cancellation.isCancelled()
-        // report progress.set(percent) if desired
+    .executesAsync((sender, ctx, token, progress) -> {
+        // periodically check token.cancelled()
+        // report progress via progress.report("Working...")
         doHeavyWork();
     }, 15_000L) // 15 seconds timeout
     .build();
@@ -41,7 +41,7 @@ Example:
 SlashCommand locate = SlashCommand.create("locate")
     .perUserCooldown(5_000)  // 5s per user
     .perServerCooldown(1_000) // 1s globally
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 ```
 

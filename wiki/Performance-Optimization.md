@@ -102,7 +102,7 @@ List<String> worlds = ArgumentCache.getWorldNames();
 List<String> materials = ArgumentCache.getMaterialNames();
 
 // Filter by prefix (for tab completion)
-List<String> filtered = ArgumentCache.getPlayerNames("No");  // Notch, NoobMaster, etc.
+List<String> filtered = ArgumentCache.getPlayerNamesStartingWith("No");  // Notch, NoobMaster, etc.
 ```
 
 ### Custom Caching
@@ -122,15 +122,14 @@ boolean cached = ArgumentCache.isCached("expensive-key");
 ArgumentCache.invalidate("expensive-key");
 
 // Clear all custom caches
-ArgumentCache.clearCustomCaches();
+ArgumentCache.clearAll();
 ```
 
 ### Typed Caches
 
 ```java
 // Create a typed cache for specific data
-ArgumentCache.TypedCache<List<String>> homeCache = ArgumentCache.typed(
-    "homes",
+ArgumentCache.TypedCache<List<String>> homeCache = ArgumentCache.createTypedCache(
     5, TimeUnit.MINUTES
 );
 
@@ -377,12 +376,8 @@ ResultCache cache = ResultCache.create(5, TimeUnit.MINUTES);
 // With max size
 ResultCache cache = ResultCache.create(5, TimeUnit.MINUTES, 1000);
 
-// Full configuration
-ResultCache cache = ResultCache.builder()
-    .ttl(5, TimeUnit.MINUTES)
-    .maxSize(1000)
-    .evictionPolicy(EvictionPolicy.LRU)
-    .build();
+// Full configuration (using factory method)
+ResultCache cache = ResultCache.create(5, TimeUnit.MINUTES, 1000);
 ```
 
 ### Caching Results
@@ -404,10 +399,11 @@ Object result = cache.getOrCompute(key, () -> computePlayerStats(playerName));
 ### Sender-Specific Caching
 
 ```java
-// Per-sender results
-Object result = cache.getOrComputeForSender(
-    sender,
-    "personal-stats",
+// Per-sender results (use the 4-parameter getOrCompute overload)
+Object result = cache.getOrCompute(
+    "stats",           // commandName
+    context,           // CommandContext
+    sender,            // CommandSender
     () -> computePersonalStats(sender)
 );
 
@@ -456,7 +452,7 @@ ObjectPool<StringBuilder> sbPool = perf.getStringBuilderPool();
 ObjectPool<ArrayList<?>> listPool = perf.getArrayListPool();
 
 // Caches
-ArgumentCache argCache = perf.getArgumentCache();
+// Note: ArgumentCache is a static utility — use ArgumentCache.getPlayerNames() etc. directly
 ResultCache resultCache = perf.getResultCache();
 
 // Parsers
@@ -469,33 +465,18 @@ ParallelParser parallelParser = perf.getParallelParser();
 PerformanceManager.PerformanceStats stats = perf.getStats();
 
 // Pool stats
-long poolBorrowed = stats.totalPoolBorrowed();
-long poolReused = stats.totalPoolReused();
-double poolReuseRate = stats.poolReuseRate();
+ObjectPool.PoolStats poolStats = stats.getStringBuilderPoolStats();
 
 // Cache stats
-long cacheHits = stats.totalCacheHits();
-long cacheMisses = stats.totalCacheMisses();
-double cacheHitRate = stats.cacheHitRate();
+ResultCache.Stats cacheStats = stats.getResultCacheStats();
 
 // Parse stats
-long argsParsed = stats.totalArgumentsParsed();
-double avgParseTime = stats.averageParseTimeNanos();
+ParallelParser.Stats parseStats = stats.getParallelParserStats();
 ```
 
 ### Configuration
 
-```java
-// Configure at startup
-PerformanceManager.configure(config -> config
-    .stringBuilderPoolSize(100)
-    .arrayListPoolSize(50)
-    .resultCacheTTL(10, TimeUnit.MINUTES)
-    .resultCacheMaxSize(500)
-    .parallelParserThreads(4)
-    .parallelThreshold(3)
-);
-```
+> **Note:** `PerformanceManager.configure(config -> ...)` does not exist. Configure each component individually at creation time (e.g., `ObjectPool.create(...)`, `ResultCache.create(...)`, `ParallelParser.builder()...build()`).
 
 ---
 
@@ -587,7 +568,7 @@ All classes in this package are thread-safe:
 | `getMaterialNames()` | Get cached material names |
 | `getOrCompute(key, supplier, ttl, unit)` | Cache custom value |
 | `invalidate(key)` | Remove cached entry |
-| `typed(prefix, ttl, unit)` | Create typed cache |
+| `createTypedCache(ttl, unit)` | Create typed cache |
 | `getStats()` | Get cache statistics |
 
 ### LazyArgument
@@ -626,7 +607,7 @@ All classes in this package are thread-safe:
 | `create(ttl, unit)` | Create with TTL |
 | `create(ttl, unit, maxSize)` | Create with TTL and max size |
 | `getOrCompute(key, supplier)` | Get or compute value |
-| `getOrComputeForSender(sender, key, supplier)` | Per-sender caching |
+| `getOrCompute(commandName, context, sender, supplier)` | Per-sender caching |
 | `invalidate(key)` | Remove entry |
 | `invalidateForSender(sender)` | Remove sender entries |
 | `clear()` | Clear all entries |
@@ -640,8 +621,8 @@ All classes in this package are thread-safe:
 | `getInstance()` | Get singleton |
 | `getStringBuilderPool()` | Get StringBuilder pool |
 | `getArrayListPool()` | Get ArrayList pool |
-| `getArgumentCache()` | Get argument cache |
+| _(ArgumentCache is a static utility)_ | Use `ArgumentCache.getPlayerNames()` etc. directly |
 | `getResultCache()` | Get result cache |
 | `getParallelParser()` | Get parallel parser |
 | `getStats()` | Get combined statistics |
-| `configure(config)` | Configure defaults |
+| _(no configure method)_ | Configure components individually at creation time |

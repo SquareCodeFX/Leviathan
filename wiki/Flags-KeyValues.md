@@ -14,7 +14,7 @@ SlashCommand cmd = SlashCommand.create("backup")
     .flag("verbose", 'v', "verbose")
     .flagShort("dryrun", 'n')
     .flagLong("force", "force")
-    .executes(ctx -> {
+    .executes((sender, ctx) -> {
         boolean verbose = ctx.getFlag("verbose");
         boolean dry = ctx.getFlag("dryrun", false);
         boolean force = ctx.getFlag("force");
@@ -72,7 +72,7 @@ When `supportsNegation(true)` is set (the default), users can explicitly set a f
 // Command definition
 SlashCommand cmd = SlashCommand.create("backup")
     .flag("confirm", 'c', "confirm")  // Supports --no-confirm
-    .executes(ctx -> {
+    .executes((sender, ctx) -> {
         boolean confirm = ctx.getFlag("confirm");
         // confirm will be:
         // - false if neither --confirm nor --no-confirm provided
@@ -103,7 +103,7 @@ SlashCommand cmd = SlashCommand.create("search")
     .keyValueInt("limit", 25)
     .keyValueBoolean("caseSensitive", false)
     .keyValueEnum("mode", Mode.class, Mode.SMART)
-    .executes(ctx -> {
+    .executes((sender, ctx) -> {
         String q = ctx.getKeyValueString("query");
         int limit = ctx.getKeyValueInt("limit", 25);
         boolean cs = ctx.getKeyValueBoolean("caseSensitive", false);

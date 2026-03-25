@@ -20,7 +20,7 @@ The simplest form: a static list of suggestions.
 ```java
 SlashCommand cmd = SlashCommand.create("setmode")
     .argStringWithCompletions("mode", "easy", "normal", "hard")
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 
 // Or using ArgContext builder:
@@ -28,7 +28,7 @@ SlashCommand cmd2 = SlashCommand.create("setmode")
     .argString("mode", ArgContext.builder()
         .withCompletions(List.of("easy", "normal", "hard"))
         .build())
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 ```
 
@@ -39,7 +39,7 @@ SlashCommand cmd = SlashCommand.create("setgame")
     .argString("game", ArgContext.builder()
         .completionsFromEnum(GameMode.class)
         .build())
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 ```
 
@@ -59,7 +59,7 @@ SlashCommand homes = SlashCommand.create("home")
             return homeService.getHomeNames(player);
         })
         .build())
-    .executes(ctx -> { /* teleport to home */ })
+    .executes((sender, ctx) -> { /* teleport to home */ })
     .build();
 ```
 
@@ -90,7 +90,7 @@ Generate completions based on previously parsed arguments:
 ArgContext ctx = ArgContext.builder()
     .completionsDynamic(DynamicCompletionProvider.contextBased(dynCtx -> {
         // Access previously parsed arguments
-        String category = dynCtx.getParsedArgument("category", String.class);
+        String category = (String) dynCtx.parsedArgsSoFar().get("category");
         if ("weapons".equals(category)) {
             return List.of("sword", "bow", "axe");
         } else if ("armor".equals(category)) {
@@ -134,7 +134,7 @@ SlashCommand search = SlashCommand.create("search")
             return database.getRecentSearches(player.getUniqueId());
         }))
         .build())
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 ```
 
@@ -171,7 +171,7 @@ SlashCommand regions = SlashCommand.create("region")
             return regionManager.getAllRegionNames();
         }))
         .build())
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 ```
 
@@ -252,7 +252,7 @@ SlashCommand shop = SlashCommand.create("shop")
         .build())
     .argString("item", ArgContext.builder()
         .completionsDynamic(DynamicCompletionProvider.contextBased(ctx -> {
-            String category = ctx.getParsedArgument("category", String.class);
+            String category = (String) ctx.parsedArgsSoFar().get("category");
             return shopService.getItemsInCategory(category);
         }))
         .build())
@@ -331,7 +331,7 @@ SlashCommand homes = SlashCommand.create("home")
             });
         })
         .build())
-    .executes(ctx -> { /* ... */ })
+    .executes((sender, ctx) -> { /* ... */ })
     .build();
 ```
 
