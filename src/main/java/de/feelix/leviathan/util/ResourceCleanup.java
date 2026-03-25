@@ -4,6 +4,9 @@ import de.feelix.leviathan.command.batch.BatchExecutor;
 import de.feelix.leviathan.command.cooldown.CooldownManager;
 import de.feelix.leviathan.command.core.SlashCommand;
 import de.feelix.leviathan.command.interactive.InteractivePrompt;
+import de.feelix.leviathan.command.performance.ArgumentCache;
+import de.feelix.leviathan.command.performance.CommandPrecompiler;
+import de.feelix.leviathan.command.wizard.WizardChatListener;
 import de.feelix.leviathan.command.wizard.WizardManager;
 
 import java.util.UUID;
@@ -44,8 +47,11 @@ public final class ResourceCleanup {
      * This method clears:
      * <ul>
      *   <li>All interactive prompt sessions</li>
+     *   <li>All wizard sessions</li>
      *   <li>All pending confirmations</li>
      *   <li>All cooldown data</li>
+     *   <li>All argument and command caches</li>
+     *   <li>Batch executor thread pool</li>
      * </ul>
      */
     public static void cleanupAll() {
@@ -54,6 +60,11 @@ public final class ResourceCleanup {
         SlashCommand.clearAllConfirmations();
         CooldownManager.clearAllCooldowns();
         BatchExecutor.shutdown();
+        // Clean up caches and compiled command data
+        ArgumentCache.clearAll();
+        CommandPrecompiler.clearAll();
+        // Reset wizard listener registration so it re-registers on next plugin enable
+        WizardChatListener.resetRegistration();
     }
 
     /**

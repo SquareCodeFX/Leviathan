@@ -221,14 +221,18 @@ public final class ObjectPool<T> {
      * @param count the number of objects to pre-create
      */
     public void prewarm(int count) {
-        int toCreate = Math.min(count, maxSize - currentSize.get());
-        for (int i = 0; i < toCreate; i++) {
+        for (int i = 0; i < count; i++) {
+            // Use CAS to atomically claim a slot, same as release()
+            int current;
+            do {
+                current = currentSize.get();
+                if (current >= maxSize) {
+                    return; // Pool is full
+                }
+            } while (!currentSize.compareAndSet(current, current + 1));
             T obj = factory.get();
             creationCount.incrementAndGet();
-            if (currentSize.get() < maxSize) {
-                pool.offerFirst(obj);
-                currentSize.incrementAndGet();
-            }
+            pool.offerFirst(obj);
         }
     }
 

@@ -704,6 +704,9 @@ public final class ArgContext {
         }
 
         public @NotNull Builder intRange(@Nullable Integer min, @Nullable Integer max) {
+            if (min != null && max != null && min > max) {
+                throw new IllegalArgumentException("intMin (" + min + ") must be <= intMax (" + max + ")");
+            }
             this.intMin = min;
             this.intMax = max;
             return this;
@@ -721,6 +724,9 @@ public final class ArgContext {
         }
 
         public @NotNull Builder longRange(@Nullable Long min, @Nullable Long max) {
+            if (min != null && max != null && min > max) {
+                throw new IllegalArgumentException("longMin (" + min + ") must be <= longMax (" + max + ")");
+            }
             this.longMin = min;
             this.longMax = max;
             return this;
@@ -738,6 +744,9 @@ public final class ArgContext {
         }
 
         public @NotNull Builder doubleRange(@Nullable Double min, @Nullable Double max) {
+            if (min != null && max != null && min > max) {
+                throw new IllegalArgumentException("doubleMin (" + min + ") must be <= doubleMax (" + max + ")");
+            }
             this.doubleMin = min;
             this.doubleMax = max;
             return this;

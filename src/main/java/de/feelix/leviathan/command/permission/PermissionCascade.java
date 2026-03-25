@@ -188,7 +188,7 @@ public final class PermissionCascade {
                 sb.append('.');
             }
             sb.append(parts[i]);
-            wildcards.add(sb + ".*");
+            wildcards.add(sb.toString() + ".*");
         }
 
         return Collections.unmodifiableList(wildcards);

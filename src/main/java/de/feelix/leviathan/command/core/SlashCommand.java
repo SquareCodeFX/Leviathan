@@ -75,6 +75,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -98,10 +99,14 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
     // Confirmation tracking: maps "commandName:senderName" to expiration time (System.currentTimeMillis())
     private static final Map<String, Long> pendingConfirmations = new ConcurrentHashMap<>();
     private static final long CONFIRMATION_TIMEOUT_MILLIS = 10000L; // 10 seconds
+    // Maximum number of pending confirmations to prevent unbounded growth / resource exhaustion
+    private static final int MAX_PENDING_CONFIRMATIONS = 500;
 
     // Lazy cleanup for confirmations
     private static final AtomicLong confirmationOpCount = new AtomicLong(0);
     private static final int CONFIRMATION_CLEANUP_INTERVAL = 20; // Clean every N operations
+
+    private static final Logger LOGGER = Logger.getLogger(SlashCommand.class.getName());
 
     // Cached regex pattern for whitespace normalization (avoids recompilation on every call)
     private static final Pattern WHITESPACE_PATTERN = Pattern.compile("\\s+");
@@ -1066,7 +1071,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
             final long currentTime = System.currentTimeMillis();
             final long newExpiry = currentTime + CONFIRMATION_TIMEOUT_MILLIS;
 
-            // Clean up expired confirmations on every check (was too infrequent before)
+            // Clean up expired confirmations on every check
             pendingConfirmations.entrySet().removeIf(entry -> entry.getValue() < currentTime);
 
             // Use compute for atomic check-and-update to prevent race conditions
@@ -1075,6 +1080,10 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
             pendingConfirmations.compute(confirmationKey, (key, existingExpiry) -> {
                 if (existingExpiry != null && existingExpiry >= currentTime) {
                     // Valid confirmation exists - consume it (return null to remove)
+                    return null;
+                } else if (pendingConfirmations.size() >= MAX_PENDING_CONFIRMATIONS && existingExpiry == null) {
+                    // At capacity and this is a brand new entry - reject to prevent unbounded growth
+                    needsConfirmation[0] = true;
                     return null;
                 } else {
                     // No valid confirmation - create new pending confirmation
@@ -1260,8 +1269,8 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                     try {
                         CommandContext tempCtx = CommandContext.createInternal(values, flagValues, keyValuePairs, multiValuePairs, providedArgs, cachedAliasMap);
                         willBeSkippedByCondition = !futureArg.condition().test(tempCtx);
-                    } catch (RuntimeException ignored) {
-                        // If we can't evaluate, assume it won't be skipped
+                    } catch (RuntimeException e) {
+                        LOGGER.log(Level.FINE, "Exception evaluating argument condition", e);
                     }
                 }
 
@@ -2058,7 +2067,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         String[] positionalArgs = providedArgs;
 
         if (!flags.isEmpty() || !keyValues.isEmpty()) {
-            FlagAndKeyValueParser flagKvParser = new FlagAndKeyValueParser(flags, keyValues);
+            FlagAndKeyValueParser flagKvParser = cachedFlagKvParser != null ? cachedFlagKvParser : new FlagAndKeyValueParser(flags, keyValues);
             FlagAndKeyValueParser.ParsedResult flagKvResult = flagKvParser.parse(providedArgs, sender);
 
             if (!flagKvResult.isSuccess()) {
@@ -2192,6 +2201,18 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                     @SuppressWarnings("unchecked")
                     Function<Object, Object> transformer = (Function<Object, Object>) arg.transformer();
                     parsedValue = transformer.apply(parsedValue);
+                } catch (Throwable t) {
+                    errors.add(CommandParseError.internal(messages.argumentTransformationError(arg.name()))
+                        .forArgument(arg.name()));
+                    return CommandParseResult.failure(errors, providedArgs);
+                }
+            }
+
+            // Apply transformers from ArgContext (consistent with execute() path)
+            ArgContext argCtxForTransform = arg.context();
+            if (argCtxForTransform.hasTransformers() && parsedValue != null) {
+                try {
+                    parsedValue = argCtxForTransform.applyTransformers(parsedValue);
                 } catch (Throwable t) {
                     errors.add(CommandParseError.internal(messages.argumentTransformationError(arg.name()))
                         .forArgument(arg.name()));
@@ -2393,6 +2414,10 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
             pendingConfirmations.compute(confirmationKey, (key, existingExpiry) -> {
                 if (existingExpiry != null && existingExpiry >= currentTime) {
                     return null;
+                } else if (pendingConfirmations.size() >= MAX_PENDING_CONFIRMATIONS && existingExpiry == null) {
+                    // At capacity - reject new entries to prevent unbounded growth
+                    needsConfirmation[0] = true;
+                    return null;
                 } else {
                     needsConfirmation[0] = true;
                     return newExpiry;
@@ -2454,7 +2479,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         String[] positionalArgs = providedArgs;
 
         if (!flags.isEmpty() || !keyValues.isEmpty()) {
-            FlagAndKeyValueParser flagKvParser = new FlagAndKeyValueParser(flags, keyValues);
+            FlagAndKeyValueParser flagKvParser = cachedFlagKvParser != null ? cachedFlagKvParser : new FlagAndKeyValueParser(flags, keyValues);
             FlagAndKeyValueParser.ParsedResult flagKvResult = flagKvParser.parse(providedArgs, sender);
 
             if (!flagKvResult.isSuccess()) {
@@ -2625,6 +2650,20 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
                     @SuppressWarnings("unchecked")
                     Function<Object, Object> transformer = (Function<Object, Object>) arg.transformer();
                     parsedValue = transformer.apply(parsedValue);
+                } catch (Throwable t) {
+                    errors.add(CommandParseError.internal(messages.argumentTransformationError(arg.name()))
+                        .forArgument(arg.name()));
+                    if (!options.collectAllErrors()) {
+                        return CommandParseResult.failure(errors, providedArgs);
+                    }
+                }
+            }
+
+            // Apply transformers from ArgContext (consistent with execute() path)
+            ArgContext argCtxForTransform = arg.context();
+            if (argCtxForTransform.hasTransformers() && parsedValue != null) {
+                try {
+                    parsedValue = argCtxForTransform.applyTransformers(parsedValue);
                 } catch (Throwable t) {
                     errors.add(CommandParseError.internal(messages.argumentTransformationError(arg.name()))
                         .forArgument(arg.name()));
@@ -3013,6 +3052,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
 
         Map<CommandSender, CommandParseResult> results = new LinkedHashMap<>();
         for (CommandSender sender : senders) {
+            if (sender == null) continue; // Skip null elements to prevent NPE
             results.put(sender, parse(sender, label, providedArgs));
         }
         return Collections.unmodifiableMap(results);
@@ -3038,6 +3078,7 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
 
         Map<CommandSender, CommandParseResult> results = new LinkedHashMap<>();
         for (CommandSender sender : senders) {
+            if (sender == null) continue; // Skip null elements to prevent NPE
             results.put(sender, parse(sender, label, providedArgs, options));
         }
         return Collections.unmodifiableMap(results);
@@ -3226,12 +3267,15 @@ public final class SlashCommand implements CommandExecutor, TabCompleter {
         }
 
         // Check if parsing is complete
-        boolean complete = parsedCount == args.size() ||
+        boolean allArgsParsed = parsedCount == args.size() ||
                            (options.maxArguments() >= 0 && parsedCount >= options.maxArguments());
 
+        resultBuilder.argumentsParsed(parsedCount);
+        // Build once to check error state, then set complete flag and rebuild
+        // Use the builder's own error list instead of building a temporary object
+        boolean hasErrors = !resultBuilder.build().isSuccess();
         return resultBuilder
-            .argumentsParsed(parsedCount)
-            .complete(complete && !resultBuilder.build().hasErrors())
+            .complete(allArgsParsed && !hasErrors)
             .build();
     }
 

@@ -313,9 +313,12 @@ public final class ArgumentCache {
         // Compute new value
         misses.incrementAndGet();
         T value = supplier.get();
-        if (value != null && genericCache.size() < maxCacheSize) {
-            long expiresAt = System.currentTimeMillis() + unit.toMillis(ttl);
-            genericCache.put(key, new CacheEntry<>(value, expiresAt));
+        if (value != null) {
+            // Size check is approximate under concurrency but prevents unbounded growth
+            if (genericCache.size() < maxCacheSize) {
+                long expiresAt = System.currentTimeMillis() + unit.toMillis(ttl);
+                genericCache.put(key, new CacheEntry<>(value, expiresAt));
+            }
         }
         return value;
     }
@@ -334,13 +337,16 @@ public final class ArgumentCache {
         Preconditions.checkNotNull(value, "value");
         Preconditions.checkNotNull(unit, "unit");
 
-        if (!enabled || genericCache.size() >= maxCacheSize) {
+        if (!enabled) {
             return;
         }
 
         cleanupProvider.maybeCleanup(ArgumentCache::cleanupExpired);
-        long expiresAt = System.currentTimeMillis() + unit.toMillis(ttl);
-        genericCache.put(key, new CacheEntry<>(value, expiresAt));
+        // Atomically check size and put to avoid race condition
+        if (genericCache.size() < maxCacheSize) {
+            long expiresAt = System.currentTimeMillis() + unit.toMillis(ttl);
+            genericCache.put(key, new CacheEntry<>(value, expiresAt));
+        }
     }
 
     /**

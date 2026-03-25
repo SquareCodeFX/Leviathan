@@ -1955,6 +1955,7 @@ public final class SlashCommandBuilder {
     public @NotNull SlashCommandBuilder executes(@NotNull CommandAction action) {
         this.action = Preconditions.checkNotNull(action, "action");
         this.asyncAction = null;
+        this.async = false; // Reset async flag when switching to synchronous action
         return this;
     }
 
@@ -2803,9 +2804,9 @@ public final class SlashCommandBuilder {
         }
         // Validate wizard configuration
         if (wizardDefinition != null) {
-            // Wizard commands should be player-only by default
-            if (!playerOnly) {
-                // Just a warning, don't throw - wizards might work with console in some cases
+            if (batchConfig != null) {
+                throw new CommandConfigurationException(
+                    "Command cannot be both a batch processor and a wizard. These modes are mutually exclusive.");
             }
         }
         SlashCommand cmd = new SlashCommand(

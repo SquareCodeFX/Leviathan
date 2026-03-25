@@ -342,13 +342,18 @@ public final class PartialParseResult {
 
         /**
          * Add multiple parsed arguments.
+         * <p>
+         * Note: The argumentsParsed counter is updated to reflect the total
+         * number of unique parsed arguments after adding the new entries.
          *
          * @param arguments map of arguments
          * @return this builder
          */
         public @NotNull Builder withArguments(@NotNull Map<String, Object> arguments) {
+            int sizeBefore = parsedArguments.size();
             parsedArguments.putAll(arguments);
-            argumentsParsed = parsedArguments.size();
+            // Increment by the number of new unique entries added
+            argumentsParsed += parsedArguments.size() - sizeBefore;
             return this;
         }
 

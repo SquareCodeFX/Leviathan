@@ -137,7 +137,7 @@ public final class CommandContext {
             this.flagValues = Collections.unmodifiableMap(Preconditions.checkNotNull(flagValues, "flagValues"));
             this.keyValuePairs = Collections.unmodifiableMap(Preconditions.checkNotNull(keyValuePairs, "keyValuePairs"));
             this.multiValuePairs = Collections.unmodifiableMap(Preconditions.checkNotNull(multiValuePairs, "multiValuePairs"));
-            this.rawArgs = Preconditions.checkNotNull(rawArgs, "rawArgs"); // No clone for internal use
+            this.rawArgs = Preconditions.checkNotNull(rawArgs, "rawArgs").clone(); // Always clone to prevent external mutation
             this.aliasToNameMap = Collections.unmodifiableMap(Preconditions.checkNotNull(aliasToNameMap, "aliasToNameMap"));
         }
     }
@@ -437,8 +437,11 @@ public final class CommandContext {
     public @NotNull <T> List<T> getList(@NotNull String name) {
         Preconditions.checkNotNull(name, "name");
         Object o = values.get(resolveName(name));
-        if (o instanceof List<?>) {
-            return Collections.unmodifiableList((List<T>) o);
+        if (o instanceof List<?> list) {
+            // Wrap in unmodifiable list; the unchecked cast is safe because
+            // variadic argument parsers guarantee homogeneous element types.
+            // Use getList(name, elementType) for runtime type-checked access.
+            return Collections.unmodifiableList((List<T>) list);
         }
         return Collections.emptyList();
     }

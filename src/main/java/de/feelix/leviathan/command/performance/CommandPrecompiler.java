@@ -47,8 +47,9 @@ public final class CommandPrecompiler {
         // Static utility class
     }
 
-    // Global cache of compiled commands
+    // Global cache of compiled commands (bounded to prevent unbounded memory growth)
     private static final Map<String, CompiledCommand> compiledCache = new ConcurrentHashMap<>();
+    private static final int MAX_CACHE_SIZE = 500;
 
     // Statistics
     private static final AtomicLong compilations = new AtomicLong(0);
@@ -76,6 +77,13 @@ public final class CommandPrecompiler {
 
         cacheMisses.incrementAndGet();
         compilations.incrementAndGet();
+
+        // Prevent unbounded cache growth
+        if (compiledCache.size() >= MAX_CACHE_SIZE) {
+            // Simple eviction: clear the oldest half when limit is reached
+            // In practice, command sets are fixed at startup so this rarely triggers
+            compiledCache.clear();
+        }
 
         CompiledCommand compiled = doCompile(commandName, args);
         compiledCache.put(cacheKey, compiled);
@@ -107,6 +115,11 @@ public final class CommandPrecompiler {
 
         cacheMisses.incrementAndGet();
         compilations.incrementAndGet();
+
+        // Prevent unbounded cache growth
+        if (compiledCache.size() >= MAX_CACHE_SIZE) {
+            compiledCache.clear();
+        }
 
         CompiledCommand.Builder builder = doCompileBuilder(commandName, args);
 

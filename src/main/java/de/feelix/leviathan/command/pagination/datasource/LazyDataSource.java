@@ -97,10 +97,14 @@ public final class LazyDataSource<T> implements PaginationDataSource<T> {
     @Override
     public CompletableFuture<List<T>> fetchAsync(long offset, int limit) {
         validateParameters(offset, limit);
-        return asyncFetchFunction.apply(offset, limit)
-            .exceptionally(e -> {
-                throw new DataSourceException("Async fetch failed at offset " + offset, e);
-            });
+        CompletableFuture<List<T>> future = asyncFetchFunction.apply(offset, limit);
+        if (future == null) {
+            return CompletableFuture.failedFuture(
+                new DataSourceException("Async fetch function returned null for offset " + offset, null));
+        }
+        return future.exceptionally(e -> {
+            throw new DataSourceException("Async fetch failed at offset " + offset, e);
+        });
     }
 
     @Override

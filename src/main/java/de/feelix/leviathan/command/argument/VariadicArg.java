@@ -233,7 +233,7 @@ public final class VariadicArg<T> {
         Preconditions.checkNotNull(context, "context");
         return new Arg<>(name, listParser, ArgContext.builder()
                 .from(context)
-                .greedy(delimiter == null && !context.greedy()) // Greedy if space-delimited unless explicitly set
+                .greedy(context.greedy() || delimiter == null) // Use context's greedy setting, or default to greedy if space-delimited
                 .variadic(true)
                 .build());
     }

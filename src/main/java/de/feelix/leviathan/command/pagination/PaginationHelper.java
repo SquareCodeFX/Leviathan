@@ -800,7 +800,8 @@ public final class PaginationHelper {
             if (items.isEmpty()) {
                 java.util.ArrayList<String> lines = new java.util.ArrayList<>();
                 if (header != null) lines.add(header);
-                String emptyMsg = emptyMessage != null ? emptyMessage : messageProvider.paginationEmpty();
+                String emptyMsg = emptyMessage != null ? emptyMessage
+                    : (messageProvider != null ? messageProvider.paginationEmpty() : "No items found.");
                 if (emptyMsg != null) lines.add(emptyMsg);
                 return lines;
             }

@@ -434,8 +434,8 @@ public final class FlagAndKeyValueParser {
 
                 try {
                     ParseResult<?> result = kv.parser().parse(part, sender);
-                    if (result.isSuccess()) {
-                        parsedValues.add(result.value().orElse(null));
+                    if (result.isSuccess() && result.value().isPresent()) {
+                        parsedValues.add(result.value().get());
                     } else {
                         errors.add("Invalid value '" + part + "' for key '" + kv.key() + "': " + result.error().orElse("unknown error"));
                     }

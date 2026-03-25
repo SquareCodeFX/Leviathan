@@ -187,12 +187,14 @@ public final class CompletionCache {
         lazyCleanup();
 
         // Enforce max size by removing expired entries first, then oldest if needed
-        if (cache.size() >= maxSize && evictExpired() == 0) {
-            evictOldest();
+        // Synchronize to make the check-then-evict-then-put sequence atomic
+        synchronized (this) {
+            if (cache.size() >= maxSize && evictExpired() == 0) {
+                evictOldest();
+            }
+            long expiresAt = System.currentTimeMillis() + ttlMillis;
+            cache.put(key, new CacheEntry(completions, expiresAt));
         }
-
-        long expiresAt = System.currentTimeMillis() + ttlMillis;
-        cache.put(key, new CacheEntry(completions, expiresAt));
     }
 
     /**

@@ -304,8 +304,12 @@ public final class BatchExecutor {
     /**
      * Shutdown the shared executor.
      * Call this when the plugin is disabled.
+     * This method is synchronized to prevent race conditions from concurrent shutdown calls.
      */
-    public static void shutdown() {
+    public static synchronized void shutdown() {
+        if (SHARED_EXECUTOR.isShutdown()) {
+            return;
+        }
         SHARED_EXECUTOR.shutdown();
         try {
             if (!SHARED_EXECUTOR.awaitTermination(5, TimeUnit.SECONDS)) {

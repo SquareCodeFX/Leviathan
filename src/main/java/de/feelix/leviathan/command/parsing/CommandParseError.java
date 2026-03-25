@@ -97,7 +97,7 @@ public final class CommandParseError {
      * @return a new CommandParseError for cooldown failures
      */
     public static @NotNull CommandParseError cooldown(@NotNull String message) {
-        return new CommandParseError(ErrorType.GUARD_FAILED, message, null, null, null);
+        return new CommandParseError(ErrorType.COOLDOWN, message, null, null, null);
     }
 
     /**

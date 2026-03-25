@@ -232,7 +232,8 @@ public final class PaginatedResult<T> implements Iterable<T> {
         }
 
         public Builder<T> metadata(Map<String, Object> metadata) {
-            this.metadata = Objects.requireNonNull(metadata, "Metadata cannot be null");
+            // Defensive copy to allow addMetadata() even if an unmodifiable map is passed
+            this.metadata = new HashMap<>(Objects.requireNonNull(metadata, "Metadata cannot be null"));
             return this;
         }
 

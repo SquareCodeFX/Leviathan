@@ -11,6 +11,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Predicate;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
 /**
@@ -46,6 +48,8 @@ public final class ValidationProfile {
     /**
      * Default profile with no additional validation rules.
      */
+    private static final Logger LOGGER = Logger.getLogger(ValidationProfile.class.getName());
+
     public static final ValidationProfile DEFAULT = builder().name("default").build();
 
     /**
@@ -171,7 +175,10 @@ public final class ValidationProfile {
                     if (!rule.test(value)) {
                         errors.add(CommandParseError.validation(argName, rule.errorMessage()));
                     }
+                } catch (ClassCastException | IllegalArgumentException e) {
+                    errors.add(CommandParseError.validation(argName, "Validation failed: " + e.getMessage()));
                 } catch (Exception e) {
+                    LOGGER.log(Level.WARNING, "Unexpected exception in validation rule for argument '" + argName + "'", e);
                     errors.add(CommandParseError.validation(argName, "Validation failed: " + e.getMessage()));
                 }
             }
@@ -184,6 +191,7 @@ public final class ValidationProfile {
                     errors.add(CommandParseError.crossValidation(globalRuleMessages.get(i)));
                 }
             } catch (Exception e) {
+                LOGGER.log(Level.WARNING, "Unexpected exception in global validation rule '" + globalRuleMessages.get(i) + "'", e);
                 errors.add(CommandParseError.internal("Global validation failed: " + e.getMessage()));
             }
         }
