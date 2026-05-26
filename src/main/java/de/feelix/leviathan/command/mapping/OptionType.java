@@ -3,6 +3,8 @@ package de.feelix.leviathan.command.mapping;
 import de.feelix.leviathan.annotations.NotNull;
 import de.feelix.leviathan.annotations.Nullable;
 
+import java.util.Locale;
+
 /**
  * Represents the broad kind of a command argument for mapping convenience.
  */
@@ -23,7 +25,7 @@ public enum OptionType {
      */
     public static @NotNull OptionType fromTypeName(@Nullable String typeName) {
         if (typeName == null) return UNKNOWN;
-        String t = typeName.trim().toLowerCase();
+        String t = typeName.trim().toLowerCase(Locale.ROOT);
         return switch (t) {
             case "int" -> INT;
             case "long" -> LONG;

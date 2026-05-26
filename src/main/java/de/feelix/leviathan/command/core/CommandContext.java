@@ -829,7 +829,8 @@ public final class CommandContext {
      */
     public boolean hasMultiValue(@NotNull String name) {
         Preconditions.checkNotNull(name, "name");
-        return multiValuePairs.containsKey(name) && !multiValuePairs.get(name).isEmpty();
+        List<Object> values = multiValuePairs.get(name);
+        return values != null && !values.isEmpty();
     }
 
     /**
