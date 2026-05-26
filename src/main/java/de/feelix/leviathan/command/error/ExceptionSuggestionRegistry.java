@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.function.Predicate;
 
@@ -88,15 +89,21 @@ public final class ExceptionSuggestionRegistry {
 
         // Initialize message pattern-based suggestions
         messagePatterns.put(
-            msg -> msg.toLowerCase().contains("null"),
+            msg -> msg.toLowerCase(Locale.ROOT).contains("null"),
             List.of("Exception message mentions 'null' - check for uninitialized variables"));
 
         messagePatterns.put(
-            msg -> msg.toLowerCase().contains("not found") || msg.toLowerCase().contains("missing"),
+            msg -> {
+                String lower = msg.toLowerCase(Locale.ROOT);
+                return lower.contains("not found") || lower.contains("missing");
+            },
             List.of("Something is missing - check configuration and dependencies"));
 
         messagePatterns.put(
-            msg -> msg.toLowerCase().contains("denied") || msg.toLowerCase().contains("permission"),
+            msg -> {
+                String lower = msg.toLowerCase(Locale.ROOT);
+                return lower.contains("denied") || lower.contains("permission");
+            },
             List.of("Access was denied - check permissions and access rights"));
 
         // Freeze all maps as unmodifiable

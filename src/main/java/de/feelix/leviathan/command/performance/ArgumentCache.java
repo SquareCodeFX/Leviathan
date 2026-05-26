@@ -141,15 +141,7 @@ public final class ArgumentCache {
      */
     public static @NotNull List<String> getPlayerNamesStartingWith(@NotNull String prefix) {
         Preconditions.checkNotNull(prefix, "prefix");
-        String lowerPrefix = prefix.toLowerCase(Locale.ROOT);
-        List<String> all = getPlayerNames();
-        List<String> result = new ArrayList<>();
-        for (String name : all) {
-            if (name.toLowerCase(Locale.ROOT).startsWith(lowerPrefix)) {
-                result.add(name);
-            }
-        }
-        return result;
+        return filterByPrefix(getPlayerNames(), prefix);
     }
 
     /**
@@ -197,15 +189,7 @@ public final class ArgumentCache {
      */
     public static @NotNull List<String> getWorldNamesStartingWith(@NotNull String prefix) {
         Preconditions.checkNotNull(prefix, "prefix");
-        String lowerPrefix = prefix.toLowerCase(Locale.ROOT);
-        List<String> all = getWorldNames();
-        List<String> result = new ArrayList<>();
-        for (String name : all) {
-            if (name.toLowerCase(Locale.ROOT).startsWith(lowerPrefix)) {
-                result.add(name);
-            }
-        }
-        return result;
+        return filterByPrefix(getWorldNames(), prefix);
     }
 
     private static @NotNull List<String> getWorldNamesFresh() {
@@ -245,10 +229,18 @@ public final class ArgumentCache {
      */
     public static @NotNull List<String> getMaterialNamesStartingWith(@NotNull String prefix) {
         Preconditions.checkNotNull(prefix, "prefix");
-        String lowerPrefix = prefix.toLowerCase(Locale.ROOT);
+        return filterByPrefix(MATERIAL_NAMES, prefix);
+    }
+
+    /**
+     * Case-insensitive prefix filter shared by the name-completion helpers. Uses regionMatches so
+     * no lowercased copy is allocated per candidate (these run on each tab-completion keystroke).
+     */
+    private static @NotNull List<String> filterByPrefix(@NotNull List<String> names, @NotNull String prefix) {
+        int prefixLen = prefix.length();
         List<String> result = new ArrayList<>();
-        for (String name : MATERIAL_NAMES) {
-            if (name.startsWith(lowerPrefix)) {
+        for (String name : names) {
+            if (name.length() >= prefixLen && name.regionMatches(true, 0, prefix, 0, prefixLen)) {
                 result.add(name);
             }
         }

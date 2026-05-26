@@ -314,11 +314,15 @@ public final class ChoiceArg<T> {
 
             @Override
             public @NotNull List<String> complete(@NotNull String partial, @NotNull CommandSender sender) {
-                String lowerPartial = caseSensitive ? partial : partial.toLowerCase(Locale.ROOT);
+                int partialLen = partial.length();
                 List<String> suggestions = new ArrayList<>();
                 for (String key : choiceKeys) {
-                    String matchKey = caseSensitive ? key : key.toLowerCase(Locale.ROOT);
-                    if (matchKey.startsWith(lowerPartial)) {
+                    // regionMatches handles case-insensitive prefix matching without allocating a
+                    // lowercased copy of every choice key on each tab-completion keystroke.
+                    boolean matches = caseSensitive
+                        ? key.startsWith(partial)
+                        : key.length() >= partialLen && key.regionMatches(true, 0, partial, 0, partialLen);
+                    if (matches) {
                         suggestions.add(key);
                     }
                 }
