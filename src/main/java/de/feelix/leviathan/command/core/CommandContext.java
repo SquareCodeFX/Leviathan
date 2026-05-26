@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -829,7 +830,8 @@ public final class CommandContext {
      */
     public boolean hasMultiValue(@NotNull String name) {
         Preconditions.checkNotNull(name, "name");
-        return multiValuePairs.containsKey(name) && !multiValuePairs.get(name).isEmpty();
+        List<Object> values = multiValuePairs.get(name);
+        return values != null && !values.isEmpty();
     }
 
     /**
@@ -1137,7 +1139,7 @@ public final class CommandContext {
         if (value == null) return null;
         if (value instanceof Boolean) return (Boolean) value;
         if (value instanceof String) {
-            String str = ((String) value).toLowerCase();
+            String str = ((String) value).toLowerCase(Locale.ROOT);
             if ("true".equals(str) || "yes".equals(str) || "on".equals(str) || "1".equals(str)) {
                 return true;
             }

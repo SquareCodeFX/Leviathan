@@ -470,8 +470,9 @@ public final class ResultCache {
         long oldestTime = Long.MAX_VALUE;
 
         for (Map.Entry<String, CacheEntry<?>> entry : cache.entrySet()) {
-            if (entry.getValue().expiresAt < oldestTime) {
-                oldestTime = entry.getValue().expiresAt;
+            long expiresAt = entry.getValue().expiresAt;
+            if (expiresAt < oldestTime) {
+                oldestTime = expiresAt;
                 oldestKey = entry.getKey();
             }
         }

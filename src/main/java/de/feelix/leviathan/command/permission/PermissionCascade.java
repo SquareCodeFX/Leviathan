@@ -8,6 +8,7 @@ import org.bukkit.command.CommandSender;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Utility class for handling permission cascading in command hierarchies.
@@ -120,7 +121,7 @@ public final class PermissionCascade {
 
         StringBuilder sb = new StringBuilder(prefix);
         for (String segment : commandPath) {
-            sb.append('.').append(segment.toLowerCase());
+            sb.append('.').append(segment.toLowerCase(Locale.ROOT));
         }
         return sb.toString();
     }
@@ -137,7 +138,7 @@ public final class PermissionCascade {
         Preconditions.checkNotNull(commandName, "commandName");
 
         if (parentPermission == null || parentPermission.isEmpty()) {
-            return commandName.toLowerCase();
+            return commandName.toLowerCase(Locale.ROOT);
         }
 
         // Remove wildcard suffix if present
@@ -146,7 +147,7 @@ public final class PermissionCascade {
             base = base.substring(0, base.length() - 2);
         }
 
-        return base + "." + commandName.toLowerCase();
+        return base + "." + commandName.toLowerCase(Locale.ROOT);
     }
 
     /**

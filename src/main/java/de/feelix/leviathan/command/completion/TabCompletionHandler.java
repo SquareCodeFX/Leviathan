@@ -521,35 +521,35 @@ public final class TabCompletionHandler {
         }
 
         final String pfxLow = prefix.toLowerCase(Locale.ROOT);
+        final int pfxLen = pfxLow.length();
 
-        // Filter and collect matching completions in a single pass
-        List<String> result = new ArrayList<>();
+        // Single pass: lowercase each candidate once and derive its match priority from one
+        // indexOf call (exact=0, prefix=1, substring=2). Previously the priority was recomputed
+        // - including a fresh toLowerCase on both operands - inside the O(n log n) sort comparator.
+        List<ScoredCompletion> scored = new ArrayList<>();
         for (String s : completions) {
             if (s == null) continue;
             String sLow = s.toLowerCase(Locale.ROOT);
-            // Include if exact, prefix, or substring match
-            if (sLow.equals(pfxLow) || sLow.startsWith(pfxLow) || sLow.contains(pfxLow)) {
-                result.add(s);
-            }
+            int idx = sLow.indexOf(pfxLow);
+            if (idx < 0) continue;
+            int priority = idx == 0 ? (sLow.length() == pfxLen ? 0 : 1) : 2;
+            scored.add(new ScoredCompletion(s, priority));
         }
 
-        // Sort with priority: exact (0) > prefix (1) > substring (2), then alphabetically
-        result.sort((a, b) -> {
-            String aLow = a.toLowerCase(Locale.ROOT);
-            String bLow = b.toLowerCase(Locale.ROOT);
+        // Sort by priority (best first), then alphabetically (case-insensitive, allocation-free)
+        scored.sort((a, b) -> a.priority() != b.priority()
+            ? Integer.compare(a.priority(), b.priority())
+            : a.value().compareToIgnoreCase(b.value()));
 
-            // Determine priority: 0 = exact, 1 = prefix, 2 = substring
-            int aPriority = aLow.equals(pfxLow) ? 0 : (aLow.startsWith(pfxLow) ? 1 : 2);
-            int bPriority = bLow.equals(pfxLow) ? 0 : (bLow.startsWith(pfxLow) ? 1 : 2);
-
-            if (aPriority != bPriority) {
-                return Integer.compare(aPriority, bPriority);
-            }
-            return a.compareToIgnoreCase(b);
-        });
-
+        List<String> result = new ArrayList<>(scored.size());
+        for (ScoredCompletion sc : scored) {
+            result.add(sc.value());
+        }
         return result;
     }
+
+    /** A completion candidate paired with its precomputed match priority (lower ranks higher). */
+    private record ScoredCompletion(String value, int priority) {}
 
     /**
      * Generate tab completions for flags and key-value pairs.

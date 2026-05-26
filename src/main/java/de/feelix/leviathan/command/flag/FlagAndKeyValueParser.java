@@ -387,7 +387,8 @@ public final class FlagAndKeyValueParser {
         for (KeyValue<?> kv : keyValues) {
             if (kv.required()) {
                 if (kv.multipleValues()) {
-                    if (!multiValues.containsKey(kv.name()) || multiValues.get(kv.name()).isEmpty()) {
+                    List<Object> values = multiValues.get(kv.name());
+                    if (values == null || values.isEmpty()) {
                         errors.add("Required key-value '" + kv.key() + "' is missing");
                     }
                 } else {
@@ -424,8 +425,9 @@ public final class FlagAndKeyValueParser {
             List<Object> parsedValues = new ArrayList<>();
 
             // If this key already has values (e.g., from defaults), append to them
-            if (multiValues.containsKey(kv.name())) {
-                parsedValues.addAll(multiValues.get(kv.name()));
+            List<Object> existingValues = multiValues.get(kv.name());
+            if (existingValues != null) {
+                parsedValues.addAll(existingValues);
             }
 
             for (String part : parts) {
@@ -552,8 +554,8 @@ public final class FlagAndKeyValueParser {
                     String suggestion = "--" + flag.longForm();
                     if (suggestion.toLowerCase().startsWith("--" + prefix)) {
                         // Don't suggest if already set
-                        if (!parsedArgs.flagValues().containsKey(flag.name()) || 
-                            parsedArgs.flagValues().get(flag.name()) == flag.defaultValue()) {
+                        Boolean current = parsedArgs.flagValues().get(flag.name());
+                        if (current == null || current == flag.defaultValue()) {
                             completions.add(suggestion);
                         }
                     }

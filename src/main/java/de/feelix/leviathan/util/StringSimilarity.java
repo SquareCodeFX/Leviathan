@@ -7,6 +7,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -37,7 +38,7 @@ public final class StringSimilarity {
     private static final Map<String, Integer> distanceCache = new LinkedHashMap<>(CACHE_MAX_SIZE, 0.75f, true) {
         @Override
         protected boolean removeEldestEntry(Map.Entry<String, Integer> eldest) {
-            return size() >= CACHE_MAX_SIZE;
+            return size() > CACHE_MAX_SIZE;
         }
     };
 
@@ -108,14 +109,23 @@ public final class StringSimilarity {
     public static int levenshteinDistanceWithThreshold(@NotNull String s1, @NotNull String s2, int threshold) {
         Preconditions.checkNotNull(s1, "s1");
         Preconditions.checkNotNull(s2, "s2");
+        return distanceNormalized(normalize(s1), normalize(s2), threshold);
+    }
 
-        // Security: Limit string length to prevent DoS (O(n*m) complexity)
-        String truncated1 = s1.length() > MAX_STRING_LENGTH ? s1.substring(0, MAX_STRING_LENGTH) : s1;
-        String truncated2 = s2.length() > MAX_STRING_LENGTH ? s2.substring(0, MAX_STRING_LENGTH) : s2;
+    /**
+     * Truncate to {@link #MAX_STRING_LENGTH} (DoS guard for the O(n*m) algorithm) and lowercase
+     * using {@link Locale#ROOT} so results stay deterministic regardless of the default locale.
+     */
+    private static String normalize(String s) {
+        String truncated = s.length() > MAX_STRING_LENGTH ? s.substring(0, MAX_STRING_LENGTH) : s;
+        return truncated.toLowerCase(Locale.ROOT);
+    }
 
-        String lower1 = truncated1.toLowerCase();
-        String lower2 = truncated2.toLowerCase();
-
+    /**
+     * Compute the cached, threshold-bounded Levenshtein distance between two strings that have
+     * already been passed through {@link #normalize(String)}.
+     */
+    private static int distanceNormalized(String lower1, String lower2, int threshold) {
         int len1 = lower1.length();
         int len2 = lower2.length();
 
@@ -241,12 +251,15 @@ public final class StringSimilarity {
         }
 
         List<SimilarityResult> results = new ArrayList<>();
-        int inputLen = Math.min(input.length(), MAX_STRING_LENGTH);
+        // Normalize the input once instead of re-truncating and re-lowercasing it for every candidate.
+        String normalizedInput = normalize(input);
+        int inputLen = normalizedInput.length();
 
         for (String candidate : candidates) {
             if (candidate == null || candidate.isEmpty()) continue;
 
-            int candidateLen = Math.min(candidate.length(), MAX_STRING_LENGTH);
+            String normalizedCandidate = normalize(candidate);
+            int candidateLen = normalizedCandidate.length();
             int maxLen = Math.max(inputLen, candidateLen);
             if (maxLen == 0) continue;
 
@@ -256,8 +269,8 @@ public final class StringSimilarity {
             // distance <= (1.0 - minSimilarity) * maxLen
             int maxAllowedDistance = (int) Math.round((1.0 - minSimilarity) * maxLen);
 
-            // Use threshold-based calculation for early termination
-            int distance = levenshteinDistanceWithThreshold(input, candidate, maxAllowedDistance);
+            // Use threshold-based calculation for early termination (operands already normalized)
+            int distance = distanceNormalized(normalizedInput, normalizedCandidate, maxAllowedDistance);
 
             if (distance <= maxAllowedDistance) {
                 double sim = 1.0 - ((double) distance / maxLen);

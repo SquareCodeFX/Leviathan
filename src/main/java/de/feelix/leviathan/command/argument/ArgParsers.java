@@ -39,12 +39,12 @@ public final class ArgParsers {
     );
 
     private static List<String> startingWith(String prefix, Collection<String> options) {
-        // Optimized: simple loop instead of stream, with pre-computed lowercase prefix
-        String lowPrefix = prefix.toLowerCase(Locale.ROOT);
+        // Case-insensitive prefix match via regionMatches: compares in place without
+        // allocating a lowercased copy of every candidate (hot path on each keystroke).
+        int prefixLen = prefix.length();
         List<String> result = new ArrayList<>();
         for (String option : options) {
-            // Most options are already lowercase (e.g., MATERIAL_COMPLETIONS), so check both cases
-            if (option.toLowerCase(Locale.ROOT).startsWith(lowPrefix)) {
+            if (option.length() >= prefixLen && option.regionMatches(true, 0, prefix, 0, prefixLen)) {
                 result.add(option);
             }
         }
